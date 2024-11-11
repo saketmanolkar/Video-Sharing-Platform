@@ -1,0 +1,45 @@
+{% extends 'main.html' %}
+{% block content %}
+
+<div class="single-project">
+
+     <!-- Include the video player component -->
+     {% include 'components/video-player.html' %}
+
+    <h1 style="text-align: center;">{{video.title}}</h1>
+    <div class="video-stats">
+        <p style="text-align: center;">Likes: {{ video.likes_count }} &nbsp;&nbsp;&nbsp; Dislikes: {{ video.dislikes_count }}</p>
+    </div>
+    
+
+    <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px;">
+        {% for tag in tags %}
+            <span style="border: 1px solid rgb(27, 23, 23); padding: 5px 10px; border-radius: 4px;">{{tag.name}}</span>
+        {% endfor %}
+    </div>
+    <br>
+    <h4>Description</h4>
+    <p>{{video.description}}</p>
+
+
+    <h4>Comments</h4>
+    {% for review in reviews %}
+        {% if review.comment %}
+            <div style="margin-bottom: 20px;">
+                <p>
+                    • {{ review.comment }} 
+                    <a href="{% url 'update-review' review.id %}">(Edit comment)</a> 
+                    <a href="{% url 'delete-review' review.id %}">(Delete comment)</a>
+                </p>
+            </div>
+        {% endif %}
+    {% endfor %}
+
+    {% include 'projects/review_form.html' with video=video %}
+   
+
+</div>
+
+
+
+{% endblock %}

@@ -1,0 +1,101 @@
+<!-- Video.js CSS -->
+<link href="https://vjs.zencdn.net/8.16.1/video-js.css" rel="stylesheet" />
+<style>
+.video-player-container {
+  width: 100%;
+  max-width: 288px; /* Base width for vertical */
+  margin: 20px auto;
+  background: #f0f0f0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Horizontal container override */
+.video-player-container.horizontal {
+  max-width: 640px;
+}
+
+/* Base video player styles */
+.video-js {
+  width: 100%;
+  background: #000;
+}
+
+/* Horizontal video styles */
+.video-js.horizontal-video {
+  aspect-ratio: 16/9;
+  width: 100%;
+  height: auto;
+}
+
+/* Vertical video styles */
+.video-js.vertical-video {
+  aspect-ratio: 9/16;
+  width: 100%;
+  height: auto;
+}
+
+/* Make it responsive for smaller screens */
+@media (max-width: 768px) {
+  .video-player-container {
+    max-width: 100%;
+    padding: 5px;
+  }
+  
+  .video-js.horizontal-video {
+    height: 56.25vw; /* 16:9 aspect ratio */
+    max-height: 360px;
+  }
+  
+  .video-js.vertical-video {
+    height: 133.33vw; /* 3:4 aspect ratio */
+    max-height: 384px;
+  }
+}
+</style>
+
+<!-- Video Player Component -->
+<div class="video-player-container {% if video.orientation == 'vertical' %}vertical{% else %}horizontal{% endif %}">
+  {% if video.file %}
+  <video
+    id="my-video"
+    class="video-js vjs-big-play-centered {% if video.orientation == 'vertical' %}vertical-video{% else %}horizontal-video{% endif %}"
+    controls
+    preload="metadata"
+    poster="{{ video.thumbnail.url|default:'' }}"
+    data-setup='{
+      "controls": true,
+      "autoplay": false,
+      "preload": "metadata"
+    }'
+  >
+    <source src="{{ video.file.url }}" type="video/mp4" />
+    <p class="vjs-no-js">
+      To view this video please enable JavaScript, and consider upgrading to a
+      web browser that supports HTML5 video
+    </p>
+  </video>
+  {% endif %}
+</div>
+
+<!-- Video.js Script -->
+<script src="https://vjs.zencdn.net/8.16.1/video.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const players = document.querySelectorAll('.video-js');
+    players.forEach(player => {
+        if (player) {
+            videojs(player.id, {
+                controls: true,
+                fluid: true,
+                preload: 'metadata',
+                responsive: true
+            }).ready(function() {
+                // Player is ready
+            });
+        }
+    });
+});
+</script>

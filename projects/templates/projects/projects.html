@@ -1,0 +1,16 @@
+{% extends 'main.html' %}
+{% block content %}
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Welcome to the {{page}} Page</h1>
+    <h1>these are all the goddamn products</h1>
+    {% for video in videos %}
+    <h4>title:<a href="{% url 'project' video.id %}">{{video.title}}</a> 
+        (<a href="{% url 'update-project' video.id %}">edit</a>),(<a href="{% url 'delete-project' video.id %}">delete</a>)</h4>
+    
+    {% endfor %}
+    
+</body>
+</html>
+{% endblock %}
