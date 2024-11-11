@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect width="1200" height="800" fill="none"/>
+    
+    <!-- Main Logo Container (Original Full Version) -->
+    <g transform="translate(600, 250)">
+        <!-- Circle -->
+        <circle
+            cx="0"
+            cy="0"
+            r="120"
+            fill="#1A1A2E"
+            stroke="#4B56D2"
+            stroke-width="4"/>
+        
+        <!-- Camera Icon -->
+        <g transform="translate(-50, -35) scale(1.2)">
+            <!-- Main Camera Body -->
+            <rect x="0" y="0" width="100" height="70" rx="10" fill="#4B56D2"/>
+            <!-- Lens -->
+            <circle cx="50" cy="35" r="25" fill="#1A1A2E" stroke="#4B56D2" stroke-width="4"/>
+            <circle cx="50" cy="35" r="15" fill="#4B56D2"/>
+            <!-- Top Handle -->
+            <rect x="30" y="-15" width="40" height="15" rx="5" fill="#4B56D2"/>
+            <!-- Flash -->
+            <rect x="75" y="-10" width="15" height="10" rx="2" fill="#4B56D2"/>
+            <!-- Film Reel -->
+            <circle cx="-15" cy="35" r="20" fill="#4B56D2"/>
+            <circle cx="-15" cy="35" r="8" fill="#1A1A2E"/>
+            <circle cx="-15" cy="35" r="3" fill="#4B56D2"/>
+        </g>
+
+        <!-- Company Name -->
+        <text
+            x="0"
+            y="180"
+            font-family="Arial Black, Arial, sans-serif"
+            font-size="64"
+            font-weight="bold"
+            text-anchor="middle"
+            fill="#FFFFFF">
+            FILMSNATION
+        </text>
+        
+        <!-- Tagline -->
+        <text
+            x="0"
+            y="230"
+            font-family="Arial, sans-serif"
+            font-size="24"
+            text-anchor="middle"
+            fill="#8D8DAA">
+            Stream Beyond Boundaries
+        </text>
+    </g>
+
+    <!-- Icon Only Version (Left Side) -->
+    <g transform="translate(300, 600)">
+        <!-- Circle -->
+        <circle
+            cx="0"
+            cy="0"
+            r="80"
+            fill="#1A1A2E"
+            stroke="#4B56D2"
+            stroke-width="4"/>
+        
+        <!-- Camera Icon (Scaled down version) -->
+        <g transform="translate(-33, -23) scale(0.8)">
+            <!-- Main Camera Body -->
+            <rect x="0" y="0" width="100" height="70" rx="10" fill="#4B56D2"/>
+            <!-- Lens -->
+            <circle cx="50" cy="35" r="25" fill="#1A1A2E" stroke="#4B56D2" stroke-width="4"/>
+            <circle cx="50" cy="35" r="15" fill="#4B56D2"/>
+            <!-- Top Handle -->
+            <rect x="30" y="-15" width="40" height="15" rx="5" fill="#4B56D2"/>
+            <!-- Flash -->
+            <rect x="75" y="-10" width="15" height="10" rx="2" fill="#4B56D2"/>
+            <!-- Film Reel -->
+            <circle cx="-15" cy="35" r="20" fill="#4B56D2"/>
+            <circle cx="-15" cy="35" r="8" fill="#1A1A2E"/>
+            <circle cx="-15" cy="35" r="3" fill="#4B56D2"/>
+        </g>
+    </g>
+
+    <!-- Text Only Version (Right Side) -->
+    <g transform="translate(900, 600)">
+        <!-- Company Name -->
+        <text
+            x="0"
+            y="0"
+            font-family="Arial Black, Arial, sans-serif"
+            font-size="64"
+            font-weight="bold"
+            text-anchor="middle"
+            fill="#FFFFFF">
+            FILMSNATION
+        </text>
+        
+        <!-- Tagline -->
+        <text
+            x="0"
+            y="50"
+            font-family="Arial, sans-serif"
+            font-size="24"
+            text-anchor="middle"
+            fill="#8D8DAA">
+            Stream Beyond Boundaries
+        </text>
+    </g>
+</svg>

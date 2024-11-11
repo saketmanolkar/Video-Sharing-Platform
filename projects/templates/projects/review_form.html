@@ -1,0 +1,5 @@
+<form method="POST" action="{% url 'add-review' pk=video.id %}">
+    {% csrf_token %}
+    <textarea name="comment" placeholder="Add your comment here..." rows="4" style="width: 100%; margin-bottom: 10px;"></textarea>
+    <input type="submit" value="Add comment">
+</form> 

@@ -1,0 +1,5 @@
+<form method="POST" action="{% url 'update-review' pk=review.id %}">
+    {% csrf_token %}
+    <textarea name="comment" placeholder="Add your comment here..." rows="4" style="width: 100%; margin-bottom: 10px;">{{ review.comment }}</textarea>
+    <input type="submit" value="Update comment">
+</form> 
