@@ -3,80 +3,64 @@
 <style>
 .video-player-container {
   width: 100%;
-  max-width: 288px; /* Base width for vertical */
+  max-width: 640px;
   margin: 20px auto;
   background: #f0f0f0;
   padding: 10px;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
 }
 
-/* Horizontal container override */
-.video-player-container.horizontal {
-  max-width: 640px;
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* Base video player styles */
+/* Single video style for all videos */
 .video-js {
-  width: 100%;
-  background: #000;
+  width: 640px;
+  height: 360px;
 }
 
-/* Horizontal video styles */
-.video-js.horizontal-video {
-  aspect-ratio: 16/9;
-  width: 100%;
-  height: auto;
-}
-
-/* Vertical video styles */
-.video-js.vertical-video {
-  aspect-ratio: 9/16;
-  width: 100%;
-  height: auto;
-}
-
-/* Make it responsive for smaller screens */
 @media (max-width: 768px) {
-  .video-player-container {
-    max-width: 100%;
-    padding: 5px;
-  }
-  
-  .video-js.horizontal-video {
-    height: 56.25vw; /* 16:9 aspect ratio */
-    max-height: 360px;
-  }
-  
-  .video-js.vertical-video {
-    height: 133.33vw; /* 3:4 aspect ratio */
-    max-height: 384px;
+  .video-js {
+    width: 100%;
+    max-width: 640px;
+    height: auto;
   }
 }
 </style>
 
 <!-- Video Player Component -->
-<div class="video-player-container {% if video.orientation == 'vertical' %}vertical{% else %}horizontal{% endif %}">
-  {% if video.file %}
-  <video
-    id="my-video"
-    class="video-js vjs-big-play-centered {% if video.orientation == 'vertical' %}vertical-video{% else %}horizontal-video{% endif %}"
-    controls
-    preload="metadata"
-    poster="{{ video.thumbnail.url|default:'' }}"
-    data-setup='{
-      "controls": true,
-      "autoplay": false,
-      "preload": "metadata"
-    }'
-  >
-    <source src="{{ video.file.url }}" type="video/mp4" />
-    <p class="vjs-no-js">
-      To view this video please enable JavaScript, and consider upgrading to a
-      web browser that supports HTML5 video
-    </p>
-  </video>
+<div class="video-player-container">
+  {% if video and video.file %}
+    <div class="video-wrapper">
+      <video
+        id="my-video-{{ video.id }}"
+        class="video-js vjs-big-play-centered"
+        controls
+        preload="metadata"
+        poster="{{ video.thumbnail.url|default:'' }}"
+        data-setup='{
+          "controls": true,
+          "autoplay": false,
+          "preload": "metadata",
+          "fluid": true
+        }'
+      >
+        <source src="{{ video.file.url }}" type="video/mp4" />
+        <p class="vjs-no-js">
+          To view this video please enable JavaScript, and consider upgrading to a
+          web browser that supports HTML5 video
+        </p>
+      </video>
+    </div>
+  {% else %}
+    <p>Video data not available</p>
   {% endif %}
 </div>
 
@@ -89,11 +73,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (player) {
             videojs(player.id, {
                 controls: true,
-                fluid: true,
+                fluid: false,
                 preload: 'metadata',
-                responsive: true
-            }).ready(function() {
-                // Player is ready
+                responsive: true,
+                aspectRatio: '16:9'
             });
         }
     });

@@ -6,4 +6,23 @@
     {{ form.as_p }}
     <input type="submit" value="Submit">
 </form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelector('form').addEventListener('submit', function(e) {
+            if (this.submitted) {
+                e.preventDefault();
+                return false;
+            }
+            this.submitted = true;
+            
+            // Optional: Show loading indicator
+            const submitButton = this.querySelector('input[type="submit"]');
+            if (submitButton) {
+                submitButton.value = 'Uploading...';
+                submitButton.disabled = true;
+            }
+        });
+    });
+</script>
 {% endblock %}

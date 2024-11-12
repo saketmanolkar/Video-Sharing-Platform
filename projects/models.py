@@ -3,6 +3,10 @@ from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator
 import uuid
 from django.core.cache import cache
+import os
+from django.core.files import File
+from projects.utils import compress_video
+from .storage import VideoStorage
 
 # Create your models here.
 
@@ -18,6 +22,7 @@ class Video(models.Model):
     )
     file = models.FileField(
         upload_to='videos/',
+        storage=VideoStorage(),
         validators=[FileExtensionValidator(['mp4', 'mov'])],
         help_text="Upload MP4 or MOV files only"
     )
@@ -40,15 +45,10 @@ class Video(models.Model):
         default=uuid.uuid4, unique=True, 
         primary_key=True, editable=False
     )
-    ORIENTATION_CHOICES = [
-        ('horizontal', 'Horizontal'),
-        ('vertical', 'Vertical'),
-    ]
-    orientation = models.CharField(
-        max_length=10,
-        choices=ORIENTATION_CHOICES,
-        default='horizontal'
-    )
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+    
     def __str__(self):
         return self.title
     
