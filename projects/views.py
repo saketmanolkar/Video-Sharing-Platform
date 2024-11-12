@@ -2,6 +2,9 @@ from django.shortcuts import render, get_object_or_404,redirect
 from django.http import HttpResponse
 from .models import Video, Review, Playlist
 from .forms import ProjectForm
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.conf import settings
 
 def projects(request):
     videos = Video.objects.all()
@@ -22,27 +25,26 @@ def project(request, pk):
     context = {
         'video': video,
         'reviews': reviews,
-        'tags': tags
+        'tags': tags,
+        'MEDIA_URL': settings.MEDIA_URL,
     }
     return render(request, 'projects/single-project.html', context)
 
+
 def create_project(request):
-    form = ProjectForm()
     if request.method == 'POST':
-        print("Files:", request.FILES)  # Debug print
-        print("POST:", request.POST)    # Debug print
         form = ProjectForm(request.POST, request.FILES)
         if form.is_valid():
             try:
-                project = form.save()
-                print("Project saved successfully:", project)  # Debug print
-                return redirect('projects')
+                video = form.save()
+                messages.success(request, 'Video uploaded successfully!')
+                return redirect('project', pk=video.id)
             except Exception as e:
-                print("Error saving project:", str(e))  # Debug print
-        else:
-            print("Form errors:", form.errors)  # Debug print
-    context = {'form': form}
-    return render(request, 'projects/project_form.html', context)
+                messages.error(request, f'Error saving video: {str(e)}')
+    else:
+        form = ProjectForm()
+    
+    return render(request, 'projects/project_form.html', {'form': form})
 
 def update_project(request, pk):
     project = Video.objects.get(id=pk)
