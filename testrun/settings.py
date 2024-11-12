@@ -15,8 +15,28 @@ import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+# Add these if not already present
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+VIDEO_UPLOAD_PATH = os.path.join(MEDIA_ROOT, 'videos')
+
+# Create necessary directories
+
+os.makedirs(VIDEO_UPLOAD_PATH, exist_ok=True)
+
+# Create media directories if they don't exist
+MEDIA_DIRS = [
+    os.path.join(BASE_DIR, 'media'),
+    os.path.join(BASE_DIR, 'media', 'videos'),
+    os.path.join(BASE_DIR, 'media', 'thumbnails'),
+]
+
+for dir_path in MEDIA_DIRS:
+    os.makedirs(dir_path, exist_ok=True)
+
+# Remove or comment out this line since we're not using it
+# COMPRESSED_VIDEOS_DIR = os.path.join(MEDIA_ROOT, 'compressed_videos')
+# os.makedirs(COMPRESSED_VIDEOS_DIR, exist_ok=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -45,6 +65,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -127,6 +148,9 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static')
 ]
+
+# Add this near your other static files settings
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

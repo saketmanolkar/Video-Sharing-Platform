@@ -12,6 +12,9 @@ def projects(request):
 def project(request, pk):    
     # Use get_object_or_404 instead of .get()
     video = get_object_or_404(Video, id=pk)
+    print(f"Video file: {video.file}")  # Debug print
+    print(f"Video file URL: {video.file.url}")  # Debug print
+    print(f"Video file path: {video.file.path}")
     # Get all related data
     tags = video.tags.all()
     reviews = video.review_set.all().order_by('-created_at')

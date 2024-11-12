@@ -2,9 +2,23 @@
 {% block content %}
 
 <div class="single-project">
-
-     <!-- Include the video player component -->
-     {% include 'components/video-player.html' %}
+    <!-- Debug info -->
+    {% if video %}
+        <div style="display: none;">
+            Video ID: {{ video.id }}<br>
+            Video File: {{ video.file }}<br>
+            Video URL: {{ video.file.url }}<br>
+            Video Path: {{ video.file.path }}<br>
+        </div>
+        
+        {% if video.file %}
+            {% include 'components/video-player.html' with video=video %}
+        {% else %}
+            <p>No video file available</p>
+        {% endif %}
+    {% else %}
+        <p>No video object found</p>
+    {% endif %}
 
     <h1 style="text-align: center;">{{video.title}}</h1>
     <div class="video-stats">
