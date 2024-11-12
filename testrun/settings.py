@@ -156,3 +156,13 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Video encoding settings
+VIDEO_ENCODING = {
+    'QUALITIES': {
+        '1080p': {'width': 1920, 'height': 1080, 'bitrate': '5000k'},
+        '720p': {'width': 1280, 'height': 720, 'bitrate': '2500k'},
+        '480p': {'width': 854, 'height': 480, 'bitrate': '1000k'},
+        '360p': {'width': 640, 'height': 360, 'bitrate': '800k'},
+    }
+}

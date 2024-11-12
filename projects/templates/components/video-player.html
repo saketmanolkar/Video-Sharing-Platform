@@ -1,5 +1,6 @@
 <!-- Video.js CSS -->
 <link href="https://vjs.zencdn.net/8.16.1/video-js.css" rel="stylesheet" />
+
 <style>
 .video-player-container {
   width: 100%;
@@ -7,30 +8,59 @@
   margin: 20px auto;
   background: #f0f0f0;
   padding: 10px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .video-wrapper {
   position: relative;
   width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  background: #000;
+  overflow: hidden;
 }
 
-/* Single video style for all videos */
+/* Base video player styles */
 .video-js {
-  width: 640px;
-  height: 360px;
+  width: 100% !important;
+  height: 0 !important;
+  padding-bottom: 56.25% !important; /* 16:9 Aspect Ratio */
+}
+
+/* Vertical video container adjustments */
+.video-wrapper.vertical {
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.video-js.vertical-video {
+  padding-bottom: 177.78% !important; /* 9:16 Aspect Ratio */
+}
+
+/* Critical fix for video element */
+.video-js video,
+.video-js .vjs-tech {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  background: #000;
+}
+
+/* Ensure controls stay visible */
+.video-js .vjs-control-bar {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
-  .video-js {
+  .video-player-container {
+    padding: 5px;
+  }
+  
+  .video-wrapper.vertical {
     width: 100%;
-    max-width: 640px;
-    height: auto;
+    max-width: 360px;
   }
 }
 </style>
@@ -38,7 +68,7 @@
 <!-- Video Player Component -->
 <div class="video-player-container">
   {% if video and video.file %}
-    <div class="video-wrapper">
+    <div class="video-wrapper" id="wrapper-{{ video.id }}">
       <video
         id="my-video-{{ video.id }}"
         class="video-js vjs-big-play-centered"
@@ -49,7 +79,7 @@
           "controls": true,
           "autoplay": false,
           "preload": "metadata",
-          "fluid": true
+          "fluid": false
         }'
       >
         <source src="{{ video.file.url }}" type="video/mp4" />
@@ -69,14 +99,26 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const players = document.querySelectorAll('.video-js');
+    
     players.forEach(player => {
         if (player) {
-            videojs(player.id, {
+            // Initialize the player
+            const vjsPlayer = videojs(player.id, {
                 controls: true,
                 fluid: false,
-                preload: 'metadata',
-                responsive: true,
-                aspectRatio: '16:9'
+                preload: 'metadata'
+            });
+
+            // Handle video metadata load
+            vjsPlayer.on('loadedmetadata', function() {
+                const videoElement = this.tech().el();
+                const wrapper = document.getElementById('wrapper-' + player.id.split('-')[2]);
+                
+                // Check if video is vertical
+                if (videoElement.videoHeight > videoElement.videoWidth) {
+                    player.classList.add('vertical-video');
+                    wrapper.classList.add('vertical');
+                }
             });
         }
     });
