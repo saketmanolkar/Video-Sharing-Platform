@@ -15,6 +15,8 @@ from PIL import Image
 import io
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from projects.utils import add_black_bars
+from django.utils.text import slugify
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -74,15 +76,26 @@ class Video(models.Model):
         ]
     )
     
+    def generate_unique_filename(self, filename):
+        """Generate unique filename for uploaded video"""
+        name, ext = os.path.splitext(filename)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        slug = slugify(self.title) if self.title else 'video'
+        return f'videos/{slug}_{timestamp}{ext}'
+
     def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        
+        if self.pk is None:  # New video being created
+            if self.file:
+                # Generate unique filename for the video
+                original_file_name = self.file.name
+                self.file.name = self.generate_unique_filename(original_file_name)
+                
         # Process thumbnail if it exists
         if self.thumbnail:
             self.thumbnail = add_black_bars(self.thumbnail)
         
         # Continue with existing save logic
-        if not is_new:
+        if not self.pk:
             try:
                 old_video = Video.objects.get(pk=self.pk)
                 if old_video.file != self.file:
