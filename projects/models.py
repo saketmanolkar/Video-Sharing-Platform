@@ -10,6 +10,11 @@ from projects.utils import cleanup_media_files
 from .storage import VideoStorage
 import json
 import logging
+from django.utils import timezone
+from PIL import Image
+import io
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from projects.utils import add_black_bars
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +23,11 @@ logger = logging.getLogger(__name__)
 class Video(models.Model):
 
     title = models.CharField(
-        max_length=100,
+        max_length=200,
         help_text="Video title"
     )
     description = models.TextField(
+        null=True,
         blank=True,
         help_text="Video description"
     )
@@ -45,7 +51,7 @@ class Video(models.Model):
     #)
     views = models.PositiveIntegerField(default=0)
     tags = models.ManyToManyField('Tag', blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     id = models.UUIDField(
         default=uuid.uuid4, unique=True, 
         primary_key=True, editable=False
@@ -71,7 +77,11 @@ class Video(models.Model):
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         
-        # If this is an update and the file has changed
+        # Process thumbnail if it exists
+        if self.thumbnail:
+            self.thumbnail = add_black_bars(self.thumbnail)
+        
+        # Continue with existing save logic
         if not is_new:
             try:
                 old_video = Video.objects.get(pk=self.pk)
@@ -107,16 +117,25 @@ class Video(models.Model):
     
     @property
     def likes_count(self):
-        cache_key = f'video_{self.id}_likes_count'
-        count = cache.get(cache_key)
-        if count is None:
-            count = self.likes.filter(is_like=True).count()
-            cache.set(cache_key, count, timeout=3600)  # Cache for 1 hour
-        return count
+        """Count likes (is_like=True)"""
+        return self.likes.filter(is_like=True).count()
     
     @property
     def dislikes_count(self):
+        """Count dislikes (is_like=False)"""
         return self.likes.filter(is_like=False).count()
+
+    def get_like_stats(self):
+        """Debug method to get detailed like statistics"""
+        total_likes = self.likes.all().count()
+        true_likes = self.likes.filter(is_like=True).count()
+        false_likes = self.likes.filter(is_like=False).count()
+        return {
+            'total': total_likes,
+            'likes': true_likes,
+            'dislikes': false_likes,
+            'all_likes': list(self.likes.all().values('id', 'is_like'))
+        }
 
     def get_video_url(self, quality=None):
         if not quality and self.encoded_versions:
@@ -180,7 +199,7 @@ class Review(models.Model):
 
 class Tag(models.Model):
     name = models.CharField(max_length=200)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     id = models.UUIDField(
         default=uuid.uuid4, unique=True, 
         primary_key=True, editable=False
@@ -203,13 +222,6 @@ class Like(models.Model):
         on_delete=models.CASCADE,
         related_name='likes'
     )
-    def __str__(self):
-        return f"Like for {self.video.title}"
-    #user = models.ForeignKey(
-    #    User, 
-    #    on_delete=models.CASCADE,
-    #    related_name='video_likes'
-    #)
     is_like = models.BooleanField(
         help_text="True for like, False for dislike"
     )
@@ -222,26 +234,9 @@ class Like(models.Model):
     )
 
     class Meta:
-        # Ensure user can only like/dislike once
-        #unique_together = ['video', 'user']
         indexes = [
             models.Index(fields=['video', 'is_like']),
         ]
-    
-@property
-def likes_count(self):
-    cache_key = f'video_{self.id}_likes_count'
-    count = cache.get(cache_key)
-    if count is None:
-        count = self.likes.filter(is_like=True).count()
-        cache.set(cache_key, count, timeout=3600)  # Cache for 1 hour
-    return count
 
-@property
-def dislikes_count(self):
-    cache_key = f'video_{self.id}_dislikes_count'
-    count = cache.get(cache_key)
-    if count is None:
-        count = self.likes.filter(is_like=False).count()
-        cache.set(cache_key, count, timeout=3600)  # Cache for 1 hour
-    return count
+    def __str__(self):
+        return f"Like for {self.video.title}"

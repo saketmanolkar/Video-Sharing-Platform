@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+ <!-- Background - transparent -->
+ <rect width="40" height="40" fill="none"/>
+<!-- Main Logo Group - adjusted position and size -->
+ <g transform="translate(20, 20)">
+<!-- Circle with purple background -->
+ <circle
+cx="0"
+cy="0"
+r="18"
+fill="#4B56D2"
+stroke="#6C72D4"
+stroke-width="1.5"/>
+<!-- Camera Icon - centered in circle -->
+ <g transform="translate(-9, -7.5) scale(0.5)"> <!-- Only changed these numbers -->
+<!-- Camera Body -->
+ <path d="M0,0 h40 v30 h-40z" fill="#F8F7FE"/>
+<!-- Top Handle -->
+ <path d="M15,-8 h10 v8 h-10z" fill="#F8F7FE"/>
+<!-- Flash -->
+ <path d="M28,-5 h8 v5 h-8z" fill="#F8F7FE"/>
+<!-- Centered Lens -->
+ <circle cx="20" cy="15" r="8" fill="#4B56D2"/>
+ <circle cx="20" cy="15" r="4" fill="#F8F7FE"/>
+ </g>
+ </g>
+</svg>
