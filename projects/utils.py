@@ -3,6 +3,9 @@ import glob
 import subprocess
 import json
 from django.conf import settings
+from PIL import Image
+import io
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 def encode_video(input_path, output_path, size):
     """
@@ -105,3 +108,36 @@ def cleanup_media_files(base_filename, media_type='videos'):
                     
     except Exception as e:
         print(f"Cleanup error: {str(e)}")
+
+def add_black_bars(image_file):
+    """Add black bars to vertical images to make them 16:9"""
+    try:
+        img = Image.open(image_file)
+        width, height = img.size
+        
+        # If vertical, add black bars
+        if width < height:
+            new_width = int(height * (16/9))
+            new_image = Image.new('RGB', (new_width, height), (0, 0, 0))
+            paste_x = (new_width - width) // 2
+            new_image.paste(img, (paste_x, 0))
+            
+            # Save to memory
+            output = io.BytesIO()
+            new_image.save(output, format='JPEG', quality=85)
+            output.seek(0)
+            
+            # Return processed image
+            return InMemoryUploadedFile(
+                output,
+                'ImageField',
+                f"{image_file.name.split('.')[0]}.jpg",
+                'image/jpeg',
+                output.getbuffer().nbytes,
+                None
+            )
+    except Exception as e:
+        print(f"Error processing thumbnail: {str(e)}")
+        return None
+    
+    return image_file  # Return original if no processing needed

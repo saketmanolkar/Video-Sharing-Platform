@@ -1,59 +1,86 @@
 {% extends 'main.html' %}
 {% block content %}
 
-<div class="single-project">
-    <!-- Debug info -->
-    {% if video %}
-        <div style="display: none;">
-            Video ID: {{ video.id }}<br>
-            Video File: {{ video.file }}<br>
-            Video URL: {{ video.file.url }}<br>
-            Video Path: {{ video.file.path }}<br>
-        </div>
-        
+<div class="content-layout">
+    <!-- Video Player Section -->
+    <div class="video-section">
         {% if video.file %}
             {% include 'components/video-player.html' with video=video %}
         {% else %}
             <p>No video file available</p>
         {% endif %}
-    {% else %}
-        <p>No video object found</p>
-    {% endif %}
-
-    <h1 style="text-align: center;">{{video.title}}</h1>
-    <div class="video-stats">
-        <p style="text-align: center;">Likes: {{ video.likes_count }} &nbsp;&nbsp;&nbsp; Dislikes: {{ video.dislikes_count }}</p>
     </div>
-    
 
-    <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px;">
-        {% for tag in tags %}
-            <span style="border: 1px solid rgb(27, 23, 23); padding: 5px 10px; border-radius: 4px;">{{tag.name}}</span>
-        {% endfor %}
-    </div>
-    <br>
-    <h4>Description</h4>
-    <p>{{video.description}}</p>
-
-
-    <h4>Comments</h4>
-    {% for review in reviews %}
-        {% if review.comment %}
-            <div style="margin-bottom: 20px;">
-                <p>
-                    • {{ review.comment }} 
-                    <a href="{% url 'update-review' review.id %}">(Edit comment)</a> 
-                    <a href="{% url 'delete-review' review.id %}">(Delete comment)</a>
-                </p>
+    <!-- Content Grid -->
+    <div class="content-grid">
+        <!-- Main Content -->
+        <div class="main-content">
+            <h1 class="video-title">{{video.title}}</h1>
+            <div class="video-stats">
+                <p>Likes: {{ video.likes_count }} • Dislikes: {{ video.dislikes_count }}</p>
             </div>
-        {% endif %}
-    {% endfor %}
 
-    {% include 'projects/review_form.html' with video=video %}
-   
+            <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 10px;">
+                {% for tag in tags %}
+                    <span style="border: 1px solid rgb(27, 23, 23); padding: 5px 10px; border-radius: 4px;">{{tag.name}}</span>
+                {% endfor %}
+            </div>
+            <br>
+            <h4>Description</h4>
+            <p>{{video.description}}</p>
 
+            <h4>Comments</h4>
+            {% for review in reviews %}
+                {% if review.comment %}
+                    <div style="margin-bottom: 20px;">
+                        <p>
+                            • {{ review.comment }} 
+                            <a href="{% url 'update-review' review.id %}">(Edit comment)</a> 
+                            <a href="{% url 'delete-review' review.id %}">(Delete comment)</a>
+                        </p>
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            {% include 'projects/review_form.html' with video=video %}
+        </div>
+
+        <!-- Sidebar -->
+        {% include 'components/video_sidebar.html' %}
+    </div>
 </div>
 
+<style>
+.content-layout {
+    max-width: 100%;
+    margin: 0 auto;
+}
 
+.video-section {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.content-grid {
+    display: grid;
+    grid-template-columns: 1fr auto; /* auto will use sidebar's width */
+    gap: 20px;
+    max-width: 1600px;
+    margin: 20px auto 0;
+    padding: 0 20px;
+}
+
+.main-content {
+    max-width: 100%;
+}
+
+@media (max-width: 768px) {
+    .content-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
 
 {% endblock %}
