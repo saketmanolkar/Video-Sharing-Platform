@@ -28,7 +28,10 @@
               <div class="column">
                 <div class="card project">
                   <a href="{% url 'project' video.id %}" class="project">
-                    <div class="project__thumbnail-wrapper">
+                    <div class="project__thumbnail-wrapper" data-video-url="{{ video.file.url }}" data-preview-duration="15">
+                      <script>
+                        console.log("Video URL:", "{{ video.file.url }}");
+                      </script>
                       <img class="project__thumbnail" 
                            src="{{video.thumbnail.url}}" 
                            alt="{{video.title}}" />
@@ -41,9 +44,7 @@
                       </p>
                       <div class="project__tags">
                         {% for tag in video.tags.all %}
-                        <span class="tag tag--pill tag--main">
-                          <small>{{tag.name}}</small>
-                        </span>
+                        <span class="tag tag--pill">{{ tag.name }}</span>
                         {% endfor %}
                       </div>
                     </div>

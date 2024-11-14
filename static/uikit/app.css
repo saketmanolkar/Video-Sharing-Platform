@@ -102,3 +102,259 @@ pre.codeblock {
   text-align: center;
   background: var(--color-main);
 }
+
+/* Video Preview Styles */
+[data-video-url] {
+    position: relative;
+    overflow: hidden;
+}
+
+[data-video-url] img {
+    transition: opacity 0.3s ease;
+}
+
+.thumbnail-preview {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: black;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Apply to both sidebar and grid thumbnails */
+.sidebar-thumbnail,
+.project__thumbnail-wrapper {
+    position: relative;
+    overflow: hidden;
+    background-color: black;
+}
+
+/* Add loading indicator */
+[data-video-url].loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Card styling */
+.card.project {
+    border: 2px solid var(--color-light);
+    background: var(--color-white);
+    border-radius: 0.7rem;
+    overflow: hidden;
+    width: 100%;
+    height: auto;
+    min-height: 400px;
+}
+
+.card.project:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Project thumbnail */
+.project__thumbnail-wrapper {
+    height: 25rem;
+    overflow: hidden;
+    position: relative;
+    background: black;
+}
+
+.project__thumbnail {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    object-position: top center;
+    transition: opacity 0.3s ease;
+}
+
+/* Card body */
+.card__body {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    height: auto;
+}
+
+/* Project title */
+.project__title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--color-sub);
+    margin-bottom: 0.3rem;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Author link */
+.project__author {
+    font-size: 1.4rem;
+    font-style: italic;
+    color: var(--color-sub-light);
+    text-decoration: none;
+}
+
+/* Rating */
+.project--rating {
+    margin-bottom: 1rem;
+    margin-top: 0.3rem;
+    color: var(--color-sub);
+}
+
+/* Tags container */
+.project__tags {
+    margin-top: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    justify-content: center;
+    width: 100%;
+}
+
+/* Individual tags */
+.tag.tag--pill {
+    display: inline-block;
+    padding: 0.4rem 1.2rem;
+    background-color: var(--color-sub-lighter);
+    color: var(--color-sub);
+    border-radius: 20px;
+    font-size: 1.4rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    margin: 0.1rem;
+}
+
+.tag.tag--pill:hover {
+    background-color: var(--color-sub);
+    color: var(--color-white);
+    transform: scale(1.05);
+}
+
+/* Grid layout */
+.grid.grid--three {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 3rem;
+}
+
+/* Remove outlines */
+.card.project,
+.project,
+a:focus {
+    outline: none !important;
+}
+
+/* Project link */
+a
+
+/* Common video thumbnail styles for both main and sidebar */
+.thumbnail-preview {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: black;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Sidebar specific styles */
+.sidebar-container {
+    background: var(--color-sub-lighter);
+    border-radius: 0.7rem;
+    border: 2px solid var(--color-light);
+    padding: 1.5rem;
+    max-width: 400px;
+}
+
+.sidebar-video-item {
+    display: flex;
+    gap: 1rem;
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-light);
+}
+
+.sidebar-video-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+/* Updated sidebar thumbnail styles to match main thumbnails */
+.sidebar-thumbnail {
+    width: 120px;
+    min-width: 120px;
+    height: 68px;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: black;
+    position: relative;
+}
+
+.sidebar-thumbnail img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Changed to cover to match main thumbnails */
+    object-position: top center; /* Added to match main thumbnails */
+    transition: opacity 0.3s ease;
+}
+
+.sidebar-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sidebar-title {
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: var(--color-sub);
+    margin-bottom: 0.4rem;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.sidebar-metadata {
+    font-size: 1.1rem;
+    color: var(--color-sub-light);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
