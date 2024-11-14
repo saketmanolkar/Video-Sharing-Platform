@@ -1,11 +1,35 @@
 {% extends 'main.html' %}
 {% block content %}
-<h1>Project Form</h1>
-<form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <input type="submit" value="Submit">
-</form>
+<div class="formPage">
+    <div class="content-box">
+        <div class="formWrapper">
+            <h2>Create Project</h2>
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                {% for field in form %}
+                <div class="form__field">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                        {% if field.field.required %}
+                            <span style="color: red;">*</span>
+                        {% endif %}
+                    </label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <small>{{ field.help_text }}</small>
+                    {% endif %}
+                    {% for error in field.errors %}
+                        <p style="color: red;">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+
+                <input type="submit" value="Submit" class="btn btn--sub btn--lg">
+            </form>
+        </div>
+    </div>
+</div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {

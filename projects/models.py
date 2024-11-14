@@ -52,7 +52,7 @@ class Video(models.Model):
         #related_name='videos'
     #)
     views = models.PositiveIntegerField(default=0)
-    tags = models.ManyToManyField('Tag', blank=True)
+    tags = models.ManyToManyField('Tag', blank=False, help_text="Select at least one tag (required)")
     created_at = models.DateTimeField(default=timezone.now)
     id = models.UUIDField(
         default=uuid.uuid4, unique=True, 

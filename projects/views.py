@@ -73,7 +73,10 @@ def create_project(request):
                         
                         # Save encoded versions info
                         project.encoded_versions = encoded_versions
-                        project.save()
+                        project.save()  # Save the project first
+                        
+                        # Save the tags
+                        form.save_m2m()  # This saves the many-to-many relationships
                         
                         # Cleanup original
                         if os.path.exists(input_path):
@@ -158,18 +161,22 @@ def update_review(request, pk):
         'review': review,
         'video': review.video
     })
-
 def delete_review(request, pk):
     review = get_object_or_404(Review, id=pk)
     video_id = review.video.id
+    
     if request.method == 'POST':
         try:
             review.delete()
             messages.success(request, 'Review deleted successfully!')
+            return redirect('project', pk=str(video_id))
         except Exception as e:
             messages.error(request, f'Error deleting review: {str(e)}')
+            return redirect('project', pk=str(video_id))
     
-    return redirect('project', pk=video_id)
+    return render(request, 'projects/delete_object.html', {
+        'object': review.comment,  # Pass the comment as the object to display
+    })
 
 def debug_videos(request):
     videos = Video.objects.all()
