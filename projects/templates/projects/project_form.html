@@ -1,13 +1,15 @@
 {% extends 'main.html' %}
 {% block content %}
-<div class="formPage">
+<main class="formPage my-xl">
     <div class="content-box">
         <div class="formWrapper">
-            <h2>Create Project</h2>
-            <form method="POST" enctype="multipart/form-data">
+            <a class="backButton" href="#"><i class="im im-angle-left"></i></a>
+            <br>
+
+            <form class="form" method="POST">
                 {% csrf_token %}
                 
-                {% for field in form %}
+                {% for field in form %}    <!-- Input:Text -->
                 <div class="form__field">
                     <label for="{{ field.id_for_label }}">
                         {{ field.label }}
@@ -24,12 +26,11 @@
                     {% endfor %}
                 </div>
                 {% endfor %}
-
-                <input type="submit" value="Submit" class="btn btn--sub btn--lg">
+                <input class="btn btn--sub btn--lg  my-md" type="submit" value="Submit" />
             </form>
         </div>
     </div>
-</div>
+</main>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {

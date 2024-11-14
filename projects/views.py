@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.core.paginator import Paginator
 from .models import Video, Review, Playlist
-from .forms import ProjectForm
+from .forms import ProjectForm, ReviewForm
 from .recommendations import get_video_recommendations
 from .utils import add_black_bars, encode_video, cleanup_media_files
 import os
@@ -29,7 +29,8 @@ def project(request, pk):
         'reviews': video.review_set.all().order_by('-created_at'),
         'tags': video.tags.all(),
         'MEDIA_URL': settings.MEDIA_URL,
-        'recommended_videos': get_video_recommendations(video)
+        'recommended_videos': get_video_recommendations(video),
+        'form': ReviewForm()
     }
     return render(request, 'projects/single-project.html', context)
 
@@ -130,37 +131,37 @@ def delete_project(request, pk):
 def add_review(request, pk):
     video = get_object_or_404(Video, id=pk)
     if request.method == 'POST':
-        comment = request.POST.get('comment', '').strip()
-        if comment:
-            try:
-                Review.objects.create(video=video, comment=comment)
-                messages.success(request, 'Review added successfully!')
-            except Exception as e:
-                messages.error(request, f'Error adding review: {str(e)}')
-        else:
-            messages.warning(request, 'Please provide a comment!')
+        form = ReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.video = video
+            review.save()
+            messages.success(request, 'Review added successfully!')
+            return redirect('project', pk=str(pk))
+    else:
+        form = ReviewForm()
     
-    return redirect('project', pk=str(pk))
+    return render(request, 'projects/review_form.html', {
+        'form': form,
+        'video': video
+    })
 
 def update_review(request, pk):
     review = get_object_or_404(Review, id=pk)
+    
     if request.method == 'POST':
-        comment = request.POST.get('comment', '').strip()
-        if comment:
+        form = ReviewForm(request.POST, instance=review)
+        if form.is_valid():
             try:
-                review.comment = comment
-                review.save()
+                form.save()
                 messages.success(request, 'Review updated successfully!')
-                return redirect('project', pk=str(review.video.id))
             except Exception as e:
                 messages.error(request, f'Error updating review: {str(e)}')
         else:
-            messages.warning(request, 'Please provide a comment!')
+            messages.error(request, 'Invalid form data')
     
-    return render(request, 'projects/update_review_form.html', {
-        'review': review,
-        'video': review.video
-    })
+    return redirect('project', pk=str(review.video.id))
+
 def delete_review(request, pk):
     review = get_object_or_404(Review, id=pk)
     video_id = review.video.id

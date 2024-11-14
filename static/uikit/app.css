@@ -181,54 +181,53 @@ pre.codeblock {
     object-position: center;
 }
 
-/* Card body - better padding and spacing */
+/* Card body - reduced padding and spacing */
 .card__body {
-    padding: 1.8rem;  /* Increased padding */
+    padding: 1rem;  /* Reduced from 1.8rem */
     background: var(--color-white);
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.3rem;  /* Reduced from 0.5rem */
 }
 
-/* Title - larger and better spaced */
+/* Title - same size, less margin */
 .project__title {
-    font-size: 1.8rem;  /* Larger title */
+    font-size: 1.8rem;
     font-weight: 600;
     color: var(--color-sub);
-    line-height: 1.3;
-    margin-bottom: 0.7rem;
+    line-height: 1.2;  /* Slightly reduced from 1.3 */
+    margin-bottom: 0.3rem;  /* Reduced from 0.7rem */
 }
 
-/* Author link - adjusted size */
+/* Author link - reduced margin */
 .project__author {
     display: block;
     font-size: 1.4rem;
     font-style: italic;
     color: var(--color-sub-light) !important;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;  /* Reduced from 0.5rem */
     text-decoration: none;
-    pointer-events: auto;
     position: relative;
     z-index: 1;
 }
 
 .project__author:hover {
-    color: var(--color-sub) !important;
-}
-
-/* Rating - adjusted size */
-.project--rating {
-    font-size: 1.4rem;  /* Larger rating text */
     color: var(--color-sub);
-    margin: 0.7rem 0;
 }
 
-/* Tags - horizontal alignment */
+/* Rating - reduced margin */
+.project--rating {
+    font-size: 1.4rem;
+    color: var(--color-sub);
+    margin: 0.3rem 0;  /* Reduced from 0.7rem */
+}
+
+/* Tags - reduced padding */
 .project__tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    padding: 0.5rem 0;
+    gap: 0.3rem;  /* Reduced from 0.5rem */
+    padding: 0.3rem 0;  /* Reduced from 0.5rem */
     justify-content: center;
     align-items: center;
     width: 100%;
@@ -364,29 +363,5 @@ a.project:active {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
-}
-
-/* Update the project link style */
-a.project {
-    display: block;
-    text-decoration: none;
-    color: inherit;  /* Add this to prevent color inheritance */
-}
-
-/* Update author link style to ensure it overrides any inherited styles */
-.project__author {
-    display: block;
-    font-size: 1.4rem;
-    font-style: italic;
-    color: var(--color-sub-light) !important;  /* Add !important to ensure this color is used */
-    margin-bottom: 0.5rem;
-    text-decoration: none;
-    pointer-events: auto;  /* Add this to ensure the link is clickable */
-    position: relative;  /* Add this for proper layering */
-    z-index: 1;  /* Add this to ensure it's clickable above parent link */
-}
-
-.project__author:hover {
-    color: var(--color-sub) !important;  /* Add !important to ensure hover color works */
 }
 

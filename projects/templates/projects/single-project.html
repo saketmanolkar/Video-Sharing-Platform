@@ -51,37 +51,44 @@
             <!-- Comments Container -->
             <div class="video-message__content">
                 <div class="settings">
-                    <h3 class="settings__title">Comments</h3>
-                    <button class="tag tag--pill tag--sub settings__btn tag--lg" onclick="submitComment()">
-                        <i class="im im-plus"></i> Add Comment
-                    </button>
+                    <div class="settings__header">
+                        <h3 class="settings__title">Comments</h3>
+                        <button class="tag tag--pill tag--sub settings__btn tag--xl" onclick="toggleCommentForm()" id="commentButton">
+                            <i class="im im-plus"></i> Add Comment
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Integrated Review Form -->
-                <div class="comment-form">
-                    {% include 'projects/review_form.html' with video=video %}
+                <!-- Integrated Review Form - Now handles both add and edit -->
+                <div class="comment-form" id="commentForm" style="display: none;">
+                    <form method="POST" action="{% url 'add-review' pk=video.id %}" id="reviewForm">
+                        {% csrf_token %}
+                        {{ form.comment }}
+                    </form>
                 </div>
 
-                <table class="settings__table">
-                    {% for review in reviews %}
-                    {% if review.comment %}
-                    <tr>
-                        <td class="settings__tableInfo">
-                            <h4>Owner</h4>
-                            <p>{{ review.comment }}</p>
-                        </td>
-                        <td class="settings__tableActions">
-                            <a class="tag tag--pill tag--main settings__btn" href="{% url 'update-review' review.id %}">
-                                <i class="im im-edit"></i> Edit
-                            </a>
-                            <a class="tag tag--pill tag--main settings__btn" href="{% url 'delete-review' review.id %}">
-                                <i class="im im-x-mark-circle-o"></i> Delete
-                            </a>
-                        </td>
-                    </tr>
-                    {% endif %}
-                    {% endfor %}
-                </table>
+                <div class="comments-list">
+                    <table class="settings__table">
+                        {% for review in reviews %}
+                        {% if review.comment %}
+                        <tr>
+                            <td class="settings__tableInfo">
+                                <h4>Owner</h4>
+                                <p>{{ review.comment }}</p>
+                            </td>
+                            <td class="settings__tableActions">
+                                <button class="tag tag--pill tag--main settings__btn" onclick="editComment('{{ review.id }}', '{{ review.comment|escapejs }}')">
+                                    <i class="im im-edit"></i> Edit
+                                </button>
+                                <a class="tag tag--pill tag--main settings__btn" href="{% url 'delete-review' review.id %}">
+                                    <i class="im im-x-mark-circle-o"></i> Delete
+                                </a>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -241,34 +248,29 @@
 }
 
 .comment-form {
-    margin-bottom: 2rem;
-    padding: 1rem 0;
-    border-bottom: 2px solid var(--color-light);
+    margin: 20px 0;
 }
 
 .comment-form textarea {
     width: 100%;
-    padding: 1rem;
+    padding: 10px;
+    margin-bottom: 10px;
     border: 2px solid var(--color-light);
-    border-radius: 0.5rem;
-    margin-bottom: 1rem;
-    font-size: 1.6rem;
-    resize: vertical;
+    border-radius: 5px;
+    min-height: 100px;
 }
 
 .comment-form button {
-    background-color: var(--color-sub);
-    color: var(--color-light);
-    padding: 0.8rem 2rem;
+    background: var(--color-sub);
+    color: white;
     border: none;
-    border-radius: 100px;
-    font-size: 1.4rem;
+    padding: 10px 20px;
+    border-radius: 5px;
     cursor: pointer;
-    transition: all 0.2s ease;
 }
 
 .comment-form button:hover {
-    background-color: var(--color-main);
+    background: var(--color-main);
 }
 
 /* Add this to ensure project cards maintain their shadow */
@@ -304,19 +306,94 @@ a.project:active {
     display: block;
     text-decoration: none;
 }
+
+.settings__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    width: 100%;
+}
+
+.settings__title {
+    font-size: 2.4rem;
+    color: var(--color-sub);
+    margin: 0;
+}
+
+.comment-form {
+    margin: 1rem 0;
+}
+
+.comments-list {
+    margin-top: 1rem;
+}
+
+.settings__table {
+    width: 100%;
+    margin-top: 0;
+}
+
+.settings__tableInfo {
+    padding: 1.5rem 0;
+}
+
+/* Add a subtle separator between comments */
+.settings__table tr {
+    border-bottom: 1px solid var(--color-light);
+}
+
+.settings__table tr:last-child {
+    border-bottom: none;
+}
+
+.tag--xl {
+    font-size: 1.6rem;
+    padding: 1.2rem 2.4rem;
+    transition: all 0.3s ease;
+    margin-left: auto;
+}
+
+.tag--xl:hover {
+    transform: scale(1.05);
+    background-color: var(--color-main);
+    color: white;
+}
 </style>
 
 <script>
-function submitComment() {
+function toggleCommentForm() {
     const form = document.getElementById('reviewForm');
-    const comment = form.querySelector('textarea[name="comment"]').value;
+    const commentForm = form.closest('.comment-form');
+    const button = document.getElementById('commentButton');
     
-    if (comment.trim() === '') {
-        alert('Please write a comment before submitting');
-        return;
+    if (commentForm.style.display === 'none') {
+        // Reset form to add mode
+        form.action = "{% url 'add-review' pk=video.id %}";
+        form.querySelector('textarea').value = '';
+        commentForm.style.display = 'block';
+        button.innerHTML = '<i class="im im-plus"></i> Submit Comment';
+    } else {
+        // Submit the form
+        const comment = form.querySelector('textarea[name="comment"]').value;
+        if (comment.trim() === '') {
+            alert('Please write a comment before submitting');
+            return;
+        }
+        form.submit();
     }
+}
+
+function editComment(reviewId, comment) {
+    const form = document.getElementById('reviewForm');
+    const commentForm = form.closest('.comment-form');
+    const button = document.getElementById('commentButton');
     
-    form.submit();
+    // Change form to edit mode
+    form.action = "{% url 'update-review' pk=0 %}".replace('0', reviewId);
+    form.querySelector('textarea').value = comment;
+    commentForm.style.display = 'block';
+    button.innerHTML = '<i class="im im-edit"></i> Update Comment';
 }
 </script>
 
