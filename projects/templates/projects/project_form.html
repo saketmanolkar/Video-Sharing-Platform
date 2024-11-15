@@ -3,22 +3,49 @@
 <main class="formPage my-xl">
     <div class="content-box">
         <div class="formWrapper">
-            <a class="backButton" href="#"><i class="im im-angle-left"></i></a>
+            <button class="backButton" data-url="{% url 'projects' %}" onclick="window.location.href=this.dataset.url">
+                <i class="im im-angle-left"></i> &lt;
+            </button>
             <br>
 
             <form class="form" method="POST">
                 {% csrf_token %}
                 
-                {% for field in form %}    <!-- Input:Text -->
+                {% for field in form %}
                 <div class="form__field">
-                    <label for="{{ field.id_for_label }}">
+                    <label for="{{ field.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
                         {{ field.label }}
                         {% if field.field.required %}
                             <span style="color: red;">*</span>
                         {% endif %}
+                        {% if field.name == 'tags' %}
+                            <small style="margin: 0;">{{ field.help_text }}</small>
+                        {% endif %}
                     </label>
-                    {{ field }}
-                    {% if field.help_text %}
+                    
+                    {% if field.name == 'tags' %}
+                        {{ field.as_hidden }}
+                        <div class="tag-options" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px;">
+                            {% for tag in field.field.queryset %}
+                                <div class="tag-wrapper">
+                                    <input type="checkbox" 
+                                           id="tag_{{ tag.id }}" 
+                                           class="tag-checkbox" 
+                                           value="{{ tag.id }}"
+                                           {% if tag.id|stringformat:"s" in field.value|stringformat:"s" %}checked{% endif %}
+                                           onchange="handleTagChange(this)">
+                                    <label for="tag_{{ tag.id }}" class="tag-label">
+                                        <span class="checkbox-custom"></span>
+                                        {{ tag.name }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        {{ field }}
+                    {% endif %}
+                    
+                    {% if field.help_text and field.name != 'tags' and field.name != 'title' and field.name != 'description' %}
                         <small>{{ field.help_text }}</small>
                     {% endif %}
                     {% for error in field.errors %}
@@ -26,7 +53,7 @@
                     {% endfor %}
                 </div>
                 {% endfor %}
-                <input class="btn btn--sub btn--lg  my-md" type="submit" value="Submit" />
+                <input class="btn btn--sub btn--lg my-md" type="submit" value="Submit" />
             </form>
         </div>
     </div>
@@ -34,20 +61,47 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        document.querySelector('form').addEventListener('submit', function(e) {
-            if (this.submitted) {
-                e.preventDefault();
-                return false;
-            }
-            this.submitted = true;
-            
-            // Optional: Show loading indicator
-            const submitButton = this.querySelector('input[type="submit"]');
-            if (submitButton) {
-                submitButton.value = 'Uploading...';
-                submitButton.disabled = true;
-            }
+        const hiddenInput = document.querySelector('input[name="tags"]');
+        if (!hiddenInput) return;
+        
+        // Initialize checkboxes based on hidden input value
+        const selectedTags = new Set(
+            hiddenInput.value ? 
+            hiddenInput.value.split(',').filter(Boolean) : 
+            []
+        );
+        
+        // Set initial checkbox states
+        document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
+            checkbox.checked = selectedTags.has(checkbox.value);
         });
     });
+
+    function handleTagChange(checkbox) {
+        const hiddenInput = document.querySelector('input[name="tags"]');
+        if (!hiddenInput) return;
+        
+        let selectedTags = new Set(
+            hiddenInput.value ? 
+            hiddenInput.value.split(',').filter(Boolean) : 
+            []
+        );
+        
+        if (checkbox.checked) {
+            selectedTags.add(checkbox.value);
+        } else {
+            selectedTags.delete(checkbox.value);
+        }
+        
+        // Update hidden input
+        hiddenInput.value = Array.from(selectedTags).join(',');
+        
+        // Add animation
+        const label = checkbox.nextElementSibling;
+        label.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            label.style.transform = 'scale(1)';
+        }, 100);
+    }
 </script>
 {% endblock %}

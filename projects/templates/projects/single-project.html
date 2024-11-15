@@ -80,9 +80,9 @@
                                 <button class="tag tag--pill tag--main settings__btn" onclick="editComment('{{ review.id }}', '{{ review.comment|escapejs }}')">
                                     <i class="im im-edit"></i> Edit
                                 </button>
-                                <a class="tag tag--pill tag--main settings__btn" href="{% url 'delete-review' review.id %}">
+                                <button class="tag tag--pill tag--main settings__btn" data-comment="{{ review.comment|escapejs }}" data-url="{% url 'delete-review' review.id %}" onclick="handleDelete(this)">
                                     <i class="im im-x-mark-circle-o"></i> Delete
-                                </a>
+                                </button>
                             </td>
                         </tr>
                         {% endif %}
@@ -359,6 +359,22 @@ a.project:active {
     background-color: var(--color-main);
     color: white;
 }
+
+.alert-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none;
+}
+
+/* Ensure alert appears above overlay */
+.alert {
+    z-index: 1000;
+}
 </style>
 
 <script>
@@ -395,6 +411,46 @@ function editComment(reviewId, comment) {
     commentForm.style.display = 'block';
     button.innerHTML = '<i class="im im-edit"></i> Update Comment';
 }
+
+function showDeleteConfirmation(objectName, deleteUrl) {
+    const deletePopup = document.querySelector('.delete-popup');
+    const overlay = document.querySelector('.alert-overlay');
+    const form = deletePopup.querySelector('form');
+    const messageStrong = deletePopup.querySelector('strong');
+    
+    if (deletePopup && overlay && form && messageStrong) {
+        messageStrong.textContent = objectName;
+        form.action = deleteUrl;
+        overlay.style.display = 'block';
+        deletePopup.style.display = 'block';
+    } else {
+        console.error('Delete popup elements not found:', {
+            deletePopup: !!deletePopup,
+            overlay: !!overlay,
+            form: !!form,
+            messageStrong: !!messageStrong
+        });
+    }
+}
+
+function hideDeleteConfirmation() {
+    const deletePopup = document.querySelector('.delete-popup');
+    const overlay = document.querySelector('.alert-overlay');
+    
+    if (deletePopup && overlay) {
+        overlay.style.display = 'none';
+        deletePopup.style.display = 'none';
+    }
+}
+
+function handleDelete(button) {
+    const comment = button.dataset.comment;
+    const url = button.dataset.url;
+    showDeleteConfirmation(comment, url);
+}
 </script>
+
+
+{% include 'projects/delete_object.html' %}
 
 {% endblock %}

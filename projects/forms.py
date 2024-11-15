@@ -6,9 +6,8 @@ class ProjectForm(ModelForm):
     tags = forms.ModelMultipleChoiceField(
         queryset=Tag.objects.all(),
         required=True,
-        widget=forms.SelectMultiple(attrs={
-            'class': 'form-control',
-            'placeholder': 'Select tags (required)'
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'tag-checkbox'
         }),
         help_text="Please select at least one tag"
     )
@@ -16,6 +15,27 @@ class ProjectForm(ModelForm):
     class Meta:
         model = Video
         fields = ['title', 'description', 'file', 'thumbnail', 'tags']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'input',
+                'placeholder': 'Enter video title'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'input',
+                'placeholder': 'Enter video description',
+                'rows': 4
+            }),
+            'file': forms.FileInput(attrs={
+                'class': 'input'
+            }),
+            'thumbnail': forms.FileInput(attrs={
+                'class': 'input'
+            })
+        }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.label_suffix = ''
         
         
 class ReviewForm(ModelForm):
@@ -29,5 +49,4 @@ class ReviewForm(ModelForm):
                 'rows': 4
             })
         }
-        
-        
+

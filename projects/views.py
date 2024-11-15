@@ -37,6 +37,7 @@ def project(request, pk):
 def create_project(request):
     if request.method == 'POST':
         form = ProjectForm(request.POST, request.FILES)
+        print("POST data:", request.POST)  # Debug line
         if form.is_valid():
             try:
                 project = form.save(commit=False)
@@ -74,26 +75,30 @@ def create_project(request):
                         
                         # Save encoded versions info
                         project.encoded_versions = encoded_versions
-                        project.save()  # Save the project first
-                        
-                        # Save the tags
-                        form.save_m2m()  # This saves the many-to-many relationships
+                        project.save()
+                        form.save_m2m()  # Save the tags
                         
                         # Cleanup original
                         if os.path.exists(input_path):
                             os.remove(input_path)
                             print(f"Deleted original file: {input_path}")
-                            
+                        
                         messages.success(request, 'Project created successfully!')
                         return redirect('project', pk=project.id)
                     else:
                         raise Exception("Video encoding failed")
-                
+                else:
+                    project.save()
+                    form.save_m2m()  # Save the tags
+                    messages.success(request, 'Project created successfully!')
+                    return redirect('project', pk=project.id)
+                    
             except Exception as e:
-                if os.path.exists(input_path):
-                    os.remove(input_path)
                 messages.error(request, f'Error creating project: {str(e)}')
                 return render(request, 'projects/project_form.html', {'form': form})
+        else:
+            print("Form errors:", form.errors)  # Debug line
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = ProjectForm()
     
@@ -120,13 +125,15 @@ def delete_project(request, pk):
     if request.method == 'POST':
         try:
             project.delete()
-            cleanup_media_files(project.video_file.name)
-            messages.success(request, 'Project deleted successfully!')
+            messages.success(request, 'Video deleted successfully!')
             return redirect('projects')
         except Exception as e:
-            messages.error(request, f'Error deleting project: {str(e)}')
+            messages.error(request, f'Error deleting video: {str(e)}')
+            return redirect('project', pk=pk)
     
-    return render(request, 'projects/delete_object.html', {'object': project})
+    return render(request, 'projects/delete_object.html', {
+        'object': project.title
+    })
 
 def add_review(request, pk):
     video = get_object_or_404(Video, id=pk)
@@ -169,15 +176,13 @@ def delete_review(request, pk):
     if request.method == 'POST':
         try:
             review.delete()
-            messages.success(request, 'Review deleted successfully!')
+            messages.success(request, 'Comment deleted successfully!')
             return redirect('project', pk=str(video_id))
         except Exception as e:
-            messages.error(request, f'Error deleting review: {str(e)}')
+            messages.error(request, f'Error deleting comment: {str(e)}')
             return redirect('project', pk=str(video_id))
     
-    return render(request, 'projects/delete_object.html', {
-        'object': review.comment,  # Pass the comment as the object to display
-    })
+    return redirect('project', pk=str(video_id))
 
 def debug_videos(request):
     videos = Video.objects.all()

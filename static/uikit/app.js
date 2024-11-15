@@ -48,10 +48,11 @@ class VideoPreviewManager {
             
             // Video settings
             video.src = videoUrl;
-            video.muted = false; // Enable sound
+            video.muted = true; // Mute video for autoplay
             video.className = 'thumbnail-preview';
             video.playsInline = true;
-            video.controls = true; // Add controls
+            video.controls = false; // Remove controls
+            video.loop = true; // Add loop
             
             // Error handling
             video.onerror = () => {
@@ -72,13 +73,6 @@ class VideoPreviewManager {
             };
 
             container.appendChild(video);
-
-            // Store timeout ID
-            const timeoutId = setTimeout(() => {
-                this.stopPreview(container);
-            }, duration);
-
-            this.previewTimeouts.set(container, timeoutId);
         } catch (error) {
             console.error('Preview error:', error);
             container.classList.remove('loading');
@@ -90,21 +84,15 @@ class VideoPreviewManager {
         const thumbnail = container.querySelector('img');
         
         if (video) {
-            video.pause(); // Pause the video
-            video.currentTime = 0; // Reset video time
-            video.remove(); // Remove video element
+            video.pause();
+            video.remove();
         }
         
         if (thumbnail) {
             thumbnail.style.opacity = '1';
         }
 
-        // Clear timeout if exists
-        const timeoutId = this.previewTimeouts.get(container);
-        if (timeoutId) {
-            clearTimeout(timeoutId);
-            this.previewTimeouts.delete(container);
-        }
+        container.classList.remove('loading');
     }
 }
 

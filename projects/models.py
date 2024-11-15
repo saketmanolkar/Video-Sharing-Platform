@@ -43,7 +43,7 @@ class Video(models.Model):
         upload_to='thumbnails/',
         blank=True,
         null=True,
-        help_text="Video thumbnail"
+        help_text="JPEG or PNG images only"
     )
     # User Fields
     #uploader = models.ForeignKey(

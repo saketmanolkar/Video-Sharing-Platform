@@ -240,8 +240,21 @@ pre.codeblock {
     color: var(--color-sub);
     border-radius: 15px;
     font-size: 1.3rem;
-    border: none;
+    border: 2px solid transparent;
     margin: 0.2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tag.tag--pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.tag.tag--pill.active {
+    background-color: var(--color-main);
+    color: var(--color-white);
+    border-color: var(--color-main);
 }
 
 /* Grid spacing */
@@ -363,5 +376,164 @@ a.project:active {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
+}
+
+/* Form Styles */
+.form__field {
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.form__field label {
+    display: block;
+    font-size: 1.6rem;
+    color: var(--color-text);
+    margin-bottom: 0.8rem;
+}
+
+.form__field input,
+.form__field textarea,
+.form__field select {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 2px solid var(--color-light);
+    background: var(--color-bg);
+    font-size: 1.6rem;
+    color: var(--color-text);
+}
+
+.form__field input:focus,
+.form__field textarea:focus,
+.form__field select:focus {
+    outline: none;
+    border-color: var(--color-main);
+}
+
+.form__field small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--color-gray);
+    font-size: 1.4rem;
+}
+
+.form__field p {
+    color: red;
+    margin-top: 0.5rem;
+    font-size: 1.4rem;
+}
+
+/* Required field marker */
+.form__field span {
+    color: red;
+    margin-left: 0.3rem;
+}
+
+/* Tag Selection Styles */
+.tag-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.tag-wrapper {
+    position: relative;
+}
+
+.tag-checkbox {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.tag-label {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.8rem 1.5rem;
+    background-color: var(--color-sub-lighter);
+    color: var(--color-sub);
+    border-radius: 2rem;
+    font-size: 1.4rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    user-select: none;
+}
+
+.checkbox-custom {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border: 2px solid var(--color-sub);
+    border-radius: 4px;
+    margin-right: 8px;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.checkbox-custom:after {
+    content: '';
+    position: absolute;
+    display: none;
+    left: 5px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.tag-checkbox:checked + .tag-label {
+    background-color: var(--color-main);
+    color: var(--color-white);
+    border-color: var(--color-main);
+}
+
+.tag-checkbox:checked + .tag-label .checkbox-custom {
+    background-color: var(--color-main);
+    border-color: var(--color-main);
+}
+
+.tag-checkbox:checked + .tag-label .checkbox-custom:after {
+    display: block;
+}
+
+.tag-label:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Add focus styles for accessibility */
+.tag-checkbox:focus + .tag-label {
+    outline: 2px solid var(--color-main);
+    outline-offset: 2px;
+}
+
+/* Back Button Styles */
+.backButton {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background-color: var(--color-main);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 20px;
+}
+
+.backButton:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.backButton i {
+    font-size: 16px;
 }
 
