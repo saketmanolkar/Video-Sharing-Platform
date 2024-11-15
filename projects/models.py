@@ -17,6 +17,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from projects.utils import add_black_bars
 from django.utils.text import slugify
 from datetime import datetime
+from django.templatetags.static import static
 
 logger = logging.getLogger(__name__)
 
@@ -195,6 +196,12 @@ class Video(models.Model):
         except Exception as e:
             logger.error(f"Error getting video versions: {str(e)}")
             return {}
+
+    def get_thumbnail_url(self):
+        """Get thumbnail URL or default image URL"""
+        if self.thumbnail:
+            return self.thumbnail.url
+        return '/static/images/default.jpg'  # Use direct path instead of static()
 
 class Review(models.Model):
     video = models.ForeignKey(Video, on_delete=models.CASCADE)

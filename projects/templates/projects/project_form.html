@@ -8,8 +8,9 @@
             </button>
             <br>
 
-            <form class="form" method="POST">
+            <form class="form" method="POST" enctype="multipart/form-data">
                 {% csrf_token %}
+                {{ form.errors }}
                 
                 {% for field in form %}
                 <div class="form__field">
@@ -24,16 +25,15 @@
                     </label>
                     
                     {% if field.name == 'tags' %}
-                        {{ field.as_hidden }}
                         <div class="tag-options" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px;">
                             {% for tag in field.field.queryset %}
                                 <div class="tag-wrapper">
                                     <input type="checkbox" 
+                                           name="tags" 
                                            id="tag_{{ tag.id }}" 
                                            class="tag-checkbox" 
                                            value="{{ tag.id }}"
-                                           {% if tag.id|stringformat:"s" in field.value|stringformat:"s" %}checked{% endif %}
-                                           onchange="handleTagChange(this)">
+                                           {% if tag.id|stringformat:"s" in field.value|stringformat:"s" %}checked{% endif %}>
                                     <label for="tag_{{ tag.id }}" class="tag-label">
                                         <span class="checkbox-custom"></span>
                                         {{ tag.name }}
@@ -78,23 +78,7 @@
     });
 
     function handleTagChange(checkbox) {
-        const hiddenInput = document.querySelector('input[name="tags"]');
-        if (!hiddenInput) return;
-        
-        let selectedTags = new Set(
-            hiddenInput.value ? 
-            hiddenInput.value.split(',').filter(Boolean) : 
-            []
-        );
-        
-        if (checkbox.checked) {
-            selectedTags.add(checkbox.value);
-        } else {
-            selectedTags.delete(checkbox.value);
-        }
-        
-        // Update hidden input
-        hiddenInput.value = Array.from(selectedTags).join(',');
+        // Remove the hidden input handling since we're using regular checkboxes
         
         // Add animation
         const label = checkbox.nextElementSibling;

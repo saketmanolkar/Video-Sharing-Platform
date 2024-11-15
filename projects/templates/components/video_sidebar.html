@@ -82,7 +82,7 @@
   {% for video in recommended_videos %}
     <a href="{% url 'project' video.id %}" class="sidebar-video-item">
       <div class="sidebar-thumbnail" data-video-url="{{ video.file.url }}" data-preview-duration="15">
-        <img src="{{ video.thumbnail.url }}" alt="{{ video.title }}">
+        <img src="{{ video.get_thumbnail_url }}" alt="{{ video.title }}">
       </div>
       <div class="sidebar-info">
         <div class="sidebar-title">{{ video.title }}</div>

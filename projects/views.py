@@ -37,7 +37,7 @@ def project(request, pk):
 def create_project(request):
     if request.method == 'POST':
         form = ProjectForm(request.POST, request.FILES)
-        print("POST data:", request.POST)  # Debug line
+        print("Files received:", request.FILES)  # Debug line
         if form.is_valid():
             try:
                 project = form.save(commit=False)

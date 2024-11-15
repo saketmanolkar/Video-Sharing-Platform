@@ -77,7 +77,7 @@
         class="video-js vjs-big-play-centered"
         controls
         preload="metadata"
-        poster="{{ video.thumbnail.url|default:'' }}"
+        poster="{{ video.get_thumbnail_url }}"
         data-setup='{
           "controls": true,
           "autoplay": false,

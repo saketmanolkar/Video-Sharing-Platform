@@ -35,6 +35,7 @@ class ProjectForm(ModelForm):
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        print("Files in form:", kwargs.get('files'))
         self.label_suffix = ''
         
         
