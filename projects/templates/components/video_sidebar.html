@@ -1,7 +1,7 @@
 <style>
   /* Using more specific class names to avoid conflicts */
   .sidebar-container {
-    background: var(--color-white);
+    background: var(--color-sub-lighter);
     border-radius: 0.7rem;
     border: 2px solid var(--color-light);
     padding: 1.5rem;
@@ -81,8 +81,8 @@
   <h3 class="devInfo__subtitle">Recommended Videos</h3>
   {% for video in recommended_videos %}
     <a href="{% url 'project' video.id %}" class="sidebar-video-item">
-      <div class="sidebar-thumbnail">
-        <img src="{{ video.thumbnail.url }}" alt="{{ video.title }}">
+      <div class="sidebar-thumbnail" data-video-url="{{ video.file.url }}" data-preview-duration="15">
+        <img src="{{ video.get_thumbnail_url }}" alt="{{ video.title }}">
       </div>
       <div class="sidebar-info">
         <div class="sidebar-title">{{ video.title }}</div>

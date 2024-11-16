@@ -102,3 +102,438 @@ pre.codeblock {
   text-align: center;
   background: var(--color-main);
 }
+
+/* Video Preview Styles */
+[data-video-url] {
+    position: relative;
+    overflow: hidden;
+}
+
+[data-video-url] img {
+    transition: opacity 0.3s ease;
+}
+
+.thumbnail-preview {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: black;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Apply to both sidebar and grid thumbnails */
+.sidebar-thumbnail,
+.project__thumbnail-wrapper {
+    position: relative;
+    overflow: hidden;
+    background-color: black;
+}
+
+/* Add loading indicator */
+[data-video-url].loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Card base styling - keeping original size */
+.card.project {
+    margin: 0;
+    border: 2px solid var(--color-light);
+    background: var(--color-white);
+    border-radius: 0.3rem;
+    overflow: hidden;
+    width: 100%;
+    height: auto;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Thumbnail wrapper */
+.project__thumbnail-wrapper {
+    height: 20rem;
+    overflow: hidden;
+    position: relative;
+    background: black;
+    margin-bottom: 0;
+}
+
+.project__thumbnail {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Card body - reduced padding and spacing */
+.card__body {
+    padding: 1rem;  /* Reduced from 1.8rem */
+    background: var(--color-white);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;  /* Reduced from 0.5rem */
+}
+
+/* Title - same size, less margin */
+.project__title {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: var(--color-sub);
+    line-height: 1.2;  /* Slightly reduced from 1.3 */
+    margin-bottom: 0.3rem;  /* Reduced from 0.7rem */
+}
+
+/* Author link - reduced margin */
+.project__author {
+    display: block;
+    font-size: 1.4rem;
+    font-style: italic;
+    color: var(--color-sub-light) !important;
+    margin-bottom: 0.3rem;  /* Reduced from 0.5rem */
+    text-decoration: none;
+    position: relative;
+    z-index: 1;
+}
+
+.project__author:hover {
+    color: var(--color-sub);
+}
+
+/* Rating - reduced margin */
+.project--rating {
+    font-size: 1.4rem;
+    color: var(--color-sub);
+    margin: 0.3rem 0;  /* Reduced from 0.7rem */
+}
+
+/* Tags - reduced padding */
+.project__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;  /* Reduced from 0.5rem */
+    padding: 0.3rem 0;  /* Reduced from 0.5rem */
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.tag.tag--pill {
+    display: inline-block;
+    padding: 0.5rem 1.2rem;
+    background-color: var(--color-sub-lighter);
+    color: var(--color-sub);
+    border-radius: 15px;
+    font-size: 1.3rem;
+    border: 2px solid transparent;
+    margin: 0.2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tag.tag--pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.tag.tag--pill.active {
+    background-color: var(--color-main);
+    color: var(--color-white);
+    border-color: var(--color-main);
+}
+
+/* Grid spacing */
+.grid.grid--three {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 3rem;
+    padding: 1rem 0;
+    align-items: stretch;
+}
+
+/* Remove hover effects but keep shadow */
+.card.project:hover,
+.project:hover,
+a.project:hover,
+.card.project:focus,
+.project:focus,
+a.project:focus,
+.card.project:active,
+.project:active,
+a.project:active {
+    text-decoration: none;
+    outline: none;
+    transform: none;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Project link */
+.project {
+    display: block;
+    text-decoration: none;
+}
+
+/* Common video thumbnail styles for both main and sidebar */
+.thumbnail-preview {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: black;
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Sidebar specific styles */
+.sidebar-container {
+    background: var(--color-sub-lighter);
+    border-radius: 0.7rem;
+    border: 2px solid var(--color-light);
+    padding: 1.5rem;
+    max-width: 400px;
+}
+
+.sidebar-video-item {
+    display: flex;
+    gap: 1rem;
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-light);
+}
+
+.sidebar-video-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+/* Updated sidebar thumbnail styles to match main thumbnails */
+.sidebar-thumbnail {
+    width: 120px;
+    min-width: 120px;
+    height: 68px;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: black;
+    position: relative;
+}
+
+.sidebar-thumbnail img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Changed to cover to match main thumbnails */
+    object-position: top center; /* Added to match main thumbnails */
+    transition: opacity 0.3s ease;
+}
+
+.sidebar-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sidebar-title {
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: var(--color-sub);
+    margin-bottom: 0.4rem;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-metadata {
+    font-size: 1.1rem;
+    color: var(--color-sub-light);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+/* Form Styles */
+.form__field {
+    margin-bottom: 2rem;
+    position: relative;
+}
+
+.form__field label {
+    display: block;
+    font-size: 1.6rem;
+    color: var(--color-text);
+    margin-bottom: 0.8rem;
+}
+
+.form__field input,
+.form__field textarea,
+.form__field select {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 2px solid var(--color-light);
+    background: var(--color-bg);
+    font-size: 1.6rem;
+    color: var(--color-text);
+}
+
+.form__field input:focus,
+.form__field textarea:focus,
+.form__field select:focus {
+    outline: none;
+    border-color: var(--color-main);
+}
+
+.form__field small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--color-gray);
+    font-size: 1.4rem;
+}
+
+.form__field p {
+    color: red;
+    margin-top: 0.5rem;
+    font-size: 1.4rem;
+}
+
+/* Required field marker */
+.form__field span {
+    color: red;
+    margin-left: 0.3rem;
+}
+
+/* Tag Selection Styles */
+.tag-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.tag-wrapper {
+    position: relative;
+}
+
+.tag-checkbox {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.tag-label {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.8rem 1.5rem;
+    background-color: var(--color-sub-lighter);
+    color: var(--color-sub);
+    border-radius: 2rem;
+    font-size: 1.4rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    user-select: none;
+}
+
+.checkbox-custom {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border: 2px solid var(--color-sub);
+    border-radius: 4px;
+    margin-right: 8px;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.checkbox-custom:after {
+    content: '';
+    position: absolute;
+    display: none;
+    left: 5px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.tag-checkbox:checked + .tag-label {
+    background-color: var(--color-main);
+    color: var(--color-white);
+    border-color: var(--color-main);
+}
+
+.tag-checkbox:checked + .tag-label .checkbox-custom {
+    background-color: var(--color-main);
+    border-color: var(--color-main);
+}
+
+.tag-checkbox:checked + .tag-label .checkbox-custom:after {
+    display: block;
+}
+
+.tag-label:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Add focus styles for accessibility */
+.tag-checkbox:focus + .tag-label {
+    outline: 2px solid var(--color-main);
+    outline-offset: 2px;
+}
+
+/* Back Button Styles */
+.backButton {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background-color: var(--color-main);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 20px;
+}
+
+.backButton:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.backButton i {
+    font-size: 16px;
+}
+

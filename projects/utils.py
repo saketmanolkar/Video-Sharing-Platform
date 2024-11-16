@@ -6,6 +6,7 @@ from django.conf import settings
 from PIL import Image
 import io
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from datetime import datetime
 
 def encode_video(input_path, output_path, size):
     """
@@ -16,10 +17,6 @@ def encode_video(input_path, output_path, size):
             print(f"Input file not found: {input_path}")
             return False
             
-        # Get file size before encoding
-        original_size = os.path.getsize(input_path)
-        print(f"Original size: {original_size/1024/1024:.2f}MB")
-        
         # Get video dimensions using ffprobe
         probe_command = [
             'ffprobe', '-v', 'error',
@@ -31,55 +28,49 @@ def encode_video(input_path, output_path, size):
         probe_result = subprocess.run(probe_command, capture_output=True, text=True)
         video_info = json.loads(probe_result.stdout)
         
-        # Extract original dimensions
-        original_width = int(video_info['streams'][0]['width'])
-        original_height = int(video_info['streams'][0]['height'])
-        
-        # Parse target height from size parameter (e.g., "1280x720" -> 720)
+        # Extract target dimensions from size parameter
+        target_width = int(size.split('x')[0])
         target_height = int(size.split('x')[1])
         
-        # Make target height even
-        target_height = target_height - (target_height % 2)
+        # Calculate dimensions maintaining aspect ratio
+        width = int(video_info['streams'][0]['width'])
+        height = int(video_info['streams'][0]['height'])
         
-        # Calculate new width maintaining aspect ratio
-        new_width = int((original_width / original_height) * target_height)
-        # Make width even (required by some codecs)
-        new_width = new_width - (new_width % 2)
-        
-        # For vertical videos, swap target dimensions if original is vertical
-        if original_height > original_width:
-            # Use height as the controlling dimension
-            new_height = target_height
-            new_width = int((original_width / original_height) * new_height)
-            # Ensure both dimensions are even
-            new_width = new_width - (new_width % 2)
-            new_height = new_height - (new_height % 2)
-            dimensions = f"{new_width}x{new_height}"
+        if width/height > target_width/target_height:
+            # Width limited
+            new_width = target_width
+            new_height = int((height * target_width/width) // 2) * 2  # Ensure even number
         else:
-            dimensions = f"{new_width}x{target_height}"
+            # Height limited 
+            new_height = target_height
+            new_width = int((width * target_height/height) // 2) * 2  # Ensure even number
             
+        # Generate unique output filename
+        output_dir = os.path.dirname(output_path)
+        output_name = os.path.basename(output_path)
+        name, ext = os.path.splitext(output_name)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_output_path = os.path.join(output_dir, f"{name}_{timestamp}{ext}")
+        
+        # Encode video
         command = [
             'ffmpeg', '-i', input_path,
-            '-c:v', 'libx264',     # Video codec
-            '-crf', '23',          # Compression quality (23 is a good balance)
-            '-preset', 'medium',    # Encoding speed preset
-            '-vf', f'scale={dimensions}',  # Scale to exact dimensions
-            '-c:a', 'aac',         # Audio codec
-            '-b:a', '128k',        # Audio bitrate
-            '-y',                  # Overwrite output files
-            output_path
+            '-c:v', 'libx264', '-crf', '23',
+            '-preset', 'medium',
+            '-c:a', 'aac', '-b:a', '128k',
+            '-vf', f'scale={new_width}:{new_height}',
+            '-movflags', '+faststart',
+            '-y', unique_output_path
         ]
         
         result = subprocess.run(command, capture_output=True, text=True)
         
-        if result.returncode == 0:
-            encoded_size = os.path.getsize(output_path)
-            print(f"Encoded size ({dimensions}): {encoded_size/1024/1024:.2f}MB")
-            return True
-        else:
-            print(f"FFmpeg error: {result.stderr}")
+        if result.returncode != 0:
+            print(f"Encoding error: {result.stderr}")
             return False
             
+        return os.path.basename(unique_output_path)
+        
     except Exception as e:
         print(f"Encoding error: {str(e)}")
         return False

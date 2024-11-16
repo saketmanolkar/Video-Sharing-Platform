@@ -1,13 +1,21 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.conf import settings
+from django.core.paginator import Paginator
 from .models import Video, Review, Playlist
-from .forms import ProjectForm
+from .forms import ProjectForm, ReviewForm
 from .recommendations import get_video_recommendations
-from django.core.cache import cache
+from .utils import add_black_bars, encode_video, cleanup_media_files
+import os
+from django.http import JsonResponse
+from datetime import datetime
 
 def projects(request):
-    videos = Video.objects.all()
+    videos = Video.objects.all().order_by('-created_at')
+    paginator = Paginator(videos, 9)  # Show 9 videos per page
+    page = request.GET.get('page')
+    videos = paginator.get_page(page)
+    
     context = {'videos': videos, 'page': 'Projects'}
     return render(request, 'projects/projects.html', context)
 
@@ -16,135 +24,198 @@ def project(request, pk):
     video.views += 1
     video.save()
     
-    tags = video.tags.all()
-    reviews = video.review_set.all().order_by('-created_at')
-    recommended_videos = get_video_recommendations(video)
-    
     context = {
         'video': video,
-        'reviews': reviews,
-        'tags': tags,
+        'reviews': video.review_set.all().order_by('-created_at'),
+        'tags': video.tags.all(),
         'MEDIA_URL': settings.MEDIA_URL,
-        'recommended_videos': recommended_videos
+        'recommended_videos': get_video_recommendations(video),
+        'form': ReviewForm()
     }
     return render(request, 'projects/single-project.html', context)
 
 def create_project(request):
     if request.method == 'POST':
         form = ProjectForm(request.POST, request.FILES)
+        print("Files received:", request.FILES)  # Debug line
         if form.is_valid():
-            video = form.save()
-            return redirect('project', pk=video.id)
+            try:
+                project = form.save(commit=False)
+                
+                # Process video if provided
+                if 'file' in request.FILES:
+                    video_file = request.FILES['file']
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    unique_name = f"{os.path.splitext(video_file.name)[0]}_{timestamp}"
+                    input_path = os.path.join(settings.MEDIA_ROOT, 'videos', f"{unique_name}_original.mp4")
+                    
+                    # Save original temporarily
+                    with open(input_path, 'wb+') as destination:
+                        for chunk in video_file.chunks():
+                            destination.write(chunk)
+                    
+                    # Encode video in different qualities
+                    encoded_versions = {}
+                    encoding_success = False
+                    
+                    for quality in ['1280x720', '640x360']:
+                        output_name = f"{unique_name}_{quality.split('x')[1]}p.mp4"
+                        output_path = os.path.join(settings.MEDIA_ROOT, 'videos', output_name)
+                        encoded_file = encode_video(input_path, output_path, quality)
+                        if encoded_file:
+                            quality_key = f"{quality.split('x')[1]}p"
+                            encoded_versions[quality_key] = encoded_file
+                            encoding_success = True
+                    
+                    # Only proceed if encoding was successful
+                    if encoding_success:
+                        # Set the main video file to 720p version
+                        if '720p' in encoded_versions:
+                            project.file = f"videos/{encoded_versions['720p']}"
+                        
+                        # Save encoded versions info
+                        project.encoded_versions = encoded_versions
+                        project.save()
+                        form.save_m2m()  # Save the tags
+                        
+                        # Cleanup original
+                        if os.path.exists(input_path):
+                            os.remove(input_path)
+                            print(f"Deleted original file: {input_path}")
+                        
+                        messages.success(request, 'Project created successfully!')
+                        return redirect('project', pk=project.id)
+                    else:
+                        raise Exception("Video encoding failed")
+                else:
+                    project.save()
+                    form.save_m2m()  # Save the tags
+                    messages.success(request, 'Project created successfully!')
+                    return redirect('project', pk=project.id)
+                    
+            except Exception as e:
+                messages.error(request, f'Error creating project: {str(e)}')
+                return render(request, 'projects/project_form.html', {'form': form})
+        else:
+            print("Form errors:", form.errors)  # Debug line
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = ProjectForm()
+    
     return render(request, 'projects/project_form.html', {'form': form})
 
 def update_project(request, pk):
-    project = Video.objects.get(id=pk)
-    form = ProjectForm(instance=project)
+    project = get_object_or_404(Video, id=pk)
     if request.method == 'POST':
         form = ProjectForm(request.POST, request.FILES, instance=project)
         if form.is_valid():
-            project = form.save()
-            return redirect('projects')
-    context = {'form': form}
-    return render(request, 'projects/project_form.html', context)
+            try:
+                project = form.save()
+                messages.success(request, 'Project updated successfully!')
+                return redirect('project', pk=project.id)
+            except Exception as e:
+                messages.error(request, f'Error updating project: {str(e)}')
+    else:
+        form = ProjectForm(instance=project)
+    
+    return render(request, 'projects/project_form.html', {'form': form})
 
 def delete_project(request, pk):
-    project = Video.objects.get(id=pk)
+    project = get_object_or_404(Video, id=pk)
     if request.method == 'POST':
-        project.delete()
-        return redirect('projects')
-    context = {'object': project}
-    return render(request, 'projects/delete_object.html', context)
+        try:
+            project.delete()
+            messages.success(request, 'Video deleted successfully!')
+            return redirect('projects')
+        except Exception as e:
+            messages.error(request, f'Error deleting video: {str(e)}')
+            return redirect('project', pk=pk)
+    
+    return render(request, 'projects/delete_object.html', {
+        'object': project.title
+    })
 
 def add_review(request, pk):
     video = get_object_or_404(Video, id=pk)
     if request.method == 'POST':
-        comment = request.POST.get('comment', '').strip()
-        print(f"Received comment: {comment}")  # Debug print
-        
-        if comment:
-            try:
-                review = Review.objects.create(
-                    video=video,
-                    comment=comment
-                )
-                print(f"Created review: {review.id}")  # Debug print
-                return redirect('project', pk=str(pk))
-            except Exception as e:
-                print(f"Error creating review: {str(e)}")  # Debug print
-        else:
-            print("Comment was empty")  # Debug print
-            
-    return redirect('project', pk=str(pk))
+        form = ReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.video = video
+            review.save()
+            messages.success(request, 'Review added successfully!')
+            return redirect('project', pk=str(pk))
+    else:
+        form = ReviewForm()
+    
+    return render(request, 'projects/review_form.html', {
+        'form': form,
+        'video': video
+    })
 
 def update_review(request, pk):
     review = get_object_or_404(Review, id=pk)
-    video = review.video
     
     if request.method == 'POST':
-        comment = request.POST.get('comment', '').strip()
-        if comment:
+        form = ReviewForm(request.POST, instance=review)
+        if form.is_valid():
             try:
-                review.comment = comment
-                review.save()
-                print("Review updated successfully:", review)
-                return redirect('project', pk=str(video.id))
+                form.save()
+                messages.success(request, 'Review updated successfully!')
             except Exception as e:
-                print("Error updating review:", str(e))
+                messages.error(request, f'Error updating review: {str(e)}')
         else:
-            print("Error: Comment field is empty")
+            messages.error(request, 'Invalid form data')
     
-    context = {
-        'review': review,
-        'video': video
-    }
-    return render(request, 'projects/update_review_form.html', context)
+    return redirect('project', pk=str(review.video.id))
 
 def delete_review(request, pk):
     review = get_object_or_404(Review, id=pk)
-    video = review.video  # Store the video before deleting the review
+    video_id = review.video.id
+    
     if request.method == 'POST':
-        review.delete()
-        return redirect('project', pk=video.id)
-    context = {'object': review}
-    return render(request, 'projects/delete_object.html', context)
+        try:
+            review.delete()
+            messages.success(request, 'Comment deleted successfully!')
+            return redirect('project', pk=str(video_id))
+        except Exception as e:
+            messages.error(request, f'Error deleting comment: {str(e)}')
+            return redirect('project', pk=str(video_id))
+    
+    return redirect('project', pk=str(video_id))
 
-def upload_project(request):
-    if request.method == 'POST':
-        # ... your existing form handling code ...
+def debug_videos(request):
+    videos = Video.objects.all()
+    debug_info = []
+    
+    for video in videos:
+        # Database info
+        video_info = {
+            'id': str(video.id),
+            'title': video.title,
+            'file_path': str(video.file),
+            'thumbnail_path': str(video.thumbnail),
+            'encoded_versions': video.encoded_versions,
+        }
         
-        if 'thumbnail' in request.FILES:
-            thumbnail = request.FILES['thumbnail']
+        # Check if files actually exist
+        if video.file:
+            full_path = os.path.join(settings.MEDIA_ROOT, str(video.file))
+            video_info['file_exists'] = os.path.exists(full_path)
             
-            # Open image using PIL
-            img = Image.open(thumbnail)
+        if video.thumbnail:
+            thumb_path = os.path.join(settings.MEDIA_ROOT, str(video.thumbnail))
+            video_info['thumbnail_exists'] = os.path.exists(thumb_path)
             
-            # Add letterbox if needed
-            processed_img = add_letterbox(img)
+        # Check encoded versions
+        if video.encoded_versions:
+            existing_versions = {}
+            for quality, filename in video.encoded_versions.items():
+                version_path = os.path.join(settings.MEDIA_ROOT, 'videos', filename)
+                existing_versions[quality] = os.path.exists(version_path)
+            video_info['encoded_versions_exist'] = existing_versions
             
-            # Save processed image to memory
-            output = io.BytesIO()
-            processed_img.save(output, format='JPEG', quality=85)
-            output.seek(0)
-            
-            # Create new file object
-            processed_thumbnail = InMemoryUploadedFile(
-                output,
-                'ImageField',
-                f"{thumbnail.name.split('.')[0]}_processed.jpg",
-                'image/jpeg',
-                output.getbuffer().nbytes,
-                None
-            )
-            
-            # Save to model
-            project.thumbnail = processed_thumbnail
-            project.save()
-            
-        return redirect('projects')
-
-# Create your views here.
-cache.clear()
+        debug_info.append(video_info)
+    
+    return JsonResponse({'videos': debug_info})
  

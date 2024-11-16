@@ -1,28 +1,91 @@
 {% extends 'main.html' %}
 {% block content %}
-<h1>Project Form</h1>
-<form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <input type="submit" value="Submit">
-</form>
+<main class="formPage my-xl">
+    <div class="content-box">
+        <div class="formWrapper">
+            <button class="backButton" data-url="{% url 'projects' %}" onclick="window.location.href=this.dataset.url">
+                <i class="im im-angle-left"></i> &lt;
+            </button>
+            <br>
+
+            <form class="form" method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ form.errors }}
+                
+                {% for field in form %}
+                <div class="form__field">
+                    <label for="{{ field.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
+                        {{ field.label }}
+                        {% if field.field.required %}
+                            <span style="color: red;">*</span>
+                        {% endif %}
+                        {% if field.name == 'tags' %}
+                            <small style="margin: 0;">{{ field.help_text }}</small>
+                        {% endif %}
+                    </label>
+                    
+                    {% if field.name == 'tags' %}
+                        <div class="tag-options" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px;">
+                            {% for tag in field.field.queryset %}
+                                <div class="tag-wrapper">
+                                    <input type="checkbox" 
+                                           name="tags" 
+                                           id="tag_{{ tag.id }}" 
+                                           class="tag-checkbox" 
+                                           value="{{ tag.id }}"
+                                           {% if tag.id|stringformat:"s" in field.value|stringformat:"s" %}checked{% endif %}>
+                                    <label for="tag_{{ tag.id }}" class="tag-label">
+                                        <span class="checkbox-custom"></span>
+                                        {{ tag.name }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        {{ field }}
+                    {% endif %}
+                    
+                    {% if field.help_text and field.name != 'tags' and field.name != 'title' and field.name != 'description' %}
+                        <small>{{ field.help_text }}</small>
+                    {% endif %}
+                    {% for error in field.errors %}
+                        <p style="color: red;">{{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+                <input class="btn btn--sub btn--lg my-md" type="submit" value="Submit" />
+            </form>
+        </div>
+    </div>
+</main>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        document.querySelector('form').addEventListener('submit', function(e) {
-            if (this.submitted) {
-                e.preventDefault();
-                return false;
-            }
-            this.submitted = true;
-            
-            // Optional: Show loading indicator
-            const submitButton = this.querySelector('input[type="submit"]');
-            if (submitButton) {
-                submitButton.value = 'Uploading...';
-                submitButton.disabled = true;
-            }
+        const hiddenInput = document.querySelector('input[name="tags"]');
+        if (!hiddenInput) return;
+        
+        // Initialize checkboxes based on hidden input value
+        const selectedTags = new Set(
+            hiddenInput.value ? 
+            hiddenInput.value.split(',').filter(Boolean) : 
+            []
+        );
+        
+        // Set initial checkbox states
+        document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
+            checkbox.checked = selectedTags.has(checkbox.value);
         });
     });
+
+    function handleTagChange(checkbox) {
+        // Remove the hidden input handling since we're using regular checkboxes
+        
+        // Add animation
+        const label = checkbox.nextElementSibling;
+        label.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            label.style.transform = 'scale(1)';
+        }, 100);
+    }
 </script>
 {% endblock %}
