@@ -47,11 +47,12 @@ class Video(models.Model):
         help_text="JPEG or PNG images only"
     )
     # User Fields
-    #uploader = models.ForeignKey(
-        #User, 
-        #on_delete=models.CASCADE,
-        #related_name='videos'
-    #)
+    uploader = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE,
+        related_name='videos',
+        null=True
+    )
     views = models.PositiveIntegerField(default=0)
     tags = models.ManyToManyField('Tag', blank=False, help_text="Select at least one tag (required)")
     created_at = models.DateTimeField(default=timezone.now)
@@ -201,10 +202,20 @@ class Video(models.Model):
         """Get thumbnail URL or default image URL"""
         if self.thumbnail:
             return self.thumbnail.url
-        return '/static/images/default.jpg'  # Use direct path instead of static()
+        return static('images/default.jpg')
 
 class Review(models.Model):
-    video = models.ForeignKey(Video, on_delete=models.CASCADE)
+    video = models.ForeignKey(
+        Video, 
+        on_delete=models.CASCADE,
+        related_name='reviews'
+    )
+    user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE,
+        related_name='reviews',
+        null=True
+    )
     comment = models.TextField(
         blank=True,
         help_text="Video description"
@@ -215,7 +226,7 @@ class Review(models.Model):
         primary_key=True, editable=False
     )
     def __str__(self):
-        return f"Review for {self.video.title}"
+        return f"Review by {self.user.username} for {self.video.title}"
 
 class Tag(models.Model):
     name = models.CharField(max_length=200)
@@ -228,19 +239,39 @@ class Tag(models.Model):
         return self.name
 
 class Playlist(models.Model):
-    id = models.UUIDField(default=uuid.uuid4, primary_key=True,
-                          unique=True, editable=False)
+    id = models.UUIDField(
+        default=uuid.uuid4, 
+        primary_key=True,
+        unique=True, 
+        editable=False
+    )
     name = models.CharField(max_length=100)
-    videos = models.ManyToManyField(Video)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='playlists',
+        null=True
+    )
+    videos = models.ManyToManyField(
+        Video,
+        related_name='playlists'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
+
     def __str__(self):
-        return self.name
+        return f"{self.name} by {self.user.username}"
 
 class Like(models.Model):
     video = models.ForeignKey(
         Video, 
         on_delete=models.CASCADE,
         related_name='likes'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='video_likes',
+        null=True
     )
     is_like = models.BooleanField(
         help_text="True for like, False for dislike"
@@ -254,9 +285,12 @@ class Like(models.Model):
     )
 
     class Meta:
+        # Prevent multiple likes from same user on same video
+        unique_together = ['user', 'video']
         indexes = [
             models.Index(fields=['video', 'is_like']),
         ]
 
     def __str__(self):
-        return f"Like for {self.video.title}"
+        action = "likes" if self.is_like else "dislikes"
+        return f"{self.user.username} {action} {self.video.title}"
