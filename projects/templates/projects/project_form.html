@@ -8,9 +8,21 @@
             </button>
             <br>
 
+            {% if not user.is_authenticated %}
+                <div class="alert alert-danger">
+                    <p>You must be logged in to create a project.</p>
+                </div>
+            {% endif %}
+
             <form class="form" method="POST" enctype="multipart/form-data">
                 {% csrf_token %}
-                {{ form.errors }}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
                 
                 {% for field in form %}
                 <div class="form__field">
@@ -48,9 +60,13 @@
                     {% if field.help_text and field.name != 'tags' and field.name != 'title' and field.name != 'description' %}
                         <small>{{ field.help_text }}</small>
                     {% endif %}
-                    {% for error in field.errors %}
-                        <p style="color: red;">{{ error }}</p>
-                    {% endfor %}
+                    {% if field.errors %}
+                        <div class="field-errors">
+                            {% for error in field.errors %}
+                                <p style="color: red;">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
                 <input class="btn btn--sub btn--lg my-md" type="submit" value="Submit" />
@@ -60,27 +76,8 @@
 </main>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const hiddenInput = document.querySelector('input[name="tags"]');
-        if (!hiddenInput) return;
-        
-        // Initialize checkboxes based on hidden input value
-        const selectedTags = new Set(
-            hiddenInput.value ? 
-            hiddenInput.value.split(',').filter(Boolean) : 
-            []
-        );
-        
-        // Set initial checkbox states
-        document.querySelectorAll('.tag-checkbox').forEach(checkbox => {
-            checkbox.checked = selectedTags.has(checkbox.value);
-        });
-    });
-
     function handleTagChange(checkbox) {
-        // Remove the hidden input handling since we're using regular checkboxes
-        
-        // Add animation
+        // Add animation only
         const label = checkbox.nextElementSibling;
         label.style.transform = 'scale(0.95)';
         setTimeout(() => {

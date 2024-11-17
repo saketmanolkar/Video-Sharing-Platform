@@ -9,6 +9,7 @@ from .utils import add_black_bars, encode_video, cleanup_media_files
 import os
 from django.http import JsonResponse
 from datetime import datetime
+from django.contrib.auth.decorators import login_required
 
 def projects(request):
     videos = Video.objects.all().order_by('-created_at')
@@ -26,7 +27,7 @@ def project(request, pk):
     
     context = {
         'video': video,
-        'reviews': video.review_set.all().order_by('-created_at'),
+        'reviews': video.reviews.all().order_by('-created_at'),
         'tags': video.tags.all(),
         'MEDIA_URL': settings.MEDIA_URL,
         'recommended_videos': get_video_recommendations(video),
@@ -34,13 +35,17 @@ def project(request, pk):
     }
     return render(request, 'projects/single-project.html', context)
 
+@login_required
 def create_project(request):
     if request.method == 'POST':
+        print("POST data before form:", request.POST)  # Debug line
         form = ProjectForm(request.POST, request.FILES)
         print("Files received:", request.FILES)  # Debug line
+        
         if form.is_valid():
             try:
                 project = form.save(commit=False)
+                project.uploader = request.user  # Set the uploader BEFORE saving
                 
                 # Process video if provided
                 if 'file' in request.FILES:
@@ -94,6 +99,7 @@ def create_project(request):
                     return redirect('project', pk=project.id)
                     
             except Exception as e:
+                print("Error:", str(e))  # Debug line
                 messages.error(request, f'Error creating project: {str(e)}')
                 return render(request, 'projects/project_form.html', {'form': form})
         else:
@@ -135,6 +141,7 @@ def delete_project(request, pk):
         'object': project.title
     })
 
+@login_required
 def add_review(request, pk):
     video = get_object_or_404(Video, id=pk)
     if request.method == 'POST':
@@ -142,6 +149,7 @@ def add_review(request, pk):
         if form.is_valid():
             review = form.save(commit=False)
             review.video = video
+            review.user = request.user
             review.save()
             messages.success(request, 'Review added successfully!')
             return redirect('project', pk=str(pk))

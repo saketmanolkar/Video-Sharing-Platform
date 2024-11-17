@@ -51,7 +51,7 @@ class Video(models.Model):
         User, 
         on_delete=models.CASCADE,
         related_name='videos',
-        null=True
+        null=False
     )
     views = models.PositiveIntegerField(default=0)
     tags = models.ManyToManyField('Tag', blank=False, help_text="Select at least one tag (required)")
@@ -211,22 +211,22 @@ class Review(models.Model):
         related_name='reviews'
     )
     user = models.ForeignKey(
-        User, 
+        User,
         on_delete=models.CASCADE,
         related_name='reviews',
         null=True
     )
-    comment = models.TextField(
-        blank=True,
-        help_text="Video description"
-    )
+    comment = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     id = models.UUIDField(
-        default=uuid.uuid4, unique=True, 
-        primary_key=True, editable=False
+        default=uuid.uuid4,
+        primary_key=True,
+        unique=True,
+        editable=False
     )
+
     def __str__(self):
-        return f"Review by {self.user.username} for {self.video.title}"
+        return f"Review by {self.user.username if self.user else 'Anonymous'} on {self.video.title}"
 
 class Tag(models.Model):
     name = models.CharField(max_length=200)

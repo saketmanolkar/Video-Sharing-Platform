@@ -3,15 +3,6 @@ from django import forms
 from .models import Video, Tag, Review
 
 class ProjectForm(ModelForm):
-    tags = forms.ModelMultipleChoiceField(
-        queryset=Tag.objects.all(),
-        required=True,
-        widget=forms.CheckboxSelectMultiple(attrs={
-            'class': 'tag-checkbox'
-        }),
-        help_text="Please select at least one tag"
-    )
-    
     class Meta:
         model = Video
         fields = ['title', 'description', 'file', 'thumbnail', 'tags']
@@ -30,13 +21,24 @@ class ProjectForm(ModelForm):
             }),
             'thumbnail': forms.FileInput(attrs={
                 'class': 'input'
+            }),
+            'tags': forms.CheckboxSelectMultiple(attrs={
+                'class': 'tag-checkbox'
             })
         }
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        print("Files in form:", kwargs.get('files'))
-        self.label_suffix = ''
+        self.fields['tags'].help_text = "Please select at least one tag"
+        print("Form data:", kwargs.get('data'))  # Debug line
+        print("Files:", kwargs.get('files'))  # Debug line
+        print("Tags in form:", self.fields['tags'].queryset)
+        
+    def clean_tags(self):
+        tags = self.cleaned_data.get('tags')
+        if not tags:
+            raise forms.ValidationError("Please select at least one tag")
+        return tags
         
         
 class ReviewForm(ModelForm):

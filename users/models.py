@@ -6,6 +6,8 @@ from django.db import IntegrityError
 from django.templatetags.static import static
 from django.conf import settings
 import uuid
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Profile(models.Model):
     id = models.UUIDField(
@@ -172,3 +174,17 @@ def is_following(self, user):
 User.add_to_class('follow', follow)
 User.add_to_class('unfollow', unfollow)
 User.add_to_class('is_following', is_following)
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Create Profile when User is created"""
+    if created:
+        Profile.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    """Save Profile when User is saved"""
+    try:
+        instance.profile.save()
+    except Profile.DoesNotExist:
+        Profile.objects.create(user=instance)
