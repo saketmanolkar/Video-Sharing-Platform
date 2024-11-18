@@ -16,29 +16,29 @@
       <div class="grid" style="display: grid; grid-template-columns: 10% 90%; gap: 4rem; margin: 2rem 0;">
         <!-- Left Column - Profile Card (10%) -->
         <div class="column" style="position: relative; z-index: 2;">
-          <div class="card project" style="text-align: center; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: none; background: white; height: 100%;">
+          <div class="card project" style="text-align: center; padding: 1rem; border: none; background: white; height: 100%; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
             <div class="card__body dev">
               <img 
                 class="avatar avatar--xl" 
-                style="width: 120px; height: 120px; border-radius: 50%; margin: 0 auto 0.4rem auto;"
+                style="width: 150px; height: 150px; border-radius: 50%; margin: 0 auto 0.5rem auto; border: 3px solid #80D0C7;"
                 src="{{ profile.get_profile_pic_url }}"
                 alt="{{ profile.username }}" 
               />
-              <h3 class="dev__name" style="font-size: 2rem; margin-bottom: 0.2rem;">{{ profile.name }}</h3>
+              <h3 class="dev__name" style="font-size: 2rem; margin-bottom: 0.2rem; color: #333;">{{ profile.name }}</h3>
               <p style="color: #666; font-size: 1.4rem; margin-bottom: 0.2rem;">(@{{ profile.username }})</p>
-              <p class="dev__title" style="color: #666; margin-bottom: 0.2rem; font-size: 1.4rem;">
+              <p class="dev__title" style="color: #666; margin-bottom: 0.3rem; font-size: 1.3rem;">
                 {{ profile.bio|truncatechars:60|default:" " }}
               </p>
-              <p class="dev__location" style="color: #666; font-size: 1.4rem; margin-bottom: 0.1rem;">
+              <p class="dev__location" style="color: #666; font-size: 1.3rem; margin-bottom: 0.2rem;">
                 {{ profile.user.email|default:"None" }}
               </p>
-              <p class="dev__location" style="color: #666; font-size: 1.4rem; margin-bottom: 0.2rem;">
+              <p class="dev__location" style="color: #666; font-size: 1.3rem; margin-bottom: 0.3rem;">
                 Based in {{ profile.location|default:"None" }}
               </p>
               
-              <div class="social-links" style="margin: 0.2rem 0; padding: 0 0.5rem;">
+              <div class="social-links" style="margin: 0.3rem 0;">
                 {% if profile.github %}
-                <a href="{{ profile.github }}" target="_blank" class="social-icon" style="padding: 0.4rem;">
+                <a href="{{ profile.github }}" target="_blank" class="social-icon" style="padding: 0.2rem;">
                   <i class="fab fa-github"></i>
                 </a>
                 {% endif %}
@@ -68,8 +68,8 @@
                 {% endif %}
               </div>
 
-              <div style="margin-top: 0.2rem;">
-                <a href="#" class="btn btn--sub btn--lg" style="width: 90%; margin: 0 auto; font-size: 1.2rem; padding: 0.3rem; background-color: #5f5f6e;">
+              <div style="margin-top: 0.3rem;">
+                <a href="#" class="btn btn--sub btn--lg" style="width: 90%; margin: 0 auto; font-size: 1.1rem; padding: 0.2rem; background-color: #5f5f6e;">
                   Message
                 </a>
               </div>
