@@ -1,0 +1,21 @@
+{% extends 'main.html' %}
+{% load static %}
+
+{% block content %}
+<main class="projects" style="background: #f8f8f8;">
+  <section class="hero-section text-center">
+    <div class="container container--narrow">
+      <div class="hero-section__box">
+        <h2>{{ profile.name }}'s <span>View History</span></h2>
+        <p>Videos watched by {{ profile.username }}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="projectsList">
+    <div class="container">
+      {% include 'components/video_grid.html' with videos=history_videos %}
+    </div>
+  </section>
+</main>
+{% endblock %}

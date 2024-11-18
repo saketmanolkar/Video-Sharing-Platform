@@ -294,3 +294,36 @@ class Like(models.Model):
     def __str__(self):
         action = "likes" if self.is_like else "dislikes"
         return f"{self.user.username} {action} {self.video.title}"
+
+class ViewHistory(models.Model):
+    id = models.UUIDField(
+        default=uuid.uuid4, 
+        primary_key=True,
+        unique=True, 
+        editable=False
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='view_history',
+        null=True,  # Allow null for anonymous users
+        blank=True
+    )
+    video = models.ForeignKey(
+        Video,
+        on_delete=models.CASCADE,
+        related_name='views_history'
+    )
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-viewed_at']
+        indexes = [
+            models.Index(fields=['video', 'viewed_at']),
+            models.Index(fields=['user', 'viewed_at']),
+        ]
+
+    def __str__(self):
+        viewer = self.user.username if self.user else f"Anonymous ({self.ip_address})"
+        return f"{viewer} viewed {self.video.title}"

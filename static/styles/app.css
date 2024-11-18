@@ -861,3 +861,45 @@ img {
 
   z-index: 99999;
 }
+
+/* Social Media Icons */
+.social-links {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 1.5rem;
+    margin: 0;
+}
+
+.social-icon {
+    font-size: 2.4rem;
+    transition: all 0.3s ease;
+    color: #8b8b8b;
+    padding: 0.8rem;
+}
+
+.social-icon:hover {
+    transform: translateY(-2px);
+    color: var(--color-main) !important;
+}
+
+/* Specific colors for different platforms */
+.fa-github:hover {
+    color: #333 !important;
+}
+
+.fa-twitter:hover {
+    color: #1DA1F2 !important;
+}
+
+.fa-linkedin:hover {
+    color: #0077B5 !important;
+}
+
+.fa-youtube:hover {
+    color: #FF0000 !important;
+}
+
+.fa-instagram:hover {
+    color: #E4405F !important;
+}

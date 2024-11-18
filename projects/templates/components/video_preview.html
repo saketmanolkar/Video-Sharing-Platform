@@ -1,0 +1,47 @@
+{% load static %}
+
+<div class="videos-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
+  {% for item in videos|slice:":2" %}
+    {% if item.video %}
+      {# This is a ViewHistory object #}
+      <div class="video-card" style="background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+        <a href="{% url 'project' item.video.id %}" style="text-decoration: none; color: inherit;">
+          <img 
+            src="{{ item.video.get_thumbnail_url }}"
+            alt="{{ item.video.title }}"
+            style="width: 100%; height: 150px; object-fit: cover;"
+          />
+          <div style="padding: 1rem;">
+            <h4 style="font-size: 1.2rem; margin: 0 0 0.5rem 0; color: #333;">{{ item.video.title }}</h4>
+            <div style="display: flex; justify-content: space-between; color: #666; font-size: 0.9rem;">
+              <span>Viewed: {{ item.viewed_at|date:"M d, Y" }}</span>
+              <span>{{ item.video.created_at|date:"M d, Y" }}</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    {% else %}
+      {# This is a Video object #}
+      <div class="video-card" style="background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+        <a href="{% url 'project' item.id %}" style="text-decoration: none; color: inherit;">
+          <img 
+            src="{{ item.get_thumbnail_url }}"
+            alt="{{ item.title }}"
+            style="width: 100%; height: 150px; object-fit: cover;"
+          />
+          <div style="padding: 1rem;">
+            <h4 style="font-size: 1.2rem; margin: 0 0 0.5rem 0; color: #333;">{{ item.title }}</h4>
+            <div style="display: flex; justify-content: space-between; color: #666; font-size: 0.9rem;">
+              <span>{{ item.views }} views</span>
+              <span>{{ item.created_at|date:"M d, Y" }}</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    {% endif %}
+  {% empty %}
+    <p style="color: #666; font-size: 1.2rem; grid-column: 1/-1; text-align: center; padding: 2rem;">
+      No videos found
+    </p>
+  {% endfor %}
+</div>

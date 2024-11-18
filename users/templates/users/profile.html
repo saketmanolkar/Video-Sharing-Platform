@@ -1,5 +1,119 @@
-{% extends "main.html" %}
+{% extends 'main.html' %}
+{% load static %}
 
 {% block content %}
-    <h1>Profile</h1>
+<main class="projects" style="background: #f8f8f8;">
+  <section class="hero-section text-center" style="margin-bottom: 0;">
+    <div class="container container--narrow">
+      <div class="hero-section__box">
+        <h2>{{ profile.user.first_name }}'s <span>Profile</span></h2>
+      </div>
+    </div>
+  </section>
+
+  <section class="projectsList" style="margin-top: 0;">
+    <div class="container">
+      <div class="grid" style="display: grid; grid-template-columns: 10% 90%; gap: 4rem; margin: 2rem 0;">
+        <!-- Left Column - Profile Card (10%) -->
+        <div class="column" style="position: relative; z-index: 2;">
+          <div class="card project" style="text-align: center; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: none; background: white; height: 100%;">
+            <div class="card__body dev">
+              <img 
+                class="avatar avatar--xl" 
+                style="width: 120px; height: 120px; border-radius: 50%; margin: 0 auto 0.4rem auto;"
+                src="{{ profile.get_profile_pic_url }}"
+                alt="{{ profile.username }}" 
+              />
+              <h3 class="dev__name" style="font-size: 2rem; margin-bottom: 0.2rem;">{{ profile.name }}</h3>
+              <p style="color: #666; font-size: 1.4rem; margin-bottom: 0.2rem;">(@{{ profile.username }})</p>
+              <p class="dev__title" style="color: #666; margin-bottom: 0.2rem; font-size: 1.4rem;">
+                {{ profile.bio|truncatechars:60|default:" " }}
+              </p>
+              <p class="dev__location" style="color: #666; font-size: 1.4rem; margin-bottom: 0.1rem;">
+                {{ profile.user.email|default:"None" }}
+              </p>
+              <p class="dev__location" style="color: #666; font-size: 1.4rem; margin-bottom: 0.2rem;">
+                Based in {{ profile.location|default:"None" }}
+              </p>
+              
+              <div class="social-links" style="margin: 0.2rem 0; padding: 0 0.5rem;">
+                {% if profile.github %}
+                <a href="{{ profile.github }}" target="_blank" class="social-icon" style="padding: 0.4rem;">
+                  <i class="fab fa-github"></i>
+                </a>
+                {% endif %}
+                
+                {% if profile.twitter %}
+                <a href="{{ profile.twitter }}" target="_blank" class="social-icon" style="padding: 0.4rem;">
+                  <i class="fab fa-twitter"></i>
+                </a>
+                {% endif %}
+                
+                {% if profile.linkedin %}
+                <a href="{{ profile.linkedin }}" target="_blank" class="social-icon" style="padding: 0.4rem;">
+                  <i class="fab fa-linkedin"></i>
+                </a>
+                {% endif %}
+                
+                {% if profile.youtube %}
+                <a href="{{ profile.youtube }}" target="_blank" class="social-icon" style="padding: 0.4rem;">
+                  <i class="fab fa-youtube"></i>
+                </a>
+                {% endif %}
+                
+                {% if profile.instagram %}
+                <a href="{{ profile.instagram }}" target="_blank" class="social-icon" style="padding: 0.4rem;">
+                  <i class="fab fa-instagram"></i>
+                </a>
+                {% endif %}
+              </div>
+
+              <div style="margin-top: 0.2rem;">
+                <a href="#" class="btn btn--sub btn--lg" style="width: 90%; margin: 0 auto; font-size: 1.2rem; padding: 0.3rem; background-color: #5f5f6e;">
+                  Message
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column - About & Skills (90%) -->
+        <div class="column" style="margin-left: 20%;">
+          <div class="card project" style="min-height: 800px; background: white;">
+            <div class="card__body" style="padding: 4rem;">
+              
+
+              <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 2rem;">About Me</h3>
+              <p class="project--rating" style="min-height: 100px; font-size: 1.3rem; line-height: 1.8; color: #444; margin-bottom: 4rem;">
+                {{ profile.bio|default:"Hi this is Saket Manolkar" }}
+              </p>
+
+              <!-- Uploaded Videos Section -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Uploaded Videos</h3>
+                <span class="tag tag--pill tag--sub tag--lg">
+                  <a href="{% url 'user-videos' profile.id %}" style="text-decoration: none; color: inherit;">
+                    See All Videos ({{ profile.user.videos.count }})
+                  </a>
+                </span>
+              </div>
+              {% include 'components/video_preview.html' with videos=uploaded_videos %}
+
+              <!-- Viewing History Section -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Viewing History</h3>
+                <span class="tag tag--pill tag--sub tag--lg">
+                  <a href="{% url 'user-history' profile.id %}" style="text-decoration: none; color: inherit;">
+                    See All History ({{ profile.user.view_history.count }})
+                  </a>
+                </span>
+              </div>
+              {% include 'components/video_preview.html' with videos=view_history %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
 {% endblock %}

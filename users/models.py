@@ -26,6 +26,11 @@ class Profile(models.Model):
         blank=True, 
         null=True
     )
+    github = models.CharField(max_length=200, blank=True, null=True)
+    twitter = models.CharField(max_length=200, blank=True, null=True)
+    linkedin = models.CharField(max_length=200, blank=True, null=True)
+    youtube = models.CharField(max_length=200, blank=True, null=True)
+    instagram = models.CharField(max_length=200, blank=True, null=True)
     
     # Timestamps
     created = models.DateTimeField(auto_now_add=True)

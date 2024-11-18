@@ -24,36 +24,7 @@
         <!-- Search Result: DevList -->
         <section class="projectsList">
           <div class="container">
-            <div class="grid grid--three">
-              {% for video in videos %}
-              <div class="column">
-                <div class="card project">
-                  <a href="{% url 'project' video.id %}" class="project">
-                    <div class="project__thumbnail-wrapper" data-video-url="{{ video.file.url }}" data-preview-duration="15">
-                      <script>
-                        console.log("Video URL:", "{{ video.file.url }}");
-                      </script>
-                      <img class="project__thumbnail" 
-                           src="{% if video.thumbnail %}{{ video.thumbnail.url }}{% else %}{% static 'images/default.jpg' %}{% endif %}"
-                           alt="{{ video.title }}" />
-                    </div>
-                    <div class="card__body">
-                      <h3 class="project__title">{{video.title}}</h3>
-                      <a class="project__author" href="profile.html">By {{video.uploader.username}}</a>
-                      <p class="project--rating">
-                        <span style="font-weight: bold;">{{video.likes_count}}</span> Likes • <span style="font-weight: bold;">{{video.dislikes_count}}</span> Dislikes
-                      </p>
-                      <div class="project__tags">
-                        {% for tag in video.tags.all %}
-                        <span class="tag tag--pill">{{ tag.name }}</span>
-                        {% endfor %}
-                      </div>
-                    </div>
-                  </a>
-                </div>
-              </div>
-              {% endfor %}
-            </div>
+            {% include 'components/video_grid.html' with videos=videos %}
           </div>
         </section>
     

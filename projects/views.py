@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.conf import settings
 from django.core.paginator import Paginator
-from .models import Video, Review, Playlist
+from .models import Video, Review, Playlist, ViewHistory
 from .forms import ProjectForm, ReviewForm
 from .recommendations import get_video_recommendations
 from .utils import add_black_bars, encode_video, cleanup_media_files
@@ -20,8 +20,25 @@ def projects(request):
     context = {'videos': videos, 'page': 'Projects'}
     return render(request, 'projects/projects.html', context)
 
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
 def project(request, pk):    
     video = get_object_or_404(Video, id=pk)
+    
+    # Record view history for all users
+    ViewHistory.objects.create(
+        user=request.user if request.user.is_authenticated else None,
+        video=video,
+        ip_address=get_client_ip(request)
+    )
+    
+    # Increment view count
     video.views += 1
     video.save()
     
