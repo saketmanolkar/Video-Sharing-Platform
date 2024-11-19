@@ -167,3 +167,20 @@ VIDEO_ENCODING = {
         '360p': {'width': 640, 'height': 360, 'bitrate': '800k'},
     }
 }
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'filters': ['ignore_broken_pipe'],
+        },
+    },
+    'filters': {
+        'ignore_broken_pipe': {
+            '()': 'django.utils.log.CallbackFilter',
+            'callback': lambda record: 'Broken pipe' not in str(record.exc_info),
+        },
+    },
+}

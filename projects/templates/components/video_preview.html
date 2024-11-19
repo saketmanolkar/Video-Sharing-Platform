@@ -9,7 +9,7 @@
           <a href="{% url 'project' item.video.id %}" class="project">
             <div class="project__thumbnail-wrapper" data-video-url="{{ item.video.file.url }}" data-preview-duration="15">
               <img class="project__thumbnail" 
-                   src="{{ item.video.get_thumbnail_url }}"
+                   src="{% if item.video.thumbnail %}{{ item.video.thumbnail.url }}{% else %}{% static 'images/default.jpg' %}{% endif %}"
                    alt="{{ item.video.title }}" />
             </div>
             <div class="card__body">
@@ -29,7 +29,7 @@
           <a href="{% url 'project' item.id %}" class="project">
             <div class="project__thumbnail-wrapper" data-video-url="{{ item.file.url }}" data-preview-duration="15">
               <img class="project__thumbnail" 
-                   src="{{ item.get_thumbnail_url }}"
+                   src="{% if item.thumbnail %}{{ item.thumbnail.url }}{% else %}{% static 'images/default.jpg' %}{% endif %}"
                    alt="{{ item.title }}" />
             </div>
             <div class="card__body">

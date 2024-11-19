@@ -6,8 +6,6 @@ import uuid
 from django.core.cache import cache
 import os
 from django.core.files import File
-from projects.utils import cleanup_media_files
-from .storage import VideoStorage
 import json
 import logging
 from django.utils import timezone
@@ -18,191 +16,104 @@ from projects.utils import add_black_bars
 from django.utils.text import slugify
 from datetime import datetime
 from django.templatetags.static import static
+from .services.media_servies import ModelService
 
 logger = logging.getLogger(__name__)
 
 # Create your models here.
 
 class Video(models.Model):
-
-    title = models.CharField(
-        max_length=200,
-        help_text="Video title"
+    id = models.UUIDField(
+        default=uuid.uuid4,
+        primary_key=True,
+        unique=True,
+        editable=False
     )
-    description = models.TextField(
-        null=True,
-        blank=True,
-        help_text="Video description"
-    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(null=True, blank=True)
     file = models.FileField(
         upload_to='videos/',
-        storage=VideoStorage(),
-        validators=[FileExtensionValidator(['mp4', 'mov'])],
-        help_text="Upload MP4 or MOV files only"
+        validators=[FileExtensionValidator(['mp4', 'mov'])]
     )
     thumbnail = models.ImageField(
         upload_to='thumbnails/',
-        blank=True,
         null=True,
-        help_text="JPEG or PNG images only"
+        blank=True
     )
-    # User Fields
-    uploader = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE,
+    tags = models.ManyToManyField(
+        'Tag',
         related_name='videos',
-        null=False
+        blank=True
     )
-    views = models.PositiveIntegerField(default=0)
-    tags = models.ManyToManyField('Tag', blank=False, help_text="Select at least one tag (required)")
-    created_at = models.DateTimeField(default=timezone.now)
-    id = models.UUIDField(
-        default=uuid.uuid4, unique=True, 
-        primary_key=True, editable=False
+    uploader = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='uploaded_videos',
+        null=True
     )
-    
-    # Add new fields
-    encoded_versions = models.JSONField(
-        null=True,  # Make it nullable
-        blank=True,
-        default=dict  # Provide a default empty dict
-    )
-    current_quality = models.CharField(
-        max_length=10,
-        default='720p',
-        choices=[
-            ('1080p', 'Full HD'),
-            ('720p', 'HD'),
-            ('480p', 'SD'),
-            ('360p', 'Low')
-        ]
-    )
-    
-    def generate_unique_filename(self, filename):
-        """Generate unique filename for uploaded video"""
-        name, ext = os.path.splitext(filename)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        slug = slugify(self.title) if self.title else 'video'
-        return f'videos/{slug}_{timestamp}{ext}'
+    views = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    encoded_versions = models.JSONField(default=dict, blank=True)
 
-    def save(self, *args, **kwargs):
-        if self.pk is None:  # New video being created
-            if self.file:
-                # Generate unique filename for the video
-                original_file_name = self.file.name
-                self.file.name = self.generate_unique_filename(original_file_name)
-                
-        # Process thumbnail if it exists
-        if self.thumbnail:
-            self.thumbnail = add_black_bars(self.thumbnail)
-        
-        # Continue with existing save logic
-        if not self.pk:
-            try:
-                old_video = Video.objects.get(pk=self.pk)
-                if old_video.file != self.file:
-                    cleanup_media_files(os.path.basename(old_video.file.name))
-            except Video.DoesNotExist:
-                pass
-        
-        super().save(*args, **kwargs)
-        
-        # After saving, check for encoded versions
-        if self.file:
-            try:
-                name_without_ext = os.path.splitext(os.path.basename(self.file.name))[0]
-                versions_file = os.path.join(
-                    settings.MEDIA_ROOT,
-                    'videos',
-                    f"{name_without_ext}_versions.json"
-                )
-                
-                if os.path.exists(versions_file):
-                    with open(versions_file, 'r') as f:
-                        self.encoded_versions = json.load(f)
-                        super().save(update_fields=['encoded_versions'])
-                    os.remove(versions_file)  # Clean up the temporary file
-                    print(f"Updated encoded versions: {self.encoded_versions}")  # Debug print
-                    
-            except Exception as e:
-                print(f"Error loading encoded versions: {str(e)}")
-    
+    class Meta:
+        ordering = ['-created_at']
+
     def __str__(self):
         return self.title
-    
+
     @property
     def likes_count(self):
-        """Count likes (is_like=True)"""
         return self.likes.filter(is_like=True).count()
-    
+
     @property
     def dislikes_count(self):
-        """Count dislikes (is_like=False)"""
         return self.likes.filter(is_like=False).count()
 
-    def get_like_stats(self):
-        """Debug method to get detailed like statistics"""
-        total_likes = self.likes.all().count()
-        true_likes = self.likes.filter(is_like=True).count()
-        false_likes = self.likes.filter(is_like=False).count()
-        return {
-            'total': total_likes,
-            'likes': true_likes,
-            'dislikes': false_likes,
-            'all_likes': list(self.likes.all().values('id', 'is_like'))
-        }
-
     def get_video_url(self, quality=None):
-        if not quality and self.encoded_versions:
-            # Get the highest quality available
-            quality = list(self.encoded_versions.keys())[0]
-            
-        if self.encoded_versions and quality in self.encoded_versions:
-            # Get the full path to the encoded video file
-            video_filename = self.encoded_versions[quality]
-            # Make sure we're using the correct path structure
-            return f"{settings.MEDIA_URL}videos/{video_filename}"
+        return ModelService.get_video_url(self, quality)
+
+    def save(self, *args, **kwargs):
+        # Flag to track if this is a new upload
+        is_new_upload = not self.pk or (
+            self.pk and 
+            not self.encoded_versions and 
+            hasattr(self, '_file_changed') and 
+            self._file_changed
+        )
         
-        # Return original video URL if no encoded version exists
-        return self.file.url
-
-    def delete(self, *args, **kwargs):
-        try:
-            if self.file:
-                cleanup_media_files(os.path.basename(self.file.name))
-        except Exception as e:
-            logger.error(f"Error deleting video files: {str(e)}")
-        finally:
-            super().delete(*args, **kwargs)
-
-    def get_versions(self):
-        """Get all available versions of the video"""
-        try:
-            if not self.file:
-                return {}
-                
-            versions = {}
-            base_path = os.path.dirname(self.file.path)
-            name_without_ext, ext = os.path.splitext(os.path.basename(self.file.name))
+        # Clear thumbnail processing cache on new upload
+        if is_new_upload:
+            cache_key = f'thumbnail_processed_{self.pk}'
+            cache.delete(cache_key)
+        
+        # First save to ensure file is written to disk
+        super().save(*args, **kwargs)
+        
+        # Then handle encoding if needed
+        if is_new_upload and self.file:
+            # Store original file path
+            original_file = self.file.path
             
-            qualities = ['720p', '480p', '360p']
-            for quality in qualities:
-                version_name = f"{name_without_ext}_{quality}{ext}"
-                version_path = os.path.join(base_path, version_name)
-                if os.path.exists(version_path):
-                    versions[quality] = f"videos/{version_name}"
-                    
-            return versions
+            # Run encoding
+            from .signals import handle_video_encoding
+            handle_video_encoding(sender=self.__class__, instance=self)
             
-        except Exception as e:
-            logger.error(f"Error getting video versions: {str(e)}")
-            return {}
-
-    def get_thumbnail_url(self):
-        """Get thumbnail URL or default image URL"""
-        if self.thumbnail:
-            return self.thumbnail.url
-        return static('images/default.jpg')
+            # Clean up original if encoding was successful
+            if self.encoded_versions:
+                ModelService.cleanup_original_file(original_file)
+            
+            # Save again to store encoded versions
+            super().save(update_fields=['encoded_versions', 'file'])
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._original_file = self.file if self.file else None
+    
+    def clean(self):
+        super().clean()
+        if self.file and self._original_file != self.file:
+            self._file_changed = True
 
 class Review(models.Model):
     video = models.ForeignKey(

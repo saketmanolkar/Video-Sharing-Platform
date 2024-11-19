@@ -8,6 +8,10 @@ class ProjectsConfig(AppConfig):
     name = 'projects'
 
     def ready(self):
+        # Import signals
+        from . import signals
+        
+        # Create necessary directories
         media_root = settings.MEDIA_ROOT
         videos_dir = os.path.join(media_root, 'videos')
         thumbnails_dir = os.path.join(media_root, 'thumbnails')

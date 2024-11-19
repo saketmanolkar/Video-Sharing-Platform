@@ -4,10 +4,10 @@
 <div class="video-container">
     <!-- Video Player Section -->
     <div class="video-section">
-        {% if video.file %}
+        {% if video.get_video_url %}
             {% include 'components/video-player.html' with video=video %}
         {% else %}
-            <p>No video file available</p>
+            <p>Video is being processed...</p>
         {% endif %}
     </div>
 
@@ -34,17 +34,17 @@
                         </div>
                     </div>
                 </div>
-                <div class="message__author">By Dennis Ivanov</div>
+                <div class="message__author">By {{ video.uploader.username }}</div>
                 <div class="message__date">Uploaded {{ video.created_at|timesince }} ago</div>
                 
                 <div class="video-tags">
-                    {% for tag in tags %}
+                    {% for tag in video.tags.all %}
                         <span class="tag">{{ tag.name }}</span>
                     {% endfor %}
                 </div>
                 
                 <div class="message__body">
-                    <p>{{video.description}}</p>
+                    <p>{{ video.description }}</p>
                 </div>
             </div>
 
@@ -59,11 +59,14 @@
                     </div>
                 </div>
 
-                <!-- Integrated Review Form - Now handles both add and edit -->
+                <!-- Integrated Review Form -->
                 <div class="comment-form" id="commentForm" style="display: none;">
                     <form method="POST" action="{% url 'add-review' pk=video.id %}" id="reviewForm">
                         {% csrf_token %}
-                        {{ form.comment }}
+                        <div class="form-group">
+                            <textarea name="comment" class="form-control" placeholder="Write your comment here...">{{ form.comment.value|default:'' }}</textarea>
+                        </div>
+                        <input type="submit" style="display: none;">
                     </form>
                 </div>
 
@@ -73,16 +76,22 @@
                         {% if review.comment %}
                         <tr>
                             <td class="settings__tableInfo">
-                                <h4>Owner</h4>
+                                <h4>{{ review.user.username }}</h4>
                                 <p>{{ review.comment }}</p>
                             </td>
                             <td class="settings__tableActions">
-                                <button class="tag tag--pill tag--main settings__btn" onclick="editComment('{{ review.id }}', '{{ review.comment|escapejs }}')">
-                                    <i class="im im-edit"></i> Edit
-                                </button>
-                                <button class="tag tag--pill tag--main settings__btn" data-comment="{{ review.comment|escapejs }}" data-url="{% url 'delete-review' review.id %}" onclick="handleDelete(this)">
-                                    <i class="im im-x-mark-circle-o"></i> Delete
-                                </button>
+                                {% if review.user == request.user %}
+                                    <button class="tag tag--pill tag--main settings__btn" 
+                                            onclick="editComment('{{ review.id }}', '{{ review.comment|escapejs }}')">
+                                        <i class="im im-edit"></i> Edit
+                                    </button>
+                                    <button class="tag tag--pill tag--main settings__btn" 
+                                            data-comment="{{ review.comment|escapejs }}"
+                                            data-url="{% url 'delete-review' pk=review.id %}"
+                                            onclick="handleDelete(this)">
+                                        <i class="im im-x-mark-circle-o"></i> Delete
+                                    </button>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endif %}
@@ -105,13 +114,15 @@
 .video-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 20px 0 20px;
-    padding-right: 8px;
+    padding: 0 20px;
 }
 
 .video-section {
     width: 100%;
     margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .video-content-grid {
@@ -375,6 +386,16 @@ a.project:active {
 .alert {
     z-index: 1000;
 }
+
+.video-player {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    aspect-ratio: 16/9;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+}
 </style>
 
 <script>
@@ -384,19 +405,16 @@ function toggleCommentForm() {
     const button = document.getElementById('commentButton');
     
     if (commentForm.style.display === 'none') {
-        // Reset form to add mode
+        // Show form in add mode
         form.action = "{% url 'add-review' pk=video.id %}";
         form.querySelector('textarea').value = '';
         commentForm.style.display = 'block';
-        button.innerHTML = '<i class="im im-plus"></i> Submit Comment';
+        button.innerHTML = '<i class="im im-edit"></i> Submit Comment';
     } else {
         // Submit the form
-        const comment = form.querySelector('textarea[name="comment"]').value;
-        if (comment.trim() === '') {
-            alert('Please write a comment before submitting');
-            return;
-        }
         form.submit();
+        // Reset button (will be hidden by form submission handler)
+        button.innerHTML = '<i class="im im-plus"></i> Add Comment';
     }
 }
 
@@ -405,12 +423,31 @@ function editComment(reviewId, comment) {
     const commentForm = form.closest('.comment-form');
     const button = document.getElementById('commentButton');
     
-    // Change form to edit mode
+    // Show the form
+    commentForm.style.display = 'block';
+    
+    // Update form action and content
     form.action = "{% url 'update-review' pk=0 %}".replace('0', reviewId);
     form.querySelector('textarea').value = comment;
-    commentForm.style.display = 'block';
+    
+    // Update button
     button.innerHTML = '<i class="im im-edit"></i> Update Comment';
+    
+    // Scroll to form
+    commentForm.scrollIntoView({ behavior: 'smooth' });
 }
+
+// Handle form submission
+document.getElementById('reviewForm').addEventListener('submit', function(e) {
+    const button = document.getElementById('commentButton');
+    const commentForm = this.closest('.comment-form');
+    
+    // After form submission, reset the button and hide form
+    setTimeout(() => {
+        button.innerHTML = '<i class="im im-plus"></i> Add Comment';
+        commentForm.style.display = 'none';
+    }, 100);
+});
 
 function showDeleteConfirmation(objectName, deleteUrl) {
     const deletePopup = document.querySelector('.delete-popup');
@@ -444,9 +481,13 @@ function hideDeleteConfirmation() {
 }
 
 function handleDelete(button) {
-    const comment = button.dataset.comment;
-    const url = button.dataset.url;
-    showDeleteConfirmation(comment, url);
+    const comment = button.getAttribute('data-comment');
+    const url = button.getAttribute('data-url');
+    if (comment && url) {
+        showDeleteConfirmation(comment, url);
+    } else {
+        console.error('Missing data attributes:', { comment, url });
+    }
 }
 </script>
 

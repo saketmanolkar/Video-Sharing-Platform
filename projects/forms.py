@@ -33,6 +33,8 @@ class ProjectForm(ModelForm):
         print("Form data:", kwargs.get('data'))  # Debug line
         print("Files:", kwargs.get('files'))  # Debug line
         print("Tags in form:", self.fields['tags'].queryset)
+        for name, field in self.fields.items():
+            field.widget.attrs.update({'class': 'input'})
         
     def clean_tags(self):
         tags = self.cleaned_data.get('tags')

@@ -1,91 +1,134 @@
+{% load static %}
+
 <!-- Video.js CSS -->
 <link href="https://vjs.zencdn.net/8.16.1/video-js.css" rel="stylesheet" />
 
 <style>
 .video-player-container {
-  width: 100%;
-  max-width: 640px;
-  margin: 20px auto;
-  background: #f0f0f0;
-  padding: 8px;
-  border: 0.5px solid rgba(0, 0, 0, 0.08);
-  border-radius: 0.7rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 850px;  /* Match YouTube's max width */
+    margin: 0 auto 20px;
+    background: var(--color-white);
+    border-radius: 0.7rem;
+    border: 2px solid var(--color-light);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
 }
 
 .video-wrapper {
-  position: relative;
-  width: 100%;
-  background: #000;
-  overflow: hidden;
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%; /* 16:9 Aspect Ratio */
+    background: #000;
 }
 
-/* Base video player styles */
 .video-js {
-  width: 100% !important;
-  height: 0 !important;
-  padding-bottom: 56.25% !important; /* 16:9 Aspect Ratio */
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    height: 100% !important;
 }
 
-/* Vertical video container adjustments */
+/* Vertical video adjustments */
 .video-wrapper.vertical {
-  max-width: 360px;
-  margin: 0 auto;
+    padding-top: 177.78%; /* 9:16 Aspect Ratio */
+    max-width: 450px;
+    margin: 0 auto;
+    position: relative;
+    display: flex;
+    justify-content: center;
 }
 
 .video-js.vertical-video {
-  padding-bottom: 177.78% !important; /* 9:16 Aspect Ratio */
+    height: 100% !important;
+    max-width: 100% !important;
 }
 
-/* Critical fix for video element */
-.video-js video,
-.video-js .vjs-tech {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  background: #000;
+/* Custom Video.js theme to match YouTube */
+.video-js .vjs-big-play-button {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    background-color: rgba(0,0,0,0.6) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 68px !important;
+    height: 68px !important;
+    line-height: 68px !important;
+    padding: 0 !important;
+    font-size: 3em !important;
 }
 
-/* Ensure controls stay visible */
+.video-js .vjs-big-play-button .vjs-icon-placeholder:before {
+    position: static !important;
+    line-height: inherit !important;
+    transform: translateX(2px) !important;
+}
+
 .video-js .vjs-control-bar {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
+    background-color: rgba(0,0,0,0.7) !important;
 }
 
-@media (max-width: 768px) {
-  .video-player-container {
-    padding: 5px;
-  }
-  
-  .video-wrapper.vertical {
+.video-js .vjs-slider {
+    background-color: rgba(255,255,255,0.3) !important;
+}
+
+.video-js .vjs-play-progress {
+    background-color: #ff0000 !important;
+}
+
+/* Add this new style for vertical video play button */
+.video-js.vertical-video .vjs-big-play-button {
+    left: calc(50% + 0px) !important;
+    transform: translate(-50%, -50%) !important;
+}
+
+.video-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;  /* Make padding equal on both sides */
+}
+
+.video-section {
     width: 100%;
-    max-width: 360px;
-  }
+    margin-bottom: 20px;
+    display: flex;          /* Add these lines */
+    justify-content: center;  /* to center the video player */
+    align-items: center;      /* vertically center as well */
+}
+
+/* Add this new style for the video player itself */
+.video-player {
+    width: 100%;
+    max-width: 1000px;  /* or whatever maximum width you prefer */
+    margin: 0 auto;     /* center horizontally */
+    aspect-ratio: 16/9; /* maintain video aspect ratio */
+    background: #000;   /* black background for letterboxing */
+    border-radius: 8px; /* optional: rounded corners */
+    overflow: hidden;   /* keep video within bounds */
 }
 </style>
 
 <!-- Video Player Component -->
 <div class="video-player-container">
-  {% if video and video.file %}
+  {% if video %}
     <div class="video-wrapper" id="wrapper-{{ video.id }}">
       <video
         id="my-video-{{ video.id }}"
         class="video-js vjs-big-play-centered"
         controls
         preload="metadata"
-        poster="{{ video.get_thumbnail_url }}"
+        poster="{% if video.thumbnail %}{{ video.thumbnail.url }}{% else %}{% static 'images/default.jpg' %}{% endif %}"
         data-setup='{
           "controls": true,
           "autoplay": false,
           "preload": "metadata",
-          "fluid": false
+          "fluid": true
         }'
       >
-        <source src="{{ video.file.url }}" type="video/mp4" />
+        <source src="{{ video.get_video_url }}" type="video/mp4" />
         <p class="vjs-no-js">
           To view this video please enable JavaScript, and consider upgrading to a
           web browser that supports HTML5 video

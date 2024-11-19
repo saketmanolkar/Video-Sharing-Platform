@@ -1,50 +1,68 @@
-from .models import Video
+from projects.models import Video
+import logging
 
-def get_video_recommendations(current_video, max_recommendations=10):
-    """
-    Get video recommendations based on various factors, limited to 10 videos
-    
-    Args:
-        current_video: The Video object for which to find recommendations
-        max_recommendations: Maximum number of recommendations to return
-    
-    Returns:
-        List of recommended Video objects
-    """
-    
-    # Get all tags from current video
-    tags = current_video.tags.all()
-    
-    # First try to get videos with matching tags (limited to 10)
-    recommended_videos = Video.objects.filter(
-        tags__in=tags
-    ).exclude(
-        id=current_video.id
-    ).distinct().order_by('-views', '-created_at')[:10]
-    
-    # If not enough recommendations, add popular videos (maintaining total of 10)
-    if recommended_videos.count() < 10:
-        more_videos = Video.objects.exclude(
-            id__in=[v.id for v in list(recommended_videos)] + [current_video.id]
-        ).order_by('-views', '-created_at')[:10-recommended_videos.count()]
-        recommended_videos = list(recommended_videos) + list(more_videos)
-    
-    return recommended_videos[:10]
+logger = logging.getLogger(__name__)
 
-# You can add more recommendation functions here
+def get_video_recommendations(video):
+    """
+    Get video recommendations using multiple strategies:
+    1. Similar tags
+    2. Recent videos from same uploader
+    3. Most viewed videos
+    4. Recent videos
+    Returns up to 5 videos.
+    """
+    try:
+        # Start with an empty queryset
+        recommended = Video.objects.none()
+        
+        # Combine without orderings
+        if video.tags.exists():
+            tag_based = Video.objects.filter(
+                tags__in=video.tags.all()
+            ).exclude(id=video.id)
+            recommended = recommended | tag_based
+        
+        uploader_videos = Video.objects.filter(
+            uploader=video.uploader
+        ).exclude(id=video.id)
+        recommended = recommended | uploader_videos
+        
+        popular_videos = Video.objects.exclude(id=video.id)
+        recommended = recommended | popular_videos
+        
+        # Apply final ordering after combining
+        return recommended.distinct().order_by('-views', '-created_at')[:5]
+        
+    except Exception as e:
+        logger.error(f"Error getting video recommendations: {str(e)}")
+        # Fallback to recent videos
+        return Video.objects.exclude(id=video.id).order_by('-created_at')[:5]
+
 def get_trending_videos(max_videos=5):
     """Get trending videos based on views"""
-    return Video.objects.order_by('-views', '-created_at')[:max_videos]
+    try:
+        return Video.objects.order_by('-views', '-created_at')[:max_videos]
+    except Exception as e:
+        logger.error(f"Error getting trending videos: {str(e)}")
+        return Video.objects.none()
 
 def get_similar_by_tags(video, max_videos=5):
     """Get videos with similar tags"""
-    tags = video.tags.all()
-    return Video.objects.filter(
-        tags__in=tags
-    ).exclude(
-        id=video.id
-    ).distinct().order_by('-created_at')[:max_videos]
+    try:
+        return Video.objects.filter(
+            tags__in=video.tags.all()
+        ).exclude(
+            id=video.id
+        ).distinct().order_by('-created_at')[:max_videos]
+    except Exception as e:
+        logger.error(f"Error getting similar videos by tags: {str(e)}")
+        return Video.objects.none()
 
 def get_latest_videos(max_videos=5):
     """Get latest uploaded videos"""
-    return Video.objects.order_by('-created_at')[:max_videos] 
+    try:
+        return Video.objects.order_by('-created_at')[:max_videos]
+    except Exception as e:
+        logger.error(f"Error getting latest videos: {str(e)}")
+        return Video.objects.none() 

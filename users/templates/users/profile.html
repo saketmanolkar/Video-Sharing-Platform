@@ -93,11 +93,11 @@
                 <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Uploaded Videos</h3>
                 <span class="tag tag--pill tag--sub tag--lg">
                   <a href="{% url 'user-videos' profile.id %}" style="text-decoration: none; color: inherit;">
-                    See All Videos ({{ profile.user.videos.count }})
+                    See All Videos ({{ profile.user.uploaded_videos.count }})
                   </a>
                 </span>
               </div>
-              {% include 'components/video_preview.html' with videos=uploaded_videos %}
+              {% include 'components/video_preview.html' with videos=videos %}
 
               <!-- Viewing History Section -->
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">

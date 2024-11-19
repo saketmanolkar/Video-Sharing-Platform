@@ -1,15 +1,20 @@
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.conf import settings
 from django.core.paginator import Paginator
 from .models import Video, Review, Playlist, ViewHistory
 from .forms import ProjectForm, ReviewForm
 from .recommendations import get_video_recommendations
-from .utils import add_black_bars, encode_video, cleanup_media_files
+from .utils import add_black_bars, encode_video
 import os
 from django.http import JsonResponse
 from datetime import datetime
 from django.contrib.auth.decorators import login_required
+import logging
+from .services.video_services import VideoService, UtilityService
+from django.core.cache import cache
+
+logger = logging.getLogger(__name__)
 
 def projects(request):
     videos = Video.objects.all().order_by('-created_at')
@@ -20,111 +25,54 @@ def projects(request):
     context = {'videos': videos, 'page': 'Projects'}
     return render(request, 'projects/projects.html', context)
 
-def get_client_ip(request):
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
-
 def project(request, pk):    
-    video = get_object_or_404(Video, id=pk)
+    video_service = VideoService()
+    utility_service = UtilityService()
     
-    # Record view history for all users
-    ViewHistory.objects.create(
-        user=request.user if request.user.is_authenticated else None,
+    video = video_service.get_video(pk, Video)
+    
+    # Record view using service with utility service for IP
+    video_service.record_view(
         video=video,
-        ip_address=get_client_ip(request)
+        user=request.user if request.user.is_authenticated else None,
+        ip_address=utility_service.get_client_ip(request),
+        view_history_model=ViewHistory
     )
     
-    # Increment view count
-    video.views += 1
-    video.save()
+    # Get context using service
+    context = video_service.get_video_context(
+        video=video,
+        get_recommendations_func=get_video_recommendations
+    )
+    context['form'] = ReviewForm()
+    context['reviews'] = video.reviews.all().order_by('-created_at')
     
-    context = {
-        'video': video,
-        'reviews': video.reviews.all().order_by('-created_at'),
-        'tags': video.tags.all(),
-        'MEDIA_URL': settings.MEDIA_URL,
-        'recommended_videos': get_video_recommendations(video),
-        'form': ReviewForm()
-    }
     return render(request, 'projects/single-project.html', context)
 
 @login_required
 def create_project(request):
     if request.method == 'POST':
-        print("POST data before form:", request.POST)  # Debug line
         form = ProjectForm(request.POST, request.FILES)
-        print("Files received:", request.FILES)  # Debug line
-        
         if form.is_valid():
             try:
                 project = form.save(commit=False)
-                project.uploader = request.user  # Set the uploader BEFORE saving
+                project.uploader = request.user
                 
-                # Process video if provided
-                if 'file' in request.FILES:
-                    video_file = request.FILES['file']
-                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    unique_name = f"{os.path.splitext(video_file.name)[0]}_{timestamp}"
-                    input_path = os.path.join(settings.MEDIA_ROOT, 'videos', f"{unique_name}_original.mp4")
+                if 'file' not in request.FILES:
+                    raise ValueError("Video file is required")
                     
-                    # Save original temporarily
-                    with open(input_path, 'wb+') as destination:
-                        for chunk in video_file.chunks():
-                            destination.write(chunk)
-                    
-                    # Encode video in different qualities
-                    encoded_versions = {}
-                    encoding_success = False
-                    
-                    for quality in ['1280x720', '640x360']:
-                        output_name = f"{unique_name}_{quality.split('x')[1]}p.mp4"
-                        output_path = os.path.join(settings.MEDIA_ROOT, 'videos', output_name)
-                        encoded_file = encode_video(input_path, output_path, quality)
-                        if encoded_file:
-                            quality_key = f"{quality.split('x')[1]}p"
-                            encoded_versions[quality_key] = encoded_file
-                            encoding_success = True
-                    
-                    # Only proceed if encoding was successful
-                    if encoding_success:
-                        # Set the main video file to 720p version
-                        if '720p' in encoded_versions:
-                            project.file = f"videos/{encoded_versions['720p']}"
-                        
-                        # Save encoded versions info
-                        project.encoded_versions = encoded_versions
-                        project.save()
-                        form.save_m2m()  # Save the tags
-                        
-                        # Cleanup original
-                        if os.path.exists(input_path):
-                            os.remove(input_path)
-                            print(f"Deleted original file: {input_path}")
-                        
-                        messages.success(request, 'Project created successfully!')
-                        return redirect('project', pk=project.id)
-                    else:
-                        raise Exception("Video encoding failed")
-                else:
-                    project.save()
-                    form.save_m2m()  # Save the tags
-                    messages.success(request, 'Project created successfully!')
-                    return redirect('project', pk=project.id)
-                    
+                project.save()  # This triggers the signal processing
+                form.save_m2m()  # Save tags
+                
+                messages.success(request, 'Project created successfully!')
+                return redirect('project', pk=project.id)
+                
             except Exception as e:
-                print("Error:", str(e))  # Debug line
+                logger.error(f"Error creating project: {str(e)}")
                 messages.error(request, f'Error creating project: {str(e)}')
                 return render(request, 'projects/project_form.html', {'form': form})
-        else:
-            print("Form errors:", form.errors)  # Debug line
-            messages.error(request, 'Please correct the errors below.')
     else:
         form = ProjectForm()
-    
     return render(request, 'projects/project_form.html', {'form': form})
 
 def update_project(request, pk):
@@ -161,6 +109,7 @@ def delete_project(request, pk):
 @login_required
 def add_review(request, pk):
     video = get_object_or_404(Video, id=pk)
+    
     if request.method == 'POST':
         form = ReviewForm(request.POST)
         if form.is_valid():
@@ -168,31 +117,39 @@ def add_review(request, pk):
             review.video = video
             review.user = request.user
             review.save()
+            
+            # Invalidate video context cache
+            cache.delete(f'video_context_{pk}')
+            
             messages.success(request, 'Review added successfully!')
-            return redirect('project', pk=str(pk))
-    else:
-        form = ReviewForm()
+        else:
+            messages.error(request, 'Error adding review')
     
-    return render(request, 'projects/review_form.html', {
-        'form': form,
-        'video': video
-    })
+    return redirect('project', pk=pk)
 
+@login_required
 def update_review(request, pk):
     review = get_object_or_404(Review, id=pk)
+    video_id = review.video.id
+    
+    # Check if user owns this review
+    if review.user != request.user:
+        messages.error(request, 'You do not have permission to edit this review')
+        return redirect('project', pk=str(video_id))
     
     if request.method == 'POST':
-        form = ReviewForm(request.POST, instance=review)
-        if form.is_valid():
-            try:
-                form.save()
-                messages.success(request, 'Review updated successfully!')
-            except Exception as e:
-                messages.error(request, f'Error updating review: {str(e)}')
+        comment = request.POST.get('comment')
+        if comment:
+            review.comment = comment
+            review.save()
+            
+            # Invalidate cache
+            cache.delete(f'video_context_{video_id}')
+            messages.success(request, 'Review updated successfully!')
         else:
-            messages.error(request, 'Invalid form data')
+            messages.error(request, 'Comment cannot be empty')
     
-    return redirect('project', pk=str(review.video.id))
+    return redirect('project', pk=str(video_id))
 
 def delete_review(request, pk):
     review = get_object_or_404(Review, id=pk)
@@ -243,4 +200,3 @@ def debug_videos(request):
         debug_info.append(video_info)
     
     return JsonResponse({'videos': debug_info})
- 

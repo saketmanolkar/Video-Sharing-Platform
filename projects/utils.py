@@ -7,98 +7,97 @@ from PIL import Image
 import io
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 def encode_video(input_path, output_path, size):
-    """
-    Encode video with compression while maintaining aspect ratio
-    """
+    """Video encoding function with accurate metrics"""
     try:
-        if not os.path.exists(input_path):
-            print(f"Input file not found: {input_path}")
-            return False
-            
-        # Get video dimensions using ffprobe
-        probe_command = [
-            'ffprobe', '-v', 'error',
+        print(f"🎬 Encoding: {input_path} -> {output_path}")
+        
+        # Get target width from size parameter
+        target_width = int(size.split('x')[0])
+        
+        # First, probe the input video
+        probe_cmd = [
+            'ffprobe', 
+            '-v', 'error',
             '-select_streams', 'v:0',
             '-show_entries', 'stream=width,height',
             '-of', 'json',
             input_path
         ]
-        probe_result = subprocess.run(probe_command, capture_output=True, text=True)
-        video_info = json.loads(probe_result.stdout)
         
-        # Extract target dimensions from size parameter
-        target_width = int(size.split('x')[0])
-        target_height = int(size.split('x')[1])
+        # Default to horizontal scaling
+        scale_filter = f'scale={target_width}:-2'
         
-        # Calculate dimensions maintaining aspect ratio
-        width = int(video_info['streams'][0]['width'])
-        height = int(video_info['streams'][0]['height'])
+        try:
+            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+            if probe_result.returncode == 0:
+                video_info = json.loads(probe_result.stdout)
+                original_width = int(video_info['streams'][0]['width'])
+                original_height = int(video_info['streams'][0]['height'])
+                
+                print(f"📐 Original dimensions: {original_width}x{original_height}")
+                
+                # For vertical videos, calculate appropriate target height
+                if original_height > original_width:
+                    # Calculate target height maintaining aspect ratio
+                    target_height = min(720, int(target_width * (original_height / original_width)))
+                    scale_filter = f'scale=-2:{target_height}'
+                    print(f"🔄 Vertical video detected, scaling to height: {target_height}")
+                
+        except Exception as e:
+            print(f"⚠️ Video probe failed, using default scaling: {str(e)}")
         
-        if width/height > target_width/target_height:
-            # Width limited
-            new_width = target_width
-            new_height = int((height * target_width/width) // 2) * 2  # Ensure even number
-        else:
-            # Height limited 
-            new_height = target_height
-            new_width = int((width * target_height/height) // 2) * 2  # Ensure even number
-            
-        # Generate unique output filename
-        output_dir = os.path.dirname(output_path)
-        output_name = os.path.basename(output_path)
-        name, ext = os.path.splitext(output_name)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        unique_output_path = os.path.join(output_dir, f"{name}_{timestamp}{ext}")
+        # Adjust CRF based on resolution
+        crf = '23' if target_width >= 1280 else '26'
         
-        # Encode video
         command = [
             'ffmpeg', '-i', input_path,
-            '-c:v', 'libx264', '-crf', '23',
-            '-preset', 'medium',
-            '-c:a', 'aac', '-b:a', '128k',
-            '-vf', f'scale={new_width}:{new_height}',
-            '-movflags', '+faststart',
-            '-y', unique_output_path
+            '-c:v', 'libx264',        # Video codec
+            '-preset', 'medium',       # Encoding speed preset
+            '-crf', crf,              # Quality (18-28, lower = better)
+            '-c:a', 'aac',            # Audio codec
+            '-b:a', '128k',           # Audio bitrate
+            '-vf', scale_filter,      # Video scaling with aspect ratio
+            '-movflags', '+faststart', # Web optimization
+            '-y',                      # Overwrite output
+            output_path
         ]
         
+        print(f"🛠️ Running command: {' '.join(command)}")
         result = subprocess.run(command, capture_output=True, text=True)
         
-        if result.returncode != 0:
-            print(f"Encoding error: {result.stderr}")
-            return False
+        if result.returncode == 0:
+            print(f"✨ Encoding successful")
+            # Get accurate file sizes in bytes
+            original_size = os.path.getsize(input_path)
+            print(f"📊 Original size: {original_size:,} bytes ({original_size/1024/1024:.2f}MB)")
             
-        return os.path.basename(unique_output_path)
-        
-    except Exception as e:
-        print(f"Encoding error: {str(e)}")
+            # After encoding
+            encoded_size = os.path.getsize(output_path)
+            size_change = encoded_size - original_size
+            ratio = (size_change / original_size) * 100
+            
+            print(f"📊 Encoding metrics:")
+            print(f"   Original: {original_size:,} bytes ({original_size/1024/1024:.2f}MB)")
+            print(f"   Encoded:  {encoded_size:,} bytes ({encoded_size/1024/1024:.2f}MB)")
+            print(f"   Change:   {'+' if size_change > 0 else ''}{ratio:.1f}% ({'+' if size_change > 0 else ''}{size_change:,} bytes)")
+            
+            # Warning if size increased
+            if encoded_size > original_size:
+                print("⚠️ Warning: Encoded file is larger than original!")
+            
+            return True
+            
+        print(f"❌ FFmpeg error: {result.stderr}")
         return False
-
-def cleanup_media_files(base_filename, media_type='videos'):
-    """
-    Clean up encoded video files
-    """
-    try:
-        media_dir = os.path.join(settings.MEDIA_ROOT, media_type)
-        name, ext = os.path.splitext(base_filename)
         
-        # Only look for encoded versions
-        patterns = [
-            f"{name}*_720p{ext}",
-            f"{name}*_360p{ext}",
-            f"{name}*_versions.json"
-        ]
-        
-        for pattern in patterns:
-            full_pattern = os.path.join(media_dir, pattern)
-            for file_path in glob.glob(full_pattern):
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    print(f"Removed: {file_path}")
-                    
     except Exception as e:
-        print(f"Cleanup error: {str(e)}")
+        print(f"❌ Encoding error: {str(e)}")
+        return False
 
 def add_black_bars(image_file):
     """Add black bars to vertical images to make them 16:9"""
@@ -128,7 +127,7 @@ def add_black_bars(image_file):
                 None
             )
     except Exception as e:
-        print(f"Error processing thumbnail: {str(e)}")
+        logger.error(f"Error processing thumbnail: {str(e)}")
         return None
     
     return image_file  # Return original if no processing needed
