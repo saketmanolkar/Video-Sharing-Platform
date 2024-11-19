@@ -659,7 +659,7 @@ img {
   left: 0;
   bottom: 0;
   right: 0;
-  background: url(../images/pattern.jpg);
+  background: url('/static/images/pattern.jpg');
 }
 
 .auth > .card {
@@ -902,4 +902,27 @@ img {
 
 .fa-instagram:hover {
     color: #E4405F !important;
+}
+
+
+
+/* Add new unique styles */
+.vid-creator {
+    font-size: 1.6rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-sub-light);
+}
+
+.vid-creator__link {
+    display: inline-block;
+    text-decoration: none;
+    color: var(--color-sub);
+    font-weight: 500;
+    transition: all 0.3s ease;
+    font-size: 1.4rem;
+}
+
+.vid-creator__link:hover {
+    color: #d08f80;
+    transform: translateY(-1px);
 }

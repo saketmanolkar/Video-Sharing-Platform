@@ -4,8 +4,8 @@
 <div class="video-container">
     <!-- Video Player Section -->
     <div class="video-section">
-        {% if video.get_video_url %}
-            {% include 'components/video-player.html' with video=video %}
+        {% if video_url %}
+            {% include 'components/video-player.html' with video=video video_url=video_url %}
         {% else %}
             <p>Video is being processed...</p>
         {% endif %}
@@ -21,11 +21,11 @@
                     <h2 class="message__subject">{{ video.title }}</h2>
                     <div class="video-stats">
                         <div class="stats-item">
-                            <span class="stats-count">{{ video.likes_count }}</span>
+                            <span class="stats-count">{{ likes_count }}</span>
                             <span class="stats-label">Likes</span>
                         </div>
                         <div class="stats-item">
-                            <span class="stats-count">{{ video.dislikes_count }}</span>
+                            <span class="stats-count">{{ dislikes_count }}</span>
                             <span class="stats-label">Dislikes</span>
                         </div>
                         <div class="stats-item">
@@ -34,7 +34,12 @@
                         </div>
                     </div>
                 </div>
-                <div class="message__author">By {{ video.uploader.username }}</div>
+                <div class="vid-creator" style="font-size: 1.6rem; margin-bottom: 0.5rem; color: var(--color-sub-light);">
+                    By <a href="{% url 'profile' video.uploader.profile.id %}" 
+                          style="display: inline-block; text-decoration: none; color: var(--color-sub); font-weight: 500; transition: all 0.3s ease; font-size: 1.5rem;">
+                        {{ video.uploader.username }}
+                    </a>
+                </div>
                 <div class="message__date">Uploaded {{ video.created_at|timesince }} ago</div>
                 
                 <div class="video-tags">

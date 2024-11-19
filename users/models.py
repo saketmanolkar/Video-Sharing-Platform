@@ -1,11 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models import Count
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
 from django.templatetags.static import static
-from django.conf import settings
 import uuid
+
 
 class Profile(models.Model):
     id = models.UUIDField(
@@ -56,22 +54,24 @@ class Profile(models.Model):
         return self.user.username
     
     @property
+    def total_views(self):
+        from users.services.user_services import ProfileService
+        profile_service = ProfileService()
+        return profile_service.get_total_views(self.user)
+
+    @property
     def followers_count(self):
-        """Get total number of followers"""
-        return self.user.followers_set.count()
+        from users.services.follow_services import FollowService
+        follow_service = FollowService()
+        stats = follow_service.get_follower_stats(self)
+        return stats['followers_count']
 
     @property
     def following_count(self):
-        """Get total number of users being followed"""
-        return self.user.following_set.count()
-    
-    @property
-    def total_views(self):
-        """Get total views across all videos"""
-        from projects.models import Video
-        return Video.objects.filter(uploader=self.user).aggregate(
-            total_views=models.Sum('views')
-        )['total_views'] or 0
+        from users.services.follow_services import FollowService
+        follow_service = FollowService()
+        stats = follow_service.get_follower_stats(self)
+        return stats['following_count']
 
     def get_profile_pic_url(self):
         """Get profile picture URL with proper fallback"""
@@ -83,100 +83,17 @@ class Profile(models.Model):
         super().save(*args, **kwargs)
 
 class Follow(models.Model):
-    id = models.UUIDField(
-        default=uuid.uuid4, 
-        primary_key=True,
-        unique=True, 
-        editable=False
-    )
-    follower = models.ForeignKey(
-        User,
-        related_name='following_set',
-        on_delete=models.CASCADE
-    )
-    following = models.ForeignKey(
-        User,
-        related_name='followers_set',
-        on_delete=models.CASCADE
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='following_set')
+    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='followers_set')
+    created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('follower', 'following')
-        indexes = [models.Index(fields=['follower', 'following'])]
-
-    def clean(self):
-        """Validate the follow relationship"""
-        if self.follower == self.following:
-            raise ValidationError("Users cannot follow themselves.")
-        
-        if Follow.objects.filter(
-            follower=self.follower, 
-            following=self.following
-        ).exists():
-            raise ValidationError("Already following this user.")
-
-    def save(self, *args, **kwargs):
-        self.clean()  # Run validation before saving
-        super().save(*args, **kwargs)
+        unique_together = ('user', 'following')
+        ordering = ['-created']
 
     def __str__(self):
-        return f"{self.follower.username} follows {self.following.username}"
+        return f"{self.user.username} follows {self.following.username}"
 
-def follow(self, user_to_follow):
-    """Follow another user with error handling"""
-    try:
-        if not user_to_follow:
-            raise ValidationError("User to follow does not exist.")
-            
-        if self == user_to_follow:
-            raise ValidationError("You cannot follow yourself.")
-            
-        _, created = Follow.objects.get_or_create(
-            follower=self,
-            following=user_to_follow
-        )
-        if not created:
-            raise ValidationError("Already following this user.")
-            
-        return True, "Successfully followed user."
-        
-    except ValidationError as e:
-        return False, str(e)
-    except Exception as e:
-        return False, f"An error occurred: {str(e)}"
-
-def unfollow(self, user_to_unfollow):
-    """Unfollow a user with error handling"""
-    try:
-        if not user_to_unfollow:
-            raise ValidationError("User to unfollow does not exist.")
-            
-        follow = Follow.objects.filter(
-            follower=self,
-            following=user_to_unfollow
-        )
-        if not follow.exists():
-            raise ValidationError("Not following this user.")
-            
-        follow.delete()
-        return True, "Successfully unfollowed user."
-        
-    except ValidationError as e:
-        return False, str(e)
-    except Exception as e:
-        return False, f"An error occurred: {str(e)}"
-
-def is_following(self, user):
-    """Check if following a user"""
-    try:
-        if not user:
-            return False
-        return self.following_set.filter(following=user).exists()
-    except Exception:
-        return False
-
-# Add methods to User model
-User.add_to_class('follow', follow)
-User.add_to_class('unfollow', unfollow)
-User.add_to_class('is_following', is_following)
+    def clean(self):
+        if self.user == self.following:
+            raise ValidationError("Users cannot follow themselves.")

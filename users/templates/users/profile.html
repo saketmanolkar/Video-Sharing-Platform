@@ -36,6 +36,21 @@
                 Based in {{ profile.location|default:"None" }}
               </p>
               
+              <div class="stats" style="display: flex; justify-content: center; gap: 2rem; margin: 1rem 0;">
+                  <div class="stat-item" style="text-align: center;">
+                      <p style="font-size: 1.8rem; font-weight: 600; color: var(--color-sub);">
+                          {{ profile.followers_count }}
+                      </p>
+                      <p style="font-size: 1.3rem; color: #666;">Followers</p>
+                  </div>
+                  <div class="stat-item" style="text-align: center;">
+                      <p style="font-size: 1.8rem; font-weight: 600; color: var(--color-sub);">
+                          {{ profile.following_count }}
+                      </p>
+                      <p style="font-size: 1.3rem; color: #666;">Following</p>
+                  </div>
+              </div>
+
               <div class="social-links" style="margin: 0.3rem 0;">
                 {% if profile.github %}
                 <a href="{{ profile.github }}" target="_blank" class="social-icon" style="padding: 0.2rem;">

@@ -3,8 +3,8 @@ from django.conf import settings
 import os
 import logging
 from django.core.cache import cache
-from projects.models import Video
 import time
+
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +16,9 @@ class VideoService:
     @staticmethod
     def record_view(video, user, ip_address, view_history_model):
         """Handle view recording with session-based tracking"""
-        # Create cache key that expires with browser session
         cache_key = f'view_{video.id}_{user.id if user else ip_address}_{int(time.time() / 300)}'
         
-        # Check if view was recorded in current 5-minute window
         if not cache.get(cache_key):
-            # Record view
             view_history_model.objects.create(
                 video=video,
                 user=user,
@@ -30,19 +27,18 @@ class VideoService:
             video.views += 1
             video.save()
             
-            # Cache for current 5-minute window only
             cache.set(cache_key, True, timeout=300)
     
     @staticmethod
     def get_video_context(video, get_recommendations_func):
         """Get common video context data"""
+        from projects.models import Video  # Import here to avoid circular import
+        
         cache_key = f'video_context_{video.id}'
         context = cache.get(cache_key)
         if not context:
-            # Get recommendations using multiple methods
             recommended = get_recommendations_func(video)
             if not recommended.exists():
-                # Fallback to recent videos if no recommendations
                 recommended = Video.objects.exclude(id=video.id).order_by('-created_at')[:5]
             
             context = {
@@ -51,7 +47,7 @@ class VideoService:
                 'tags': video.tags.all(),
                 'recommended_videos': recommended,
             }
-            cache.set(cache_key, context, timeout=3600)  # Cache for 1 hour
+            cache.set(cache_key, context, timeout=3600)
         return context
     
     @staticmethod
@@ -62,11 +58,62 @@ class VideoService:
     @staticmethod
     def update_video(video_id, data):
         """Update video and invalidate cache"""
+        from projects.models import Video  # Move import here to avoid circular import
         video = Video.objects.get(id=video_id)
         video.title = data['title']
         video.save()
         
         VideoService.invalidate_video_cache(video_id)
+    
+    @staticmethod
+    def get_likes_count(video):
+        """Get count of likes for video"""
+        return video.likes.filter(is_like=True).count()
+    
+    @staticmethod
+    def get_dislikes_count(video):
+        """Get count of dislikes for video"""
+        return video.likes.filter(is_like=False).count()
+    
+    @staticmethod
+    def handle_video_save(video, *args, **kwargs):
+        """Handle video save operations including encoding"""
+        # Skip if we're already in a save operation
+        if getattr(video, '_saving', False):
+            return
+        
+        video._saving = True
+        try:
+            is_new_upload = not video.pk or (
+                video.pk and 
+                not video.encoded_versions and 
+                hasattr(video, '_file_changed') and 
+                video._file_changed
+            )
+            
+            if is_new_upload:
+                cache_key = f'thumbnail_processed_{video.pk}'
+                cache.delete(cache_key)
+            
+            super(video.__class__, video).save(*args, **kwargs)  # Call the actual model save
+            
+            if is_new_upload and video.file:
+                original_file = video.file.path
+                from projects.signals import handle_video_encoding
+                handle_video_encoding(sender=video.__class__, instance=video)
+                
+                if video.encoded_versions:
+                    VideoService.cleanup_original_file(original_file)
+                
+                super(video.__class__, video).save(update_fields=['encoded_versions', 'file'])
+        finally:
+            video._saving = False
+    
+    @staticmethod
+    def cleanup_original_file(file_path):
+        """Delete original video file after encoding"""
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 class UtilityService:
     @staticmethod

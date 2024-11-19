@@ -17,6 +17,7 @@ from django.utils.text import slugify
 from datetime import datetime
 from django.templatetags.static import static
 from .services.media_servies import ModelService
+from .services.video_services import VideoService
 
 logger = logging.getLogger(__name__)
 
@@ -62,49 +63,8 @@ class Video(models.Model):
     def __str__(self):
         return self.title
 
-    @property
-    def likes_count(self):
-        return self.likes.filter(is_like=True).count()
-
-    @property
-    def dislikes_count(self):
-        return self.likes.filter(is_like=False).count()
-
-    def get_video_url(self, quality=None):
-        return ModelService.get_video_url(self, quality)
-
     def save(self, *args, **kwargs):
-        # Flag to track if this is a new upload
-        is_new_upload = not self.pk or (
-            self.pk and 
-            not self.encoded_versions and 
-            hasattr(self, '_file_changed') and 
-            self._file_changed
-        )
-        
-        # Clear thumbnail processing cache on new upload
-        if is_new_upload:
-            cache_key = f'thumbnail_processed_{self.pk}'
-            cache.delete(cache_key)
-        
-        # First save to ensure file is written to disk
-        super().save(*args, **kwargs)
-        
-        # Then handle encoding if needed
-        if is_new_upload and self.file:
-            # Store original file path
-            original_file = self.file.path
-            
-            # Run encoding
-            from .signals import handle_video_encoding
-            handle_video_encoding(sender=self.__class__, instance=self)
-            
-            # Clean up original if encoding was successful
-            if self.encoded_versions:
-                ModelService.cleanup_original_file(original_file)
-            
-            # Save again to store encoded versions
-            super().save(update_fields=['encoded_versions', 'file'])
+        VideoService.handle_video_save(self, *args, **kwargs)
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -14,7 +14,7 @@
         </label>
         <ul class="header__menu">
           <li class="header__menuItem"><a href="{% url 'projects'%}">Videos</a></li>
-          <li class="header__menuItem"><a href="login.html">Login / Sign Up</a></li>
+          <li class="header__menuItem"><a href="{% url 'login-register' %}">Login / Sign Up</a></li>
           <li class="header__menuItem"><a href="inbox.html">Inbox</a></li>
           {% if user.is_authenticated %}
             <li class="header__menuItem"><a href="{% url 'profile' user.profile.id %}">My Account</a></li>

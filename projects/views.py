@@ -12,6 +12,7 @@ from datetime import datetime
 from django.contrib.auth.decorators import login_required
 import logging
 from .services.video_services import VideoService, UtilityService
+from .services.media_servies import ModelService
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
@@ -44,8 +45,15 @@ def project(request, pk):
         video=video,
         get_recommendations_func=get_video_recommendations
     )
-    context['form'] = ReviewForm()
-    context['reviews'] = video.reviews.all().order_by('-created_at')
+    
+    # Make sure video_url is included in context
+    context.update({
+        'likes_count': VideoService.get_likes_count(video),
+        'dislikes_count': VideoService.get_dislikes_count(video),
+        'video_url': ModelService.get_video_url(video),
+        'form': ReviewForm(),
+        'reviews': video.reviews.all().order_by('-created_at')
+    })
     
     return render(request, 'projects/single-project.html', context)
 
