@@ -1,4 +1,5 @@
 function createCommentRow(comment) {
+    const escapedComment = comment.comment.replace(/"/g, '&quot;');
     return `
         <tr data-review-id="${comment.id}">
             <td class="settings__tableInfo">
@@ -7,12 +8,14 @@ function createCommentRow(comment) {
             </td>
             <td class="settings__tableActions">
                 ${comment.is_owner ? `
-                    <button class="tag tag--pill tag--main settings__btn" 
-                            onclick="editComment('${comment.id}', '${comment.comment}')">
+                    <button class="tag tag--pill tag--main settings__btn edit-btn" 
+                            data-id="${comment.id}" 
+                            data-comment="${escapedComment}">
                         <i class="im im-edit"></i> Edit
                     </button>
-                    <button class="tag tag--pill tag--main settings__btn" 
-                            onclick="showDeleteConfirmation('${comment.id}', '${comment.comment}')">
+                    <button class="tag tag--pill tag--main settings__btn delete-btn" 
+                            data-id="${comment.id}" 
+                            data-comment="${escapedComment}">
                         <i class="im im-x-mark"></i> Delete
                     </button>
                 ` : ''}
@@ -24,6 +27,11 @@ function createCommentRow(comment) {
 function handleSubmit(event) {
     event.preventDefault();
     const form = event.target;
+    
+    // Prevent double submissions
+    if (form.dataset.submitting === 'true') return;
+    form.dataset.submitting = 'true';
+    
     const formData = new FormData(form);
     
     fetch(form.action, {
@@ -49,9 +57,13 @@ function handleSubmit(event) {
             // Add new/updated comment at the top
             commentsList.insertAdjacentHTML('afterbegin', newCommentHtml);
             
-            // Reset form
+            // Reset form and hide it
             form.reset();
-            toggleCommentForm();
+            const commentForm = document.getElementById('commentForm');
+            commentForm.style.display = 'none';
+            const commentButton = document.getElementById('commentButton');
+            commentButton.innerHTML = '<i class="im im-plus"></i> Add Comment';
+            
             showMessage('Comment ' + (form.action.includes('update') ? 'updated' : 'added') + ' successfully!', 'success');
         } else {
             showMessage(data.error || 'Error saving comment', 'error');
@@ -60,40 +72,54 @@ function handleSubmit(event) {
     .catch(error => {
         console.error('Error:', error);
         showMessage('Error saving comment', 'error');
+    })
+    .finally(() => {
+        // Reset submitting state
+        form.dataset.submitting = 'false';
     });
 }
 
-// Add this function to handle the Add Comment button click
-function handleCommentClick() {
-    if (!isAuthenticated) {
-        window.location.href = loginUrl;
-        return;
-    }
-    
-    const commentForm = document.getElementById('commentForm');
-    const form = document.getElementById('reviewForm');
-    const commentButton = document.getElementById('commentButton');
-    
-    if (commentForm.style.display === 'none') {
-        // Show form
-        commentForm.style.display = 'block';
-        form.action = addReviewUrl;
-        commentButton.innerHTML = '<i class="im im-plus"></i> Submit Comment';
-    } else {
-        // If form is visible, submit it
-        const textarea = form.querySelector('textarea');
-        if (textarea.value.trim()) {
-            form.dispatchEvent(new Event('submit'));
-        } else {
-            // Hide form if empty
-            commentForm.style.display = 'none';
-            form.reset();
-            commentButton.innerHTML = '<i class="im im-plus"></i> Add Comment';
+// Add this global event handler for all buttons
+function initializeAllButtonHandlers() {
+    // Handle all button clicks through event delegation
+    document.addEventListener('click', function(e) {
+        const target = e.target.closest('button');
+        if (!target) return;
+
+        // Prevent double-clicks
+        if (target.dataset.processing === 'true') return;
+        target.dataset.processing = 'true';
+        
+        setTimeout(() => {
+            target.dataset.processing = 'false';
+        }, 500); // Prevent rapid clicking
+
+        // Handle different button types
+        if (target.id === 'commentButton') {
+            handleCommentClick();
+        } else if (target.classList.contains('edit-btn')) {
+            const commentText = target.closest('tr').querySelector('p').textContent;
+            editComment(target.dataset.id, commentText);
+        } else if (target.classList.contains('delete-btn')) {
+            showDeleteConfirmation(target.dataset.id, target.dataset.comment);
         }
-    }
+    });
 }
 
-// Update editComment function to handle submission
+// Update the DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', function() {
+    loadInitialComments();
+    initializeAllButtonHandlers();
+    
+    // Add form submit handler
+    const reviewForm = document.getElementById('reviewForm');
+    if (reviewForm) {
+        reviewForm.removeEventListener('submit', handleSubmit);  // Remove any existing handlers
+        reviewForm.addEventListener('submit', handleSubmit);     // Add single handler
+    }
+});
+
+// Update editComment function to use event delegation
 function editComment(reviewId, comment) {
     if (!isAuthenticated) {
         window.location.href = loginUrl;
@@ -103,34 +129,42 @@ function editComment(reviewId, comment) {
     const commentForm = document.getElementById('commentForm');
     const form = document.getElementById('reviewForm');
     const commentButton = document.getElementById('commentButton');
+    const textarea = form.querySelector('textarea');
     
-    // Show the form
+    // Show the form and populate textarea
     commentForm.style.display = 'block';
+    textarea.value = comment;
     
-    // Update form action and content
+    // Update form action
     form.action = `/review/${reviewId}/update/`;
-    form.querySelector('textarea').value = comment;
     
-    // Update main button and make it submit on click
+    // Update main button
     commentButton.innerHTML = '<i class="im im-edit"></i> Update Comment';
-    commentButton.onclick = function() {
-        if (form.querySelector('textarea').value.trim()) {
-            form.dispatchEvent(new Event('submit'));
-        }
-    };
 }
 
-// Add this function since it's being used in handleSubmit
-function toggleCommentForm() {
+// Remove individual onclick handlers from other functions
+function handleCommentClick() {
+    if (!isAuthenticated) {
+        window.location.href = loginUrl;
+        return;
+    }
+    
     const commentForm = document.getElementById('commentForm');
     const form = document.getElementById('reviewForm');
     const commentButton = document.getElementById('commentButton');
+    const textarea = form.querySelector('textarea');
     
-    // Hide form and reset
-    commentForm.style.display = 'none';
-    form.reset();
-    form.action = addReviewUrl;
-    commentButton.innerHTML = '<i class="im im-plus"></i> Add Comment';
+    if (commentForm.style.display === 'none' || !commentForm.style.display) {
+        commentForm.style.display = 'block';
+        form.reset();
+        form.action = addReviewUrl;
+        commentButton.innerHTML = '<i class="im im-plus"></i> Submit Comment';
+    } else if (textarea.value.trim()) {
+        form.dispatchEvent(new Event('submit'));
+    } else {
+        commentForm.style.display = 'none';
+        commentButton.innerHTML = '<i class="im im-plus"></i> Add Comment';
+    }
 }
 
 // Add this function to load initial comments
@@ -143,11 +177,6 @@ function loadInitialComments() {
         commentsList.innerHTML = commentsHtml;
     }
 }
-
-// Call this when the page loads
-document.addEventListener('DOMContentLoaded', function() {
-    loadInitialComments();
-});
 
 // Delete Comment Functions
 function showDeleteConfirmation(commentId, commentText) {
@@ -200,6 +229,24 @@ function handleDeleteComment(event) {
             }
             hideDeleteConfirmation();
             showMessage('Comment deleted successfully!', 'success');
+            
+            // Properly reset the comment button
+            const commentButton = document.getElementById('commentButton');
+            if (commentButton) {
+                commentButton.onclick = handleCommentClick;
+                commentButton.innerHTML = '<i class="im im-plus"></i> Add Comment';
+            }
+            
+            // Ensure form is hidden and reset
+            const commentForm = document.getElementById('commentForm');
+            if (commentForm) {
+                commentForm.style.display = 'none';
+                const form = document.getElementById('reviewForm');
+                if (form) {
+                    form.reset();
+                    form.action = addReviewUrl;
+                }
+            }
         } else {
             showMessage(data.error || 'Error deleting comment', 'error');
         }
@@ -208,5 +255,14 @@ function handleDeleteComment(event) {
         console.error('Error:', error);
         showMessage('Error deleting comment', 'error');
     });
+}
+
+// Remove onsubmit attribute from the form in HTML and handle it in JavaScript
+function initializeFormHandlers() {
+    const form = document.getElementById('reviewForm');
+    if (form) {
+        form.removeAttribute('onsubmit');
+        form.addEventListener('submit', handleSubmit);
+    }
 }
 

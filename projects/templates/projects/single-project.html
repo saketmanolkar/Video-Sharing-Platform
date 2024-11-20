@@ -60,7 +60,6 @@
                     <div class="settings__header">
                         <h3 class="settings__title">Comments</h3>
                         <button class="tag tag--pill tag--sub settings__btn tag--xl" 
-                                onclick="handleCommentClick()" 
                                 id="commentButton">
                             <i class="im im-plus"></i> Add Comment
                         </button>
@@ -69,11 +68,12 @@
 
                 <!-- Integrated Review Form -->
                 <div class="comment-form" id="commentForm" style="display: none;">
-                    <form method="POST" action="{% url 'add-review' pk=video.id %}" id="reviewForm" onsubmit="handleSubmit(event)">
+                    <form method="POST" action="{% url 'add-review' pk=video.id %}" id="reviewForm">
                         {% csrf_token %}
                         <div class="form-group">
                             <textarea name="comment" class="form-control" placeholder="Write your comment here...">{{ form.comment.value|default:'' }}</textarea>
                         </div>
+                        <button type="submit" style="display: none;">Submit</button>
                     </form>
                 </div>
 
@@ -389,6 +389,7 @@ a.project:active {
     data-auth="{{ request.user.is_authenticated|lower }}"
     data-login-url="{% url 'login-page' %}"
     data-add-review-url="{% url 'add-review' pk=video.id %}"
+    data-update-review-base-url="/review/"
     data-csrf="{{ csrf_token }}"
 >
 
