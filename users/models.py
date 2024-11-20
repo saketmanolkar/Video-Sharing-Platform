@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.templatetags.static import static
+from django.contrib.staticfiles.storage import staticfiles_storage
 import uuid
 
 
@@ -75,9 +75,9 @@ class Profile(models.Model):
 
     def get_profile_pic_url(self):
         """Get profile picture URL with proper fallback"""
-        if self.profile_pics:
-            return self.profile_pics.url
-        return static('images/user-default.jpg')
+        from users.services.user_services import ProfileService
+        profile_service = ProfileService()
+        return profile_service.get_profile_picture_url(self)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

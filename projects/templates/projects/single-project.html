@@ -1,4 +1,5 @@
 {% extends 'main.html' %}
+{% load static %}
 {% block content %}
 
 <div class="video-container">
@@ -58,7 +59,9 @@
                 <div class="settings">
                     <div class="settings__header">
                         <h3 class="settings__title">Comments</h3>
-                        <button class="tag tag--pill tag--sub settings__btn tag--xl" onclick="toggleCommentForm()" id="commentButton">
+                        <button class="tag tag--pill tag--sub settings__btn tag--xl" 
+                                onclick="handleCommentClick()" 
+                                id="commentButton">
                             <i class="im im-plus"></i> Add Comment
                         </button>
                     </div>
@@ -66,41 +69,17 @@
 
                 <!-- Integrated Review Form -->
                 <div class="comment-form" id="commentForm" style="display: none;">
-                    <form method="POST" action="{% url 'add-review' pk=video.id %}" id="reviewForm">
+                    <form method="POST" action="{% url 'add-review' pk=video.id %}" id="reviewForm" onsubmit="handleSubmit(event)">
                         {% csrf_token %}
                         <div class="form-group">
                             <textarea name="comment" class="form-control" placeholder="Write your comment here...">{{ form.comment.value|default:'' }}</textarea>
                         </div>
-                        <input type="submit" style="display: none;">
                     </form>
                 </div>
 
                 <div class="comments-list">
                     <table class="settings__table">
-                        {% for review in reviews %}
-                        {% if review.comment %}
-                        <tr>
-                            <td class="settings__tableInfo">
-                                <h4>{{ review.user.username }}</h4>
-                                <p>{{ review.comment }}</p>
-                            </td>
-                            <td class="settings__tableActions">
-                                {% if review.user == request.user %}
-                                    <button class="tag tag--pill tag--main settings__btn" 
-                                            onclick="editComment('{{ review.id }}', '{{ review.comment|escapejs }}')">
-                                        <i class="im im-edit"></i> Edit
-                                    </button>
-                                    <button class="tag tag--pill tag--main settings__btn" 
-                                            data-comment="{{ review.comment|escapejs }}"
-                                            data-url="{% url 'delete-review' pk=review.id %}"
-                                            onclick="handleDelete(this)">
-                                        <i class="im im-x-mark-circle-o"></i> Delete
-                                    </button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endif %}
-                        {% endfor %}
+                        <!-- Comments will be loaded dynamically -->
                     </table>
                 </div>
             </div>
@@ -403,98 +382,28 @@ a.project:active {
 }
 </style>
 
+<!-- Add this hidden input to store the initial data -->
+<input type="hidden" 
+    id="commentsData" 
+    data-comments='[{% for review in reviews %}{% if review.comment %}{"id":"{{ review.id }}","username":"{{ review.user.username|escapejs }}","comment":"{{ review.comment|escapejs }}","is_owner":{% if review.user == request.user %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}]'
+    data-auth="{{ request.user.is_authenticated|lower }}"
+    data-login-url="{% url 'login-page' %}"
+    data-add-review-url="{% url 'add-review' pk=video.id %}"
+    data-csrf="{{ csrf_token }}"
+>
+
 <script>
-function toggleCommentForm() {
-    const form = document.getElementById('reviewForm');
-    const commentForm = form.closest('.comment-form');
-    const button = document.getElementById('commentButton');
-    
-    if (commentForm.style.display === 'none') {
-        // Show form in add mode
-        form.action = "{% url 'add-review' pk=video.id %}";
-        form.querySelector('textarea').value = '';
-        commentForm.style.display = 'block';
-        button.innerHTML = '<i class="im im-edit"></i> Submit Comment';
-    } else {
-        // Submit the form
-        form.submit();
-        // Reset button (will be hidden by form submission handler)
-        button.innerHTML = '<i class="im im-plus"></i> Add Comment';
-    }
-}
-
-function editComment(reviewId, comment) {
-    const form = document.getElementById('reviewForm');
-    const commentForm = form.closest('.comment-form');
-    const button = document.getElementById('commentButton');
-    
-    // Show the form
-    commentForm.style.display = 'block';
-    
-    // Update form action and content
-    form.action = "{% url 'update-review' pk=0 %}".replace('0', reviewId);
-    form.querySelector('textarea').value = comment;
-    
-    // Update button
-    button.innerHTML = '<i class="im im-edit"></i> Update Comment';
-    
-    // Scroll to form
-    commentForm.scrollIntoView({ behavior: 'smooth' });
-}
-
-// Handle form submission
-document.getElementById('reviewForm').addEventListener('submit', function(e) {
-    const button = document.getElementById('commentButton');
-    const commentForm = this.closest('.comment-form');
-    
-    // After form submission, reset the button and hide form
-    setTimeout(() => {
-        button.innerHTML = '<i class="im im-plus"></i> Add Comment';
-        commentForm.style.display = 'none';
-    }, 100);
-});
-
-function showDeleteConfirmation(objectName, deleteUrl) {
-    const deletePopup = document.querySelector('.delete-popup');
-    const overlay = document.querySelector('.alert-overlay');
-    const form = deletePopup.querySelector('form');
-    const messageStrong = deletePopup.querySelector('strong');
-    
-    if (deletePopup && overlay && form && messageStrong) {
-        messageStrong.textContent = objectName;
-        form.action = deleteUrl;
-        overlay.style.display = 'block';
-        deletePopup.style.display = 'block';
-    } else {
-        console.error('Delete popup elements not found:', {
-            deletePopup: !!deletePopup,
-            overlay: !!overlay,
-            form: !!form,
-            messageStrong: !!messageStrong
-        });
-    }
-}
-
-function hideDeleteConfirmation() {
-    const deletePopup = document.querySelector('.delete-popup');
-    const overlay = document.querySelector('.alert-overlay');
-    
-    if (deletePopup && overlay) {
-        overlay.style.display = 'none';
-        deletePopup.style.display = 'none';
-    }
-}
-
-function handleDelete(button) {
-    const comment = button.getAttribute('data-comment');
-    const url = button.getAttribute('data-url');
-    if (comment && url) {
-        showDeleteConfirmation(comment, url);
-    } else {
-        console.error('Missing data attributes:', { comment, url });
-    }
-}
+    // Clean initialization without template syntax
+    const dataElement = document.getElementById('commentsData');
+    const isAuthenticated = dataElement.dataset.auth === 'true';
+    const loginUrl = dataElement.dataset.loginUrl;
+    const addReviewUrl = dataElement.dataset.addReviewUrl;
+    const updateReviewUrl = dataElement.dataset.updateReviewUrl;
+    const csrfToken = dataElement.dataset.csrf;
+    window.initialComments = JSON.parse(dataElement.dataset.comments);
+    window.username = "{{ request.user.username }}";
 </script>
+<script src="{% static 'js/comments.js' %}"></script>
 
 
 {% include 'projects/delete_object.html' %}

@@ -115,15 +115,17 @@
               {% include 'components/video_preview.html' with videos=videos %}
 
               <!-- Viewing History Section -->
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Viewing History</h3>
-                <span class="tag tag--pill tag--sub tag--lg">
-                  <a href="{% url 'user-history' profile.id %}" style="text-decoration: none; color: inherit;">
-                    See All History ({{ profile.user.view_history.count }})
-                  </a>
-                </span>
-              </div>
-              {% include 'components/video_preview.html' with videos=view_history %}
+              {% if user.is_authenticated and user.id == profile.user.id %}
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                  <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Viewing History</h3>
+                  <span class="tag tag--pill tag--sub tag--lg">
+                    <a href="{% url 'user-history' profile.id %}" style="text-decoration: none; color: inherit;">
+                      See All History ({{ profile.user.view_history.count }})
+                    </a>
+                  </span>
+                </div>
+                {% include 'components/video_preview.html' with videos=view_history %}
+              {% endif %}
             </div>
           </div>
         </div>

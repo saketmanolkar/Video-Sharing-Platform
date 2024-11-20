@@ -14,12 +14,18 @@
         </label>
         <ul class="header__menu">
           <li class="header__menuItem"><a href="{% url 'projects'%}">Videos</a></li>
-          <li class="header__menuItem"><a href="{% url 'login-register' %}">Login / Sign Up</a></li>
-          <li class="header__menuItem"><a href="inbox.html">Inbox</a></li>
+          {% if user.is_authenticated %}  
+          <li class="header__menuItem"><a href="#">Inbox</a></li>
+          {% endif %}
           {% if user.is_authenticated %}
             <li class="header__menuItem"><a href="{% url 'profile' user.profile.id %}">My Account</a></li>
           {% endif %}
           <li class="header__menuItem"><a href="{% url 'create-project'%}" class="btn btn--sub">Add a video</a></li>
+          {% if not user.is_authenticated %}
+          <li class="header__menuItem"><a href="{% url 'login-page'%}" class="btn btn--sub">Login / Sign Up</a></li>
+          {% else %}
+          <li class="header__menuItem"><a href="{% url 'logout-user' %}" class="btn btn--sub">Logout</a></li>
+          {% endif %}
         </ul>
       </nav>
     </div>

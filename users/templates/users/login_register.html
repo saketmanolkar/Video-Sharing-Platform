@@ -2,18 +2,16 @@
 {% load static %}
 
 {% block content %}
-    <form action="{% url 'login-register' %}" method="post">
-        {% csrf_token %}
-        <input type="text" name="login" placeholder="Username or Email" required/>
-        <input type="password" name="password" placeholder="Password" required/>
-        <button type="submit">Login</button>
-    </form>
-    <!DOCTYPE html>
-<html lang="en">
-  <head>
-  
+{% if page == "register_page" %}
 
-  <body>
+<h1>Register User</h1>
+<form method="POST" action="{% url 'register-page' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Register User">
+</form>
+
+{% else %}
     <div class="auth">
       <div class="card">
         <div class="auth__header text-center">
@@ -24,7 +22,8 @@
           <p>Hello Developer, Welcome Back!</p>
         </div>
 
-        <form action="#" class="form auth__form">
+        <form method="POST" action="{% url 'login-page' %}" class="form auth__form">
+          {% csrf_token %}
           <!-- Input:Email -->
           <div class="form__field">
             <label for="formInput#text">Username: </label>
@@ -42,7 +41,7 @@
             <label for="formInput#password">Password: </label>
             <input
               class="input input--password"
-              id="formInput#passowrd"
+              id="formInput#password"
               type="password"
               name="password"
               placeholder="••••••••"
@@ -55,11 +54,9 @@
         </form>
         <div class="auth__alternative">
           <p>Don’t have an Account?</p>
-          <a href="signup.html">Sign Up</a>
+          <a href="{% url 'register-page' %}">Sign Up</a>
         </div>
       </div>
     </div>
-  </body>
-</html>
-
+{% endif %}
 {% endblock %}

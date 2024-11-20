@@ -95,6 +95,7 @@ class Review(models.Model):
         unique=True,
         editable=False
     )
+    modified_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"Review by {self.user.username if self.user else 'Anonymous'} on {self.video.title}"

@@ -7,13 +7,18 @@ from .forms import ProjectForm, ReviewForm
 from .recommendations import get_video_recommendations
 from .utils import add_black_bars, encode_video
 import os
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from datetime import datetime
 from django.contrib.auth.decorators import login_required
 import logging
 from .services.video_services import VideoService, UtilityService
 from .services.media_servies import ModelService
 from django.core.cache import cache
+import json
+import time
+from django.db.models import Q
+from django.utils import timezone
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +62,7 @@ def project(request, pk):
     
     return render(request, 'projects/single-project.html', context)
 
-@login_required
+@login_required(login_url="login-page")
 def create_project(request):
     if request.method == 'POST':
         form = ProjectForm(request.POST, request.FILES)
@@ -83,6 +88,7 @@ def create_project(request):
         form = ProjectForm()
     return render(request, 'projects/project_form.html', {'form': form})
 
+@login_required(login_url="login-page")
 def update_project(request, pk):
     project = get_object_or_404(Video, id=pk)
     if request.method == 'POST':
@@ -99,6 +105,7 @@ def update_project(request, pk):
     
     return render(request, 'projects/project_form.html', {'form': form})
 
+@login_required(login_url="login-page")
 def delete_project(request, pk):
     project = get_object_or_404(Video, id=pk)
     if request.method == 'POST':
@@ -114,7 +121,7 @@ def delete_project(request, pk):
         'object': project.title
     })
 
-@login_required
+@login_required(login_url="login-page")
 def add_review(request, pk):
     video = get_object_or_404(Video, id=pk)
     
@@ -129,21 +136,27 @@ def add_review(request, pk):
             # Invalidate video context cache
             cache.delete(f'video_context_{pk}')
             
-            messages.success(request, 'Review added successfully!')
+            # Return JSON response
+            return JsonResponse({
+                'success': True,
+                'comment': {
+                    'id': str(review.id),
+                    'username': review.user.username,
+                    'comment': review.comment,
+                    'is_owner': True,
+                }
+            })
         else:
-            messages.error(request, 'Error adding review')
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid form data'
+            })
     
-    return redirect('project', pk=pk)
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
-@login_required
+@login_required(login_url="login-page")
 def update_review(request, pk):
     review = get_object_or_404(Review, id=pk)
-    video_id = review.video.id
-    
-    # Check if user owns this review
-    if review.user != request.user:
-        messages.error(request, 'You do not have permission to edit this review')
-        return redirect('project', pk=str(video_id))
     
     if request.method == 'POST':
         comment = request.POST.get('comment')
@@ -152,27 +165,41 @@ def update_review(request, pk):
             review.save()
             
             # Invalidate cache
-            cache.delete(f'video_context_{video_id}')
-            messages.success(request, 'Review updated successfully!')
-        else:
-            messages.error(request, 'Comment cannot be empty')
+            cache.delete(f'video_context_{review.video.id}')
+            
+            return JsonResponse({
+                'success': True,
+                'comment': {
+                    'id': str(review.id),
+                    'username': review.user.username,
+                    'comment': comment,
+                    'is_owner': True,
+                }
+            })
     
-    return redirect('project', pk=str(video_id))
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
 
+@login_required(login_url="login-page")
 def delete_review(request, pk):
     review = get_object_or_404(Review, id=pk)
-    video_id = review.video.id
+    video_id = review.video.id  # Get video ID before deletion
     
     if request.method == 'POST':
         try:
             review.delete()
-            messages.success(request, 'Comment deleted successfully!')
-            return redirect('project', pk=str(video_id))
+            # Invalidate cache
+            cache.delete(f'video_context_{video_id}')
+            return JsonResponse({
+                'success': True,
+                'message': 'Comment deleted successfully!'
+            })
         except Exception as e:
-            messages.error(request, f'Error deleting comment: {str(e)}')
-            return redirect('project', pk=str(video_id))
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
     
-    return redirect('project', pk=str(video_id))
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 def debug_videos(request):
     videos = Video.objects.all()
@@ -208,3 +235,40 @@ def debug_videos(request):
         debug_info.append(video_info)
     
     return JsonResponse({'videos': debug_info})
+
+def comments_stream(request, video_id):
+    last_id = request.GET.get('last_id')
+    
+    try:
+        video = get_object_or_404(Video, id=video_id)
+        comments = Review.objects.filter(video=video)
+        
+        if last_id and last_id != 'null' and last_id != '':
+            try:
+                last_id_uuid = uuid.UUID(last_id)
+                comments = comments.filter(id__gt=last_id_uuid)
+            except ValueError:
+                # Handle invalid UUID gracefully
+                pass
+        
+        comments = comments.order_by('-created_at')[:10]
+        
+        data = []
+        for comment in comments:
+            data.append({
+                'id': str(comment.id),
+                'username': comment.user.username,
+                'comment': comment.comment,
+                'is_owner': comment.user == request.user
+            })
+        
+        return StreamingHttpResponse(
+            f"data: {json.dumps(data)}\n\n",
+            content_type='text/event-stream'
+        )
+    except Exception as e:
+        logger.error(f"Error in comment stream: {str(e)}")
+        return StreamingHttpResponse(
+            "data: []\n\n",
+            content_type='text/event-stream'
+        )

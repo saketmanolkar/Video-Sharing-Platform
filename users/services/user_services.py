@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from django.db import models
+from django.contrib.staticfiles.storage import staticfiles_storage
 
 class ProfileService:
     def get_profile(self, profile_id, profile_model):
@@ -26,3 +27,9 @@ class ProfileService:
         return Video.objects.filter(uploader=user).aggregate(
             total_views=models.Sum('views')
         )['total_views'] or 0
+    
+    def get_profile_picture_url(self, profile):
+        """Get profile picture URL with proper fallback"""
+        if profile.profile_pics:
+            return profile.profile_pics.url
+        return staticfiles_storage.url('images/user-default.png')
