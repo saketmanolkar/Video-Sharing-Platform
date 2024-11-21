@@ -7,7 +7,7 @@ from .forms import ProjectForm, ReviewForm
 from .recommendations import get_video_recommendations
 from .utils import add_black_bars, encode_video
 import os
-from django.http import JsonResponse, StreamingHttpResponse
+from django.http import JsonResponse, StreamingHttpResponse, HttpResponse
 from datetime import datetime
 from django.contrib.auth.decorators import login_required
 import logging
@@ -19,6 +19,9 @@ import time
 from django.db.models import Q
 from django.utils import timezone
 import uuid
+import re
+from django.db import transaction
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -33,55 +36,80 @@ def projects(request):
 
 def project(request, pk):    
     video_service = VideoService()
-    utility_service = UtilityService()
-    
     video = video_service.get_video(pk, Video)
     
-    # Record view using service with utility service for IP
-    video_service.record_view(
-        video=video,
-        user=request.user if request.user.is_authenticated else None,
-        ip_address=utility_service.get_client_ip(request),
-        view_history_model=ViewHistory
-    )
+    # Get video context including recommendations
+    context = video_service.get_video_context(video, get_video_recommendations)
     
-    # Get context using service
-    context = video_service.get_video_context(
-        video=video,
-        get_recommendations_func=get_video_recommendations
-    )
+    # Add video URL to context
+    context['video_url'] = ModelService.get_video_url(video)
     
-    # Make sure video_url is included in context
-    context.update({
-        'likes_count': VideoService.get_likes_count(video),
-        'dislikes_count': VideoService.get_dislikes_count(video),
-        'video_url': ModelService.get_video_url(video),
-        'form': ReviewForm(),
-        'reviews': video.reviews.all().order_by('-created_at')
-    })
+    # Record view if not cached
+    if request.user.is_authenticated:
+        video_service.record_view(video, request.user, None, ViewHistory)
+    else:
+        ip_address = UtilityService.get_client_ip(request)
+        video_service.record_view(video, None, ip_address, ViewHistory)
+    
+    # Add likes/dislikes counts
+    context['likes_count'] = video_service.get_likes_count(video)
+    context['dislikes_count'] = video_service.get_dislikes_count(video)
     
     return render(request, 'projects/single-project.html', context)
+
+def file_iterator(file_path, start=0, length=None, chunk_size=8192):
+    with open(file_path, 'rb') as f:
+        f.seek(start)
+        remaining = length if length is not None else None
+        while True:
+            bytes_length = chunk_size if remaining is None else min(remaining, chunk_size)
+            data = f.read(bytes_length)
+            if not data:
+                break
+            if remaining is not None:
+                remaining -= len(data)
+                if remaining < 0:
+                    data = data[:remaining]
+            yield data
+            if remaining is not None and remaining <= 0:
+                break
 
 @login_required(login_url="login-page")
 def create_project(request):
     if request.method == 'POST':
+        # Generate a unique key for this submission
+        form_data = str(request.POST) + str(request.FILES)
+        submission_hash = hashlib.md5(form_data.encode()).hexdigest()
+        cache_key = f'submission_{submission_hash}'
+
+        # Check if this exact submission was recently processed
+        if cache.get(cache_key):
+            messages.warning(request, 'This form was already submitted.')
+            return redirect('projects')
+
         form = ProjectForm(request.POST, request.FILES)
         if form.is_valid():
             try:
-                project = form.save(commit=False)
-                project.uploader = request.user
-                
-                if 'file' not in request.FILES:
-                    raise ValueError("Video file is required")
+                with transaction.atomic():
+                    # Set cache to prevent duplicate submission
+                    cache.set(cache_key, True, 300)  # Cache for 5 minutes
+
+                    project = form.save(commit=False)
+                    project.uploader = request.user
                     
-                project.save()  # This triggers the signal processing
-                form.save_m2m()  # Save tags
-                
-                messages.success(request, 'Project created successfully!')
-                return redirect('project', pk=project.id)
-                
+                    if 'file' not in request.FILES:
+                        raise ValueError("Video file is required")
+                        
+                    project.save()
+                    form.save_m2m()
+                    
+                    messages.success(request, 'Project created successfully!')
+                    return redirect('project', pk=project.id)
+                    
             except Exception as e:
                 logger.error(f"Error creating project: {str(e)}")
+                # Clear the cache in case of error
+                cache.delete(cache_key)
                 messages.error(request, f'Error creating project: {str(e)}')
                 return render(request, 'projects/project_form.html', {'form': form})
     else:
@@ -272,3 +300,48 @@ def comments_stream(request, video_id):
             "data: []\n\n",
             content_type='text/event-stream'
         )
+
+def stream_video(request, pk):
+    video = get_object_or_404(Video, id=pk)
+    
+    # Get the actual file path from encoded versions or fallback to original
+    if video.encoded_versions and '720p' in video.encoded_versions:
+        file_path = os.path.join(settings.MEDIA_ROOT, 'videos', video.encoded_versions['720p'])
+    else:
+        file_path = video.file.path
+        
+    # Check if file exists
+    if not os.path.exists(file_path):
+        logger.error(f"Video file not found: {file_path}")
+        return HttpResponse("Video file not found", status=404)
+    
+    # Get file size
+    file_size = os.path.getsize(file_path)
+    
+    # Handle range requests
+    range_header = request.META.get('HTTP_RANGE', '').strip()
+    range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
+    
+    if range_match:
+        start = int(range_match.group(1))
+        end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
+        length = end - start + 1
+        
+        response = StreamingHttpResponse(
+            file_iterator(file_path, start=start, length=length),
+            status=206,
+            content_type='video/mp4'
+        )
+        
+        response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+        response['Accept-Ranges'] = 'bytes'
+        response['Content-Length'] = str(length)
+        return response
+    
+    response = StreamingHttpResponse(
+        file_iterator(file_path),
+        content_type='video/mp4'
+    )
+    response['Accept-Ranges'] = 'bytes'
+    response['Content-Length'] = str(file_size)
+    return response

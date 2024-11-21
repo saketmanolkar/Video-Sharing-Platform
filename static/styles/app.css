@@ -1,5 +1,6 @@
 :root {
   --color-sub: #2d2d39;
+  --color-error: #dc3545;
 }
 
 .btn--sub {
@@ -643,10 +644,11 @@ img {
   position: relative;
   z-index: 1;
   background: transparent;
-  height: 99vh;
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 2rem 0;
 }
 
 .auth::after {
@@ -666,6 +668,7 @@ img {
   padding: 3rem 4rem;
   width: 95%;
   max-width: 65rem;
+  margin: 2rem 0;
 }
 
 @media screen and (min-width: 650px) {
@@ -674,6 +677,23 @@ img {
     width: 95%;
     max-width: 65rem;
   }
+}
+
+.auth__header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth__header a {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.auth__header img {
+  width: 70px !important;
+  height: 70px !important;
+  display: block !important;
+  margin: 0 auto !important;
 }
 
 .auth__header h3 {
@@ -925,4 +945,24 @@ img {
 .vid-creator__link:hover {
     color: #d08f80;
     transform: translateY(-1px);
+}
+
+/* Add these to your existing form styles */
+.form__field {
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.form__error {
+    color: var(--color-error);
+    font-size: 1.4rem;
+    display: block;
+    margin-top: 0.5rem;
+}
+
+.form__info {
+    color: var(--color-text);
+    font-size: 1.4rem;
+    display: block;
+    margin-top: 0.5rem;
 }

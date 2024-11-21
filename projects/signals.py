@@ -72,27 +72,19 @@ def handle_thumbnail_processing(sender, instance, **kwargs):
     """Handle thumbnail processing separately"""
     cache_key = f'thumbnail_processed_{instance.pk}'
     
-    # Skip if already processed (check both cache and instance flag)
+    # Skip if already processed
     if cache.get(cache_key) or getattr(instance, '_thumbnail_processed', False):
         return
         
-    # Only process if thumbnail exists and has changed
-    if instance.pk:
-        try:
-            old_instance = Video.objects.get(pk=instance.pk)
-            if old_instance.thumbnail == instance.thumbnail:
-                return  # Skip if thumbnail hasn't changed
-        except Video.DoesNotExist:
-            pass  # New instance, continue processing
-            
     try:
         if instance.thumbnail:
             print('🖼️ Processing thumbnail...')
+            # Force processing even for square images
             processed_thumbnail = add_black_bars(instance.thumbnail)
-            if processed_thumbnail and processed_thumbnail != instance.thumbnail:
+            if processed_thumbnail:
                 instance.thumbnail = processed_thumbnail
                 instance._thumbnail_processed = True
-                cache.set(cache_key, True, timeout=3600)  # Cache for 1 hour
+                cache.set(cache_key, True, timeout=3600)
                 print('✨ Thumbnail processing complete')
                 
     except Exception as e:

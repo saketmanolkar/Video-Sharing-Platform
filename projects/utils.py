@@ -19,12 +19,12 @@ def encode_video(input_path, output_path, size):
         # Get target width from size parameter
         target_width = int(size.split('x')[0])
         
-        # First, probe the input video
+        # Enhanced probe command
         probe_cmd = [
             'ffprobe', 
             '-v', 'error',
             '-select_streams', 'v:0',
-            '-show_entries', 'stream=width,height',
+            '-show_entries', 'stream=width,height,duration,bit_rate,codec_name',
             '-of', 'json',
             input_path
         ]
@@ -36,98 +36,84 @@ def encode_video(input_path, output_path, size):
             probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
             if probe_result.returncode == 0:
                 video_info = json.loads(probe_result.stdout)
-                original_width = int(video_info['streams'][0]['width'])
-                original_height = int(video_info['streams'][0]['height'])
+                stream_info = video_info['streams'][0]
                 
-                print(f"📐 Original dimensions: {original_width}x{original_height}")
+                # Enhanced encoding parameters based on input
+                command = [
+                    'ffmpeg', '-i', input_path,
+                    '-c:v', 'libx264',
+                    '-preset', 'faster',
+                    '-crf', '28',
+                    '-c:a', 'aac',
+                    '-b:a', '96k',
+                    '-movflags', '+faststart',
+                    '-profile:v', 'main',
+                    '-level', '3.1',
+                    '-pix_fmt', 'yuv420p',
+                    '-vf', scale_filter,
+                    '-maxrate', '2M',
+                    '-bufsize', '4M',
+                    '-y',
+                    output_path
+                ]
                 
-                # For vertical videos, calculate appropriate target height
-                if original_height > original_width:
-                    # Calculate target height maintaining aspect ratio
-                    target_height = min(720, int(target_width * (original_height / original_width)))
-                    scale_filter = f'scale=-2:{target_height}'
-                    print(f"🔄 Vertical video detected, scaling to height: {target_height}")
+                print(f"🛠️ Running command: {' '.join(command)}")
+                result = subprocess.run(command, capture_output=True, text=True)
                 
+                if result.returncode == 0:
+                    return True
+                    
         except Exception as e:
-            print(f"⚠️ Video probe failed, using default scaling: {str(e)}")
-        
-        # Adjust CRF based on resolution
-        crf = '23' if target_width >= 1280 else '26'
-        
-        command = [
-            'ffmpeg', '-i', input_path,
-            '-c:v', 'libx264',        # Video codec
-            '-preset', 'medium',       # Encoding speed preset
-            '-crf', crf,              # Quality (18-28, lower = better)
-            '-c:a', 'aac',            # Audio codec
-            '-b:a', '128k',           # Audio bitrate
-            '-vf', scale_filter,      # Video scaling with aspect ratio
-            '-movflags', '+faststart', # Web optimization
-            '-y',                      # Overwrite output
-            output_path
-        ]
-        
-        print(f"🛠️ Running command: {' '.join(command)}")
-        result = subprocess.run(command, capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            print(f"✨ Encoding successful")
-            # Get accurate file sizes in bytes
-            original_size = os.path.getsize(input_path)
-            print(f"📊 Original size: {original_size:,} bytes ({original_size/1024/1024:.2f}MB)")
+            print(f"⚠️ Encoding error: {str(e)}")
             
-            # After encoding
-            encoded_size = os.path.getsize(output_path)
-            size_change = encoded_size - original_size
-            ratio = (size_change / original_size) * 100
-            
-            print(f"📊 Encoding metrics:")
-            print(f"   Original: {original_size:,} bytes ({original_size/1024/1024:.2f}MB)")
-            print(f"   Encoded:  {encoded_size:,} bytes ({encoded_size/1024/1024:.2f}MB)")
-            print(f"   Change:   {'+' if size_change > 0 else ''}{ratio:.1f}% ({'+' if size_change > 0 else ''}{size_change:,} bytes)")
-            
-            # Warning if size increased
-            if encoded_size > original_size:
-                print("⚠️ Warning: Encoded file is larger than original!")
-            
-            return True
-            
-        print(f"❌ FFmpeg error: {result.stderr}")
         return False
-        
+            
     except Exception as e:
-        print(f"❌ Encoding error: {str(e)}")
+        print(f"❌ Fatal encoding error: {str(e)}")
         return False
 
 def add_black_bars(image_file):
-    """Add black bars to vertical images to make them 16:9"""
+    """Add black bars to make images 16:9 aspect ratio"""
     try:
         img = Image.open(image_file)
         width, height = img.size
         
-        # If vertical, add black bars
-        if width < height:
-            new_width = int(height * (16/9))
-            new_image = Image.new('RGB', (new_width, height), (0, 0, 0))
-            paste_x = (new_width - width) // 2
-            new_image.paste(img, (paste_x, 0))
+        # Calculate target dimensions for 16:9
+        target_ratio = 16/9
+        current_ratio = width/height
+        
+        # Add black bars if not already 16:9
+        if abs(current_ratio - target_ratio) > 0.01:  # Allow small deviation
+            if current_ratio > target_ratio:  # Too wide
+                new_height = int(width / target_ratio)
+                new_width = width
+                new_image = Image.new('RGB', (new_width, new_height), (0, 0, 0))
+                paste_y = (new_height - height) // 2
+                new_image.paste(img, (0, paste_y))
+            else:  # Too tall or square
+                new_width = int(height * target_ratio)
+                new_height = height
+                new_image = Image.new('RGB', (new_width, new_height), (0, 0, 0))
+                paste_x = (new_width - width) // 2
+                new_image.paste(img, (paste_x, 0))
             
             # Save to memory
             output = io.BytesIO()
             new_image.save(output, format='JPEG', quality=85)
             output.seek(0)
             
-            # Return processed image
             return InMemoryUploadedFile(
                 output,
                 'ImageField',
-                f"{image_file.name.split('.')[0]}.jpg",
+                f"{image_file.name.split('.')[0]}_16_9.jpg",
                 'image/jpeg',
                 output.getbuffer().nbytes,
                 None
             )
+            
+        print("✨ Image already in 16:9 ratio")
+        return image_file
+        
     except Exception as e:
         logger.error(f"Error processing thumbnail: {str(e)}")
         return None
-    
-    return image_file  # Return original if no processing needed

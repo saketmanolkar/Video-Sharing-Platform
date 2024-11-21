@@ -1,4 +1,13 @@
 {% extends 'main.html' %}
+{% block extrahead %}
+<style>
+    .btn--disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
 {% block content %}
 <main class="formPage my-xl">
     <div class="content-box">
@@ -14,7 +23,7 @@
                 </div>
             {% endif %}
 
-            <form class="form" method="POST" enctype="multipart/form-data">
+            <form class="form" method="POST" enctype="multipart/form-data" id="projectForm">
                 {% csrf_token %}
                 {% if form.non_field_errors %}
                     <div class="alert alert-danger">
@@ -69,13 +78,45 @@
                     {% endif %}
                 </div>
                 {% endfor %}
-                <input class="btn btn--sub btn--lg my-md" type="submit" value="Submit" />
+                <input class="btn btn--sub btn--lg my-md" 
+                       type="submit" 
+                       value="Submit" 
+                       id="submitBtn"
+                       onclick="handleSubmit(event)" />
             </form>
         </div>
     </div>
 </main>
 
 <script>
+    let isSubmitting = false;
+
+    function handleSubmit(e) {
+        if (isSubmitting) {
+            e.preventDefault();
+            return;
+        }
+
+        const form = document.getElementById('projectForm');
+        const submitBtn = document.getElementById('submitBtn');
+
+        if (form.checkValidity()) {
+            isSubmitting = true;
+            submitBtn.value = 'Submitting...';
+            submitBtn.classList.add('btn--disabled');
+        }
+    }
+
+    // Reset form state if user navigates back
+    window.onpageshow = function(event) {
+        if (event.persisted) {
+            isSubmitting = false;
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.value = 'Submit';
+            submitBtn.classList.remove('btn--disabled');
+        }
+    };
+
     function handleTagChange(checkbox) {
         // Add animation only
         const label = checkbox.nextElementSibling;

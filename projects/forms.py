@@ -9,21 +9,25 @@ class ProjectForm(ModelForm):
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'input',
-                'placeholder': 'Enter video title'
+                'placeholder': 'Enter video title',
+                'required': True
             }),
             'description': forms.Textarea(attrs={
                 'class': 'input',
                 'placeholder': 'Enter video description',
-                'rows': 4
+                'rows': 4,
+                'required': True
             }),
             'file': forms.FileInput(attrs={
-                'class': 'input'
+                'class': 'input',
+                'required': True
             }),
             'thumbnail': forms.FileInput(attrs={
                 'class': 'input'
             }),
             'tags': forms.CheckboxSelectMultiple(attrs={
-                'class': 'tag-checkbox'
+                'class': 'tag-checkbox',
+                'required': True
             })
         }
         

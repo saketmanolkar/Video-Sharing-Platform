@@ -6,83 +6,37 @@
 <style>
 .video-player-container {
     width: 100%;
-    max-width: 850px;  /* Match YouTube's max width */
-    margin: 0 auto 20px;
-    background: var(--color-white);
+    max-width: 850px;
+    margin: 20px auto 10px;
+    background: #000;
     border-radius: 0.7rem;
-    border: 2px solid var(--color-light);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+    aspect-ratio: 16/9;
 }
 
 .video-wrapper {
     position: relative;
     width: 100%;
-    padding-top: 56.25%; /* 16:9 Aspect Ratio */
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     background: #000;
 }
 
 .video-js {
-    position: absolute !important;
-    top: 0;
-    left: 0;
     width: 100% !important;
     height: 100% !important;
+    background-color: #000;
 }
 
-/* Vertical video adjustments */
-.video-wrapper.vertical {
-    padding-top: 177.78%; /* 9:16 Aspect Ratio */
-    max-width: 450px;
-    margin: 0 auto;
-    position: relative;
-    display: flex;
-    justify-content: center;
-}
-
-.video-js.vertical-video {
-    height: 100% !important;
-    max-width: 100% !important;
-}
-
-/* Custom Video.js theme to match YouTube */
-.video-js .vjs-big-play-button {
-    position: absolute !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    background-color: rgba(0,0,0,0.6) !important;
-    border: none !important;
-    border-radius: 50% !important;
-    width: 68px !important;
-    height: 68px !important;
-    line-height: 68px !important;
-    padding: 0 !important;
-    font-size: 3em !important;
-}
-
-.video-js .vjs-big-play-button .vjs-icon-placeholder:before {
-    position: static !important;
-    line-height: inherit !important;
-    transform: translateX(2px) !important;
-}
-
-.video-js .vjs-control-bar {
-    background-color: rgba(0,0,0,0.7) !important;
-}
-
-.video-js .vjs-slider {
-    background-color: rgba(255,255,255,0.3) !important;
-}
-
-.video-js .vjs-play-progress {
-    background-color: #ff0000 !important;
-}
-
-/* Add this new style for vertical video play button */
-.video-js.vertical-video .vjs-big-play-button {
-    left: calc(50% + 0px) !important;
-    transform: translate(-50%, -50%) !important;
+.video-js .vjs-tech {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain !important;
 }
 
 .video-container {
@@ -93,7 +47,7 @@
 
 .video-section {
     width: 100%;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     display: flex;          /* Add these lines */
     justify-content: center;  /* to center the video player */
     align-items: center;      /* vertically center as well */
@@ -109,6 +63,11 @@
     border-radius: 8px; /* optional: rounded corners */
     overflow: hidden;   /* keep video within bounds */
 }
+
+.video-js .vjs-poster {
+    background-size: cover;
+    background-position: center center;
+}
 </style>
 
 <!-- Video Player Component -->
@@ -122,21 +81,16 @@
         preload="metadata"
         poster="{% if video.thumbnail %}{{ video.thumbnail.url }}{% else %}{% static 'images/default.jpg' %}{% endif %}"
         data-setup='{
-          "controls": true,
-          "autoplay": false,
-          "preload": "metadata",
-          "fluid": true
+            "controls": true,
+            "autoplay": false,
+            "preload": "metadata",
+            "responsive": true,
+            "fluid": false
         }'
       >
-        <source src="{{ video_url }}" type="video/mp4" />
-        <p class="vjs-no-js">
-          To view this video please enable JavaScript, and consider upgrading to a
-          web browser that supports HTML5 video
-        </p>
+        <source src="{% url 'stream-video' video.id %}" type="video/mp4" />
       </video>
     </div>
-  {% else %}
-    <p>Video data not available</p>
   {% endif %}
 </div>
 
@@ -148,24 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     players.forEach(player => {
         if (player) {
-            // Initialize the player
-            const vjsPlayer = videojs(player.id, {
-                controls: true,
-                fluid: false,
-                preload: 'metadata'
-            });
-
-            // Handle video metadata load
-            vjsPlayer.on('loadedmetadata', function() {
-                const videoElement = this.tech().el();
-                const wrapper = document.getElementById('wrapper-' + player.id.split('-')[2]);
-                
-                // Check if video is vertical
-                if (videoElement.videoHeight > videoElement.videoWidth) {
-                    player.classList.add('vertical-video');
-                    wrapper.classList.add('vertical');
-                }
-            });
+            videojs(player.id);
         }
     });
 });

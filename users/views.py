@@ -5,8 +5,8 @@ from users.models import Profile
 from .services.user_services import ProfileService
 from .services.follow_services import FollowService
 from django.contrib import messages
-from django.contrib.auth.forms import UserCreationForm
 from django.views.decorators.csrf import csrf_protect
+from .forms import CustomUserCreationForm
 
 def profile(request, pk):
 
@@ -37,25 +37,25 @@ def login_user(request):
         return redirect("projects")
 
     if request.method == "POST":
-        username = request.POST.get("username")
+        username = request.POST.get("username").lower()
         password = request.POST.get("password")
-
-        user = authenticate(request, username=username, password=password)
 
         try:
             user = User.objects.get(username=username)
         except User.DoesNotExist:
-            print("User does not exist")
-            
+            messages.error(request, "Username does not exist")
+            return render(request, "users/login_register.html", {"page": page})
+
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
             login(request, user)
+            messages.success(request, "Successfully logged in!")
             return redirect("projects")
         else:
-            print("Invalid credentials")
+            messages.error(request, "Username OR password is incorrect")
 
-    return render(request, "users/login_register.html")
+    return render(request, "users/login_register.html", {"page": page})
 
 def logout_user(request):
     logout(request)
@@ -64,17 +64,21 @@ def logout_user(request):
 @csrf_protect
 def register_user(request):
     page = "register_page"
-    form = UserCreationForm()
+    form = CustomUserCreationForm()
 
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
             user.username = user.username.lower()
             user.save()
             
             messages.success(request, "User account was created")
-            return redirect('login-page')
+
+            login(request, user)
+            return redirect('projects')
+        else:
+            messages.error(request, "An error occurred during registration")
     context = {
         "page": page,
         "form": form
