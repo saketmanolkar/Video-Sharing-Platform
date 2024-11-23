@@ -4,6 +4,8 @@ import os
 import logging
 from django.core.cache import cache
 import time
+from django.utils import timezone
+from datetime import timedelta
 
 
 logger = logging.getLogger(__name__)
@@ -19,13 +21,34 @@ class VideoService:
         cache_key = f'view_{video.id}_{user.id if user else ip_address}_{int(time.time() / 300)}'
         
         if not cache.get(cache_key):
+            # Create view history record
             view_history_model.objects.create(
                 video=video,
                 user=user,
                 ip_address=ip_address
             )
+            
+            # Update video views count
             video.views += 1
             video.save()
+            
+            # Update analytics immediately
+            try:
+                analytics = video.analytics
+                analytics.total_views = video.views
+                analytics.last_24h_views = VideoService.get_period_views_count(video, 1)
+                analytics.last_7d_views = VideoService.get_period_views_count(video, 7)
+                analytics.last_30d_views = VideoService.get_period_views_count(video, 30)
+                analytics.save(update_fields=[
+                    'total_views', 
+                    'last_24h_views', 
+                    'last_7d_views', 
+                    'last_30d_views', 
+                    'updated_at'
+                ])
+                logger.info(f"✅ Updated view metrics immediately for video: {video.title}")
+            except Exception as e:
+                logger.error(f"❌ Error updating analytics on view: {str(e)}")
             
             cache.set(cache_key, True, timeout=300)
     
@@ -114,6 +137,47 @@ class VideoService:
         """Delete original video file after encoding"""
         if os.path.exists(file_path):
             os.remove(file_path)
+    
+    @staticmethod
+    def get_views_count(video):
+        """Get total views for video"""
+        return video.views
+    
+    @staticmethod
+    def get_comments_count(video):
+        """Get count of comments/reviews for video"""
+        return video.reviews.count()
+    
+    @staticmethod
+    def get_period_views_count(video, days):
+        """Get views for a specific time period"""
+        now = timezone.now()
+        return video.views_history.filter(
+            viewed_at__gte=now - timedelta(days=days)
+        ).count()
+    
+    @staticmethod
+    def get_analytics_data(video):
+        """Get all analytics data for a video"""
+        now = timezone.now()
+        return {
+            # Basic Info
+            'video': video,
+            'uploader': video.uploader,
+            'title': video.title,
+            'created_at': video.created_at,
+            
+            # Engagement Metrics
+            'total_views': VideoService.get_views_count(video),
+            'total_comments': VideoService.get_comments_count(video),
+            'total_likes': VideoService.get_likes_count(video),
+            'total_dislikes': VideoService.get_dislikes_count(video),
+            
+            # Time-based Metrics
+            'last_24h_views': VideoService.get_period_views_count(video, 1),
+            'last_7d_views': VideoService.get_period_views_count(video, 7),
+            'last_30d_views': VideoService.get_period_views_count(video, 30)
+        }
 
 class UtilityService:
     @staticmethod

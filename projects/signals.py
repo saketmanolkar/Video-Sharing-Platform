@@ -8,6 +8,14 @@ import os
 import logging
 from django.conf import settings
 from django.core.cache import cache
+from django.utils import timezone
+from datetime import timedelta
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.utils import timezone
+from django.db.models import Count, Q
+from .models import Video, Review, Like, VideoAnalytics, ViewHistory
+from .services.video_services import VideoService
 
 logger = logging.getLogger(__name__)
 
@@ -126,3 +134,102 @@ def cleanup_files(sender, instance, **kwargs):
             
         except Exception as e:
             logger.error(f'❌ Error cleaning up files: {str(e)}')
+
+@receiver(post_save, sender=Video)
+def handle_analytics_create(sender, instance, created, **kwargs):
+    """CREATE signal - Creates analytics record when video is created"""
+    if not created:
+        return
+        
+    try:
+        # Use VideoService to get accurate initial data
+        data = VideoService.get_analytics_data(instance)
+        VideoAnalytics.objects.create(**data)
+        logger.info(f"✅ Created analytics record for video: {instance.title}")
+    except Exception as e:
+        logger.error(f"❌ Error creating analytics: {str(e)}")
+
+@receiver([post_save, post_delete], sender=Review)
+def handle_review_analytics_update(sender, instance, **kwargs):
+    """UPDATE signal - Updates analytics when reviews change"""
+    try:
+        analytics = instance.video.analytics
+        analytics.total_comments = VideoService.get_comments_count(instance.video)
+        analytics.save(update_fields=['total_comments', 'updated_at'])
+        logger.info(f"✅ Updated comment count for video: {instance.video.title}")
+    except Exception as e:
+        logger.error(f"❌ Error updating review analytics: {str(e)}")
+
+@receiver([post_save, post_delete], sender=Like)
+def handle_like_analytics_update(sender, instance, **kwargs):
+    """UPDATE signal - Updates analytics when likes/dislikes change"""
+    try:
+        analytics = instance.video.analytics
+        # Use VideoService for accurate counts
+        analytics.total_likes = VideoService.get_likes_count(instance.video)
+        analytics.total_dislikes = VideoService.get_dislikes_count(instance.video)
+        analytics.save(update_fields=['total_likes', 'total_dislikes', 'updated_at'])
+        logger.info(f"✅ Updated like counts for video: {instance.video.title}")
+    except Exception as e:
+        logger.error(f"❌ Error updating like analytics: {str(e)}")
+
+@receiver([post_save, post_delete], sender=ViewHistory)
+def handle_view_analytics_update(sender, instance, **kwargs):
+    """UPDATE signal - Updates analytics when views change"""
+    try:
+        analytics = instance.video.analytics
+        # Use VideoService for accurate view counts
+        analytics.total_views = VideoService.get_views_count(instance.video)
+        analytics.last_24h_views = VideoService.get_period_views_count(instance.video, 1)
+        analytics.last_7d_views = VideoService.get_period_views_count(instance.video, 7)
+        analytics.last_30d_views = VideoService.get_period_views_count(instance.video, 30)
+        analytics.save(update_fields=[
+            'total_views', 
+            'last_24h_views', 
+            'last_7d_views', 
+            'last_30d_views', 
+            'updated_at'
+        ])
+        logger.info(f"✅ Updated view metrics for video: {instance.video.title}")
+    except Exception as e:
+        logger.error(f"❌ Error updating view analytics: {str(e)}")
+
+@receiver(pre_delete, sender=Video)
+def handle_video_cleanup(sender, instance, **kwargs):
+    """DELETE signal - Handles complete cleanup when video is deleted"""
+    try:
+        # Log final analytics state before deletion
+        analytics = instance.analytics
+        log_message = f"📊 Final analytics for video {instance.title} before deletion:\n"
+        log_message += f"Views: {analytics.total_views}\n"
+        log_message += f"Comments: {analytics.total_comments}\n"
+        log_message += f"Likes: {analytics.total_likes}\n"
+        log_message += f"Dislikes: {analytics.total_dislikes}\n"
+        logger.info(log_message)
+
+        # Delete related records in correct order
+        instance.likes.all().delete()  # Delete all likes
+        instance.reviews.all().delete()  # Delete all reviews
+        instance.views_history.all().delete()  # Delete view history
+        instance.analytics.delete()  # Delete analytics record
+        
+        logger.info(f"✅ Successfully cleaned up all related data for video: {instance.title}")
+    except Exception as e:
+        logger.error(f"❌ Error during video cleanup: {str(e)}")
+        raise  # Re-raise to prevent incomplete deletion
+
+@receiver(post_save, sender=Video)
+def handle_video_update(sender, instance, created, **kwargs):
+    """UPDATE signal - Updates analytics when video details change"""
+    if created:  # Skip if this is a new video (handled by handle_analytics_create)
+        return
+        
+    try:
+        analytics = instance.analytics
+        # Update title if it changed
+        if analytics.title != instance.title:
+            analytics.title = instance.title
+            analytics.save(update_fields=['title', 'updated_at'])
+            logger.info(f"✅ Updated analytics title for video: {instance.title}")
+    except Exception as e:
+        logger.error(f"❌ Error updating video analytics: {str(e)}")

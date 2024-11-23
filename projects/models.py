@@ -199,3 +199,37 @@ class ViewHistory(models.Model):
     def __str__(self):
         viewer = self.user.username if self.user else f"Anonymous ({self.ip_address})"
         return f"{viewer} viewed {self.video.title}"
+
+class VideoAnalytics(models.Model):
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    video = models.OneToOneField('Video', on_delete=models.CASCADE, related_name='analytics')
+    uploader = models.ForeignKey(User, on_delete=models.CASCADE, related_name='video_analytics')
+    
+    # Basic Video Info
+    title = models.CharField(max_length=200)
+    created_at = models.DateTimeField()  # Video creation date
+    
+    # Engagement Metrics
+    total_views = models.IntegerField(default=0)
+    total_comments = models.IntegerField(default=0)
+    total_likes = models.IntegerField(default=0)
+    total_dislikes = models.IntegerField(default=0)
+    
+    # Time-based Metrics
+    last_24h_views = models.IntegerField(default=0)
+    last_7d_views = models.IntegerField(default=0)
+    last_30d_views = models.IntegerField(default=0)
+    
+    # Meta Information
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.uploader.username} - {self.title}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['uploader', '-total_views']),
+            models.Index(fields=['-updated_at']),
+        ]
+        verbose_name = "Video Analytics"
+        verbose_name_plural = "Video Analytics"
