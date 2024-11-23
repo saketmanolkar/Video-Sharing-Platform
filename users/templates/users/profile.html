@@ -18,6 +18,14 @@
         <div class="column" style="position: relative; z-index: 2;">
           <div class="card project" style="text-align: center; padding: 1rem; border: none; background: white; height: 100%; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
             <div class="card__body dev">
+              <!-- Only show edit button if the profile belongs to the logged-in user -->
+              {% if request.user == profile.user %}
+              <div class="edit-button-container">
+                <a class="edit-button" href="{% url 'update-profile' profile.id %}">
+                  Edit Profile
+                </a>
+              </div>
+              {% endif %}
               <img 
                 class="avatar avatar--xl" 
                 style="width: 150px; height: 150px; border-radius: 50%; margin: 0 auto 0.5rem auto; border: 3px solid #80D0C7;"

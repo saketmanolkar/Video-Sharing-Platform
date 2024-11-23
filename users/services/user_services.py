@@ -33,3 +33,41 @@ class ProfileService:
         if profile.profile_pics:
             return profile.profile_pics.url
         return staticfiles_storage.url('images/user-default.png')
+    
+    def clear_profile_picture(self, profile):
+        """Clear the profile picture and return the updated profile"""
+        try:
+            if profile.profile_pics:
+                # Delete the physical file
+                profile.profile_pics.delete(save=False)
+                # Set the field to None
+                profile.profile_pics = None
+                profile.save()
+            return True, "Profile picture cleared successfully"
+        except Exception as e:
+            return False, f"Error clearing profile picture: {str(e)}"
+    
+    def update_profile(self, profile, user_data, profile_form, should_clear_pic=False):
+        """Update profile and user data"""
+        try:
+            # Update User model fields
+            user = profile.user
+            user.first_name = user_data.get('first_name')
+            user.last_name = user_data.get('last_name')
+            user.username = user_data.get('username').lower()
+            user.save()
+
+            # Handle profile picture clearing if requested
+            if should_clear_pic:
+                success, message = self.clear_profile_picture(profile)
+                if not success:
+                    return False, message
+
+            # Save profile form
+            if profile_form.is_valid():
+                profile_form.save()
+                return True, "Profile updated successfully"
+            return False, "Invalid form data"
+
+        except Exception as e:
+            return False, f"Error updating profile: {str(e)}"

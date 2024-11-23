@@ -20,7 +20,7 @@
           {% if user.is_authenticated %}
             <li class="header__menuItem"><a href="{% url 'profile' user.profile.id %}">My Account</a></li>
           {% endif %}
-          <li class="header__menuItem"><a href="{% url 'create-project'%}" class="btn btn--sub">Add a video</a></li>
+          <li class="header__menuItem"><a href="{% url 'create-project'%}" class="btn btn--sub">Upload Video</a></li>
           {% if not user.is_authenticated %}
           <li class="header__menuItem"><a href="{% url 'login-page'%}" class="btn btn--sub">Login / Sign Up</a></li>
           {% else %}

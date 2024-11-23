@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from django import forms
 from django.core.exceptions import ValidationError
+from .models import Profile
 
 class CustomUserCreationForm(UserCreationForm):
     first_name = forms.CharField(
@@ -70,3 +71,51 @@ class CustomUserCreationForm(UserCreationForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+class ProfileForm(ModelForm):
+    class Meta:
+        model = Profile
+        fields = [
+            'bio',
+            'location',
+            'profile_pics',
+            'github',
+            'twitter',
+            'linkedin',
+            'youtube',
+            'instagram'
+        ]
+        widgets = {
+            'bio': forms.TextInput(attrs={
+                'class': 'input input--text',
+                'placeholder': 'Write a short bio about yourself'
+            }),
+            'location': forms.TextInput(attrs={
+                'class': 'input input--text',
+                'placeholder': 'Enter your location'
+            }),
+            'profile_pics': forms.FileInput(attrs={
+                'class': 'input input--text',
+                'accept': 'image/*'
+            }),
+            'github': forms.TextInput(attrs={
+                'class': 'input input--text',
+                'placeholder': 'Enter your Github URL'
+            }),
+            'twitter': forms.TextInput(attrs={
+                'class': 'input input--text',
+                'placeholder': 'Enter your Twitter URL'
+            }),
+            'linkedin': forms.TextInput(attrs={
+                'class': 'input input--text',
+                'placeholder': 'Enter your LinkedIn URL'
+            }),
+            'youtube': forms.TextInput(attrs={
+                'class': 'input input--text',
+                'placeholder': 'Enter your YouTube URL'
+            }),
+            'instagram': forms.TextInput(attrs={
+                'class': 'input input--text',
+                'placeholder': 'Enter your Instagram URL'
+            })
+        }

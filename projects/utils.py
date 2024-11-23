@@ -12,64 +12,126 @@ import logging
 logger = logging.getLogger(__name__)
 
 def encode_video(input_path, output_path, size):
-    """Video encoding function with accurate metrics"""
+    """Video encoding function with detailed metrics"""
     try:
-        print(f"🎬 Encoding: {input_path} -> {output_path}")
+        start_time = datetime.now()
+        print(f"🎬 Starting encode at: {start_time}")
         
-        # Get target width from size parameter
-        target_width = int(size.split('x')[0])
+        # Get input file size
+        input_size = os.path.getsize(input_path) / (1024 * 1024)  # MB
         
-        # Enhanced probe command
+        # Enhanced probe command for input metrics
         probe_cmd = [
             'ffprobe', 
             '-v', 'error',
             '-select_streams', 'v:0',
-            '-show_entries', 'stream=width,height,duration,bit_rate,codec_name',
+            '-show_entries', 'stream=width,height,duration,bit_rate,codec_name,r_frame_rate',
             '-of', 'json',
             input_path
         ]
         
-        # Default to horizontal scaling
-        scale_filter = f'scale={target_width}:-2'
+        metrics = {
+            'input': {'size_mb': input_size},
+            'output': {},
+            'compression': {},
+            'timing': {}
+        }
         
-        try:
-            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
-            if probe_result.returncode == 0:
-                video_info = json.loads(probe_result.stdout)
-                stream_info = video_info['streams'][0]
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        if probe_result.returncode == 0:
+            video_info = json.loads(probe_result.stdout)
+            stream_info = video_info['streams'][0]
+            
+            # Collect input metrics
+            metrics['input'].update({
+                'width': stream_info.get('width'),
+                'height': stream_info.get('height'),
+                'duration': float(stream_info.get('duration', 0)),
+                'bitrate': int(stream_info.get('bit_rate', 0)) / 1000,  # Kbps
+                'codec': stream_info.get('codec_name'),
+                'fps': eval(stream_info.get('r_frame_rate', '0/1'))  # Convert fraction to number
+            })
+            
+            target_width = int(size.split('x')[0])
+            scale_filter = f'scale={target_width}:-2'
+            
+            # Encoding command
+            command = [
+                'ffmpeg', '-i', input_path,
+                '-c:v', 'libx264',
+                '-preset', 'faster',
+                '-crf', '28',
+                '-c:a', 'aac',
+                '-b:a', '96k',
+                '-movflags', '+faststart',
+                '-profile:v', 'main',
+                '-level', '3.1',
+                '-pix_fmt', 'yuv420p',
+                '-vf', scale_filter,
+                '-maxrate', '2M',
+                '-bufsize', '4M',
+                '-y',
+                output_path
+            ]
+            
+            # Run encoding
+            encode_start = datetime.now()
+            result = subprocess.run(command, capture_output=True, text=True)
+            encode_end = datetime.now()
+            
+            if result.returncode == 0:
+                # Get output metrics
+                output_size = os.path.getsize(output_path) / (1024 * 1024)  # MB
                 
-                # Enhanced encoding parameters based on input
-                command = [
-                    'ffmpeg', '-i', input_path,
-                    '-c:v', 'libx264',
-                    '-preset', 'faster',
-                    '-crf', '28',
-                    '-c:a', 'aac',
-                    '-b:a', '96k',
-                    '-movflags', '+faststart',
-                    '-profile:v', 'main',
-                    '-level', '3.1',
-                    '-pix_fmt', 'yuv420p',
-                    '-vf', scale_filter,
-                    '-maxrate', '2M',
-                    '-bufsize', '4M',
-                    '-y',
-                    output_path
-                ]
-                
-                print(f"🛠️ Running command: {' '.join(command)}")
-                result = subprocess.run(command, capture_output=True, text=True)
-                
-                if result.returncode == 0:
+                # Probe output file
+                output_probe = subprocess.run(probe_cmd[:-1] + [output_path], 
+                                           capture_output=True, text=True)
+                if output_probe.returncode == 0:
+                    output_info = json.loads(output_probe.stdout)
+                    output_stream = output_info['streams'][0]
+                    
+                    metrics['output'].update({
+                        'size_mb': round(output_size, 2),
+                        'width': output_stream.get('width'),
+                        'height': output_stream.get('height'),
+                        'bitrate': int(output_stream.get('bit_rate', 0)) / 1000,  # Kbps
+                        'codec': output_stream.get('codec_name')
+                    })
+                    
+                    # Calculate compression metrics
+                    metrics['compression'].update({
+                        'size_reduction_percent': round((1 - output_size/input_size) * 100, 2),
+                        'bitrate_reduction_percent': round((1 - metrics['output']['bitrate']/metrics['input']['bitrate']) * 100, 2)
+                    })
+                    
+                    # Timing metrics
+                    encode_duration = (encode_end - encode_start).total_seconds()
+                    total_duration = (datetime.now() - start_time).total_seconds()
+                    
+                    metrics['timing'].update({
+                        'encode_duration_sec': round(encode_duration, 2),
+                        'total_duration_sec': round(total_duration, 2),
+                        'processing_speed': round(metrics['input']['duration'] / encode_duration, 2)  # > 1 means faster than realtime
+                    })
+                    
+                    # Log detailed metrics
+                    logger.info("Video Encoding Metrics:")
+                    logger.info(json.dumps(metrics, indent=2))
+                    
+                    print(f"""
+🎯 Encoding Complete!
+Input: {metrics['input']['width']}x{metrics['input']['height']}, {round(metrics['input']['size_mb'], 2)}MB, {round(metrics['input']['bitrate'])}Kbps
+Output: {metrics['output']['width']}x{metrics['output']['height']}, {metrics['output']['size_mb']}MB, {round(metrics['output']['bitrate'])}Kbps
+Compression: {metrics['compression']['size_reduction_percent']}% size reduction, {metrics['compression']['bitrate_reduction_percent']}% bitrate reduction
+Speed: {metrics['timing']['processing_speed']}x realtime ({metrics['timing']['encode_duration_sec']}s)
+                    """)
+                    
                     return True
                     
-        except Exception as e:
-            print(f"⚠️ Encoding error: {str(e)}")
-            
         return False
             
     except Exception as e:
-        print(f"❌ Fatal encoding error: {str(e)}")
+        logger.error(f"❌ Encoding error: {str(e)}")
         return False
 
 def add_black_bars(image_file):

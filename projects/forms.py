@@ -19,11 +19,14 @@ class ProjectForm(ModelForm):
                 'required': True
             }),
             'file': forms.FileInput(attrs={
-                'class': 'input',
-                'required': True
+                'class': 'file-input',
+                'required': True,
+                'accept': 'video/mp4,video/mov'
             }),
             'thumbnail': forms.FileInput(attrs={
-                'class': 'input'
+                'class': 'file-input',
+                'required': True,
+                'accept': 'image/*'
             }),
             'tags': forms.CheckboxSelectMultiple(attrs={
                 'class': 'tag-checkbox',
@@ -34,11 +37,9 @@ class ProjectForm(ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['tags'].help_text = "Please select at least one tag"
-        print("Form data:", kwargs.get('data'))  # Debug line
-        print("Files:", kwargs.get('files'))  # Debug line
-        print("Tags in form:", self.fields['tags'].queryset)
         for name, field in self.fields.items():
-            field.widget.attrs.update({'class': 'input'})
+            if name not in ['file', 'thumbnail']:
+                field.widget.attrs.update({'class': 'input'})
         
     def clean_tags(self):
         tags = self.cleaned_data.get('tags')

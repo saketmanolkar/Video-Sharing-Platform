@@ -1,21 +1,13 @@
 {% extends 'main.html' %}
-{% block extrahead %}
-<style>
-    .btn--disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-        pointer-events: none;
-    }
-</style>
-{% endblock %}
 {% block content %}
 <main class="formPage my-xl">
     <div class="content-box">
         <div class="formWrapper">
-            <button class="backButton" data-url="{% url 'projects' %}" onclick="window.location.href=this.dataset.url">
-                <i class="im im-angle-left"></i> &lt;
-            </button>
-            <br>
+            <div class="backButton-container">
+                <a class="backButton" data-url="{% url 'projects' %}" href="{% url 'projects' %}">&lt;</a>
+                <h3 class="formWrapper__subject" style="text-align: center; flex: 1;">Upload Your Video</h3>
+            </div>
+           
 
             {% if not user.is_authenticated %}
                 <div class="alert alert-danger">
@@ -23,7 +15,7 @@
                 </div>
             {% endif %}
 
-            <form class="form" method="POST" enctype="multipart/form-data" id="projectForm">
+            <form class="form" method="POST" enctype="multipart/form-data">
                 {% csrf_token %}
                 {% if form.non_field_errors %}
                     <div class="alert alert-danger">
@@ -32,98 +24,101 @@
                         {% endfor %}
                     </div>
                 {% endif %}
-                
-                {% for field in form %}
-                <div class="form__field">
-                    <label for="{{ field.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
-                        {{ field.label }}
-                        {% if field.field.required %}
-                            <span style="color: red;">*</span>
-                        {% endif %}
-                        {% if field.name == 'tags' %}
-                            <small style="margin: 0;">{{ field.help_text }}</small>
-                        {% endif %}
-                    </label>
-                    
-                    {% if field.name == 'tags' %}
-                        <div class="tag-options" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px;">
-                            {% for tag in field.field.queryset %}
-                                <div class="tag-wrapper">
-                                    <input type="checkbox" 
-                                           name="tags" 
-                                           id="tag_{{ tag.id }}" 
-                                           class="tag-checkbox" 
-                                           value="{{ tag.id }}"
-                                           {% if tag.id|stringformat:"s" in field.value|stringformat:"s" %}checked{% endif %}>
-                                    <label for="tag_{{ tag.id }}" class="tag-label">
-                                        <span class="checkbox-custom"></span>
-                                        {{ tag.name }}
-                                    </label>
-                                </div>
-                            {% endfor %}
+
+                <!-- File Upload Grid at the top -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    <!-- Left Column - Video File -->
+                    <div class="form__field">
+                        <label for="{{ form.file.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
+                            Video File {% if form.file.field.required %}<span style="color: red;">*</span>{% endif %}
+                        </label>
+                        <div class="file-upload-wrapper">
+                            {{ form.file }}
+                            <label for="{{ form.file.auto_id }}" class="upload-label">Select</label>
+                            <div class="file-name">Choose a video...</div>
                         </div>
-                    {% else %}
-                        {{ field }}
-                    {% endif %}
-                    
-                    {% if field.help_text and field.name != 'tags' and field.name != 'title' and field.name != 'description' %}
-                        <small>{{ field.help_text }}</small>
-                    {% endif %}
-                    {% if field.errors %}
-                        <div class="field-errors">
-                            {% for error in field.errors %}
-                                <p style="color: red;">{{ error }}</p>
-                            {% endfor %}
+                    </div>
+
+                    <!-- Right Column - Thumbnail -->
+                    <div class="form__field">
+                        <label for="{{ form.thumbnail.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
+                            Thumbnail {% if form.thumbnail.field.required %}<span style="color: red;">*</span>{% endif %}
+                        </label>
+                        <div class="file-upload-wrapper">
+                            {{ form.thumbnail }}
+                            <label for="{{ form.thumbnail.auto_id }}" class="upload-label">Select</label>
+                            <div class="file-name">Choose a thumbnail...</div>
                         </div>
-                    {% endif %}
+                    </div>
                 </div>
+                
+                <!-- Rest of the fields -->
+                {% for field in form %}
+                    {% if field.name != 'file' and field.name != 'thumbnail' %}
+                    <div class="form__field">
+                        <label for="{{ field.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
+                            {{ field.label }}
+                            {% if field.field.required %}
+                                <span style="color: red;">*</span>
+                            {% endif %}
+                            {% if field.name == 'tags' %}
+                                <small style="margin: 0;">{{ field.help_text }}</small>
+                            {% endif %}
+                        </label>
+                        
+                        {% if field.name == 'tags' %}
+                            <div class="tag-options" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px;">
+                                {% for tag in field.field.queryset %}
+                                    <div class="tag-wrapper">
+                                        <input type="checkbox" 
+                                               name="tags" 
+                                               id="tag_{{ tag.id }}" 
+                                               class="tag-checkbox" 
+                                               value="{{ tag.id }}"
+                                               {% if tag.id|stringformat:"s" in field.value|stringformat:"s" %}checked{% endif %}>
+                                        <label for="tag_{{ tag.id }}" class="tag-label">
+                                            <span class="checkbox-custom"></span>
+                                            {{ tag.name }}
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ field }}
+                        {% endif %}
+                        
+                        {% if field.help_text and field.name != 'tags' %}
+                            <small>{{ field.help_text }}</small>
+                        {% endif %}
+                        {% if field.errors %}
+                            <div class="field-errors">
+                                {% for error in field.errors %}
+                                    <p style="color: red;">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 {% endfor %}
-                <input class="btn btn--sub btn--lg my-md" 
-                       type="submit" 
-                       value="Submit" 
-                       id="submitBtn"
-                       onclick="handleSubmit(event)" />
+                <input class="btn btn--sub btn--lg my-md" type="submit" value="Submit" />
             </form>
         </div>
     </div>
 </main>
 
 <script>
-    let isSubmitting = false;
-
-    function handleSubmit(e) {
-        if (isSubmitting) {
-            e.preventDefault();
-            return;
-        }
-
-        const form = document.getElementById('projectForm');
-        const submitBtn = document.getElementById('submitBtn');
-
-        if (form.checkValidity()) {
-            isSubmitting = true;
-            submitBtn.value = 'Submitting...';
-            submitBtn.classList.add('btn--disabled');
-        }
-    }
-
-    // Reset form state if user navigates back
-    window.onpageshow = function(event) {
-        if (event.persisted) {
-            isSubmitting = false;
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.value = 'Submit';
-            submitBtn.classList.remove('btn--disabled');
-        }
-    };
-
-    function handleTagChange(checkbox) {
-        // Add animation only
-        const label = checkbox.nextElementSibling;
-        label.style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            label.style.transform = 'scale(1)';
-        }, 100);
-    }
+    document.querySelectorAll('.file-input').forEach(input => {
+        input.addEventListener('change', function(e) {
+            const fileName = this.value.split('\\').pop();
+            const fileNameDisplay = this.closest('.file-upload-wrapper').querySelector('.file-name');
+            if (fileNameDisplay) {
+                if (this.name === 'file') {
+                    fileNameDisplay.textContent = fileName || 'Choose a video...';
+                } else {
+                    fileNameDisplay.textContent = fileName || 'Choose a thumbnail...';
+                }
+            }
+        });
+    });
 </script>
 {% endblock %}

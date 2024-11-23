@@ -29,9 +29,18 @@ def projects(request):
     videos = Video.objects.all().order_by('-created_at')
     paginator = Paginator(videos, 9)  # Show 9 videos per page
     page = request.GET.get('page')
-    videos = paginator.get_page(page)
+    paged_videos = paginator.get_page(page)
     
-    context = {'videos': videos, 'page': 'Projects'}
+    # Add counts to each video object
+    for video in paged_videos:
+        video.likes_count = VideoService.get_likes_count(video)
+        video.dislikes_count = VideoService.get_dislikes_count(video)
+    
+    context = {
+        'videos': paged_videos, 
+        'page': 'Projects',
+        'video_service': VideoService
+    }
     return render(request, 'projects/projects.html', context)
 
 def project(request, pk):    
