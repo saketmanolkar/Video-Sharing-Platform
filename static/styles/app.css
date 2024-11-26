@@ -2170,7 +2170,7 @@ a.project:active {
 }
 
 .analytics-header {
-    padding: 2rem;
+    padding: 1.5rem;
     border-bottom: 1px solid #e0e0e0;
     background: var(--color-sub-lighter);
 }
@@ -2268,4 +2268,3 @@ a.project:active {
   background: white;
   height: 42px;
 }
-

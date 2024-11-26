@@ -182,7 +182,7 @@ def delete_project(request, pk):
             messages.error(request, f'Error deleting video: {str(e)}')
             return redirect('project', pk=pk)
     
-    return render(request, 'projects/delete_object.html', {
+    return render(request, 'delete_object.html', {
         'object': project.title
     })
 
