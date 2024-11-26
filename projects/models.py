@@ -15,6 +15,9 @@ from PIL import Image
 import io
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from projects.utils import add_black_bars
+from django.utils.text import slugify
+from datetime import datetime
+from django.templatetags.static import static
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +44,7 @@ class Video(models.Model):
         upload_to='thumbnails/',
         blank=True,
         null=True,
-        help_text="Video thumbnail"
+        help_text="JPEG or PNG images only"
     )
     # User Fields
     #uploader = models.ForeignKey(
@@ -50,7 +53,7 @@ class Video(models.Model):
         #related_name='videos'
     #)
     views = models.PositiveIntegerField(default=0)
-    tags = models.ManyToManyField('Tag', blank=True)
+    tags = models.ManyToManyField('Tag', blank=False, help_text="Select at least one tag (required)")
     created_at = models.DateTimeField(default=timezone.now)
     id = models.UUIDField(
         default=uuid.uuid4, unique=True, 
@@ -74,15 +77,26 @@ class Video(models.Model):
         ]
     )
     
+    def generate_unique_filename(self, filename):
+        """Generate unique filename for uploaded video"""
+        name, ext = os.path.splitext(filename)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        slug = slugify(self.title) if self.title else 'video'
+        return f'videos/{slug}_{timestamp}{ext}'
+
     def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        
+        if self.pk is None:  # New video being created
+            if self.file:
+                # Generate unique filename for the video
+                original_file_name = self.file.name
+                self.file.name = self.generate_unique_filename(original_file_name)
+                
         # Process thumbnail if it exists
         if self.thumbnail:
             self.thumbnail = add_black_bars(self.thumbnail)
         
         # Continue with existing save logic
-        if not is_new:
+        if not self.pk:
             try:
                 old_video = Video.objects.get(pk=self.pk)
                 if old_video.file != self.file:
@@ -182,6 +196,12 @@ class Video(models.Model):
         except Exception as e:
             logger.error(f"Error getting video versions: {str(e)}")
             return {}
+
+    def get_thumbnail_url(self):
+        """Get thumbnail URL or default image URL"""
+        if self.thumbnail:
+            return self.thumbnail.url
+        return '/static/images/default.jpg'  # Use direct path instead of static()
 
 class Review(models.Model):
     video = models.ForeignKey(Video, on_delete=models.CASCADE)

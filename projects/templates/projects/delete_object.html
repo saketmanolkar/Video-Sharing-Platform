@@ -1,10 +1,77 @@
-{% extends 'main.html' %}
+<style>
+.alert-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none;
+}
 
-{% block content %}
-<form method="POST" action="">
-    {% csrf_token %}
-    <p>Are you sure that you want to delete "{{object}}"?</p>
-    <a href="{% url 'projects' %}">Go Back</a>
-    <input type="submit" value="Confirm">
-</form>
-{% endblock %}
+.delete-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    background: var(--color-sub-lighter);
+    padding: 2rem;
+    border-radius: 0.7rem;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    min-width: 300px;
+    text-align: center;
+    display: none;
+}
+
+.delete-popup__message {
+    margin-bottom: 1.5rem;
+    font-size: 1.6rem;
+    color: var(--color-sub);
+}
+
+.delete-popup__message strong {
+    color: var(--color-main);
+    font-weight: 600;
+}
+
+.delete-popup__actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.delete-popup .btn {
+    padding: 0.8rem 2rem;
+    border-radius: 5px;
+    font-size: 1.4rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.delete-popup .btn--sub {
+    background-color: var(--color-main);
+    color: white;
+}
+
+.delete-popup .btn--sub:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+}
+</style>
+
+<div class="alert-overlay">
+    <div class="delete-popup">
+        <p class="delete-popup__message">
+            Are you sure you want to delete "<strong style="color: var(--color-warning);">{{ object }}</strong>"?
+        </p>
+        <div class="delete-popup__actions">
+            <form method="POST" style="display: inline;">
+                {% csrf_token %}
+                <input type="submit" value="Delete" class="btn btn--sub">
+            </form>
+            <button onclick="hideDeleteConfirmation()" class="btn">Cancel</button>
+        </div>
+    </div>
+</div>

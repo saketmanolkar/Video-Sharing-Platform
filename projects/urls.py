@@ -11,4 +11,5 @@ urlpatterns = [
     path("project/<str:pk>/add-review/", views.add_review, name="add-review"),
     path("review/<str:pk>/update/", views.update_review, name="update-review"),
     path("review/<str:pk>/delete/", views.delete_review, name="delete-review"),
+    path('debug-videos/', views.debug_videos, name='debug_videos'),
 ]

@@ -1,4 +1,5 @@
 {% extends 'main.html' %}
+{% load static %}
 {% block content %}
     <main class="projects">
         <section class="hero-section text-center">
@@ -28,22 +29,23 @@
               <div class="column">
                 <div class="card project">
                   <a href="{% url 'project' video.id %}" class="project">
-                    <div class="project__thumbnail-wrapper">
+                    <div class="project__thumbnail-wrapper" data-video-url="{{ video.file.url }}" data-preview-duration="15">
+                      <script>
+                        console.log("Video URL:", "{{ video.file.url }}");
+                      </script>
                       <img class="project__thumbnail" 
-                           src="{{video.thumbnail.url}}" 
-                           alt="{{video.title}}" />
+                           src="{% if video.thumbnail %}{{ video.thumbnail.url }}{% else %}{% static 'images/default.jpg' %}{% endif %}"
+                           alt="{{ video.title }}" />
                     </div>
                     <div class="card__body">
                       <h3 class="project__title">{{video.title}}</h3>
-                      <p><a class="project__author" href="profile.html">By Dennis Ivanov</a></p>
+                      <a class="project__author" href="profile.html">By Dennis Ivanov</a>
                       <p class="project--rating">
-                        <span style="font-weight: bold;">{{video.likes_count}}</span> likes • <span style="font-weight: bold;">{{video.dislikes_count}}</span> dislikes
+                        <span style="font-weight: bold;">{{video.likes_count}}</span> Likes • <span style="font-weight: bold;">{{video.dislikes_count}}</span> Dislikes
                       </p>
                       <div class="project__tags">
                         {% for tag in video.tags.all %}
-                        <span class="tag tag--pill tag--main">
-                          <small>{{tag.name}}</small>
-                        </span>
+                        <span class="tag tag--pill">{{ tag.name }}</span>
                         {% endfor %}
                       </div>
                     </div>
@@ -71,5 +73,6 @@
             <li><a href="#" class="btn">Next &#10095;</a></li>
           </ul>
         </div>
-      </main>
+  
+    </main>
 {% endblock %}

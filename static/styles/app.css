@@ -11,7 +11,7 @@
 }
 
 img {
-  max-width: 100%;
+  width: 100%;
 }
 
 .tag > i.im {
@@ -33,7 +33,6 @@ img {
   z-index: 111;
   background-color: var(--color-sub);
   padding: 1.5rem 0;
-  margin-bottom: 0;
 }
 
 .header > .container {
@@ -171,12 +170,10 @@ img {
 ========================*/
 
 .hero-section {
-  height: 30vh;
+  height: 40vh;
   display: flex;
   align-items: center;
   background-color: var(--color-sub);
-  margin: 0;
-  padding: 0;
 }
 
 .hero-section__box {
@@ -491,8 +488,6 @@ img {
 .projects > .hero-section {
   background: var(--color-sub-lighter);
   height: 30vh;
-  margin-top: 0;
-  padding-top: 0;
 }
 
 .projects .hero-section__box {
@@ -514,30 +509,10 @@ img {
 
 /*========== Projects ==========*/
 
-.project__thumbnail-wrapper {
-  position: relative;
-  width: 100%;
-  padding-top: 56.25%; /* 16:9 aspect ratio */
-  background: #000; /* Black background for letterboxing */
-  overflow: hidden;
-}
-
 .project__thumbnail {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  transition: transform 0.2s ease-in-out;
-}
-
-/* Update hover effect */
-.project:hover .project__thumbnail {
-  transform: translate(-50%, -50%) scale(1.05);
+  height: 25rem;
+  object-fit: cover;
+  object-position: top center;
 }
 
 .project__title {
@@ -871,212 +846,18 @@ img {
   margin-top: 2rem;
 }
 
-/*=======================
-  Container Layout
-========================*/
 
-.container {
-  max-width: 100%;
-  padding: 0;
-  margin: 0;
-}
-
-.row {
-  display: flex;
-  gap: 2rem;
-  margin-top: 2rem;
-}
-
-.column--2of3 {
-  flex: 2;
-}
-
-.column--1of3 {
-  flex: 1;
-}
 
 /*=======================
-  Responsive Adjustments
+  Fixed Position Alerts Wrapper
 ========================*/
 
-@media screen and (max-width: 768px) {
-  .row {
-    flex-direction: column;
-  }
-  
-  .column--2of3,
-  .column--1of3 {
-    width: 100%;
-  }
-  
-  .video-sidebar {
-    position: static;
-  }
-}
+.alert {
+  position: fixed;
+  left: 50%;
+  top: 120px;
+  transform: translate(-50%, -50%);
 
-/* Layout */
-.content-layout {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 2rem;
-    padding: 2rem 0;
-}
 
-.main-content {
-    max-width: 100%;
-}
-
-/* Sidebar Styles */
-.sidebar {
-    position: sticky;
-    top: 2rem;
-    height: fit-content;
-}
-
-.recommended-videos {
-    background: var(--color-white);
-    border-radius: 0.7rem;
-    padding: 1.5rem;
-    border: 1px solid var(--color-light);
-}
-
-.recommended-videos h3 {
-    font-size: 1.6rem;
-    margin-bottom: 1.5rem;
-    color: var(--color-sub);
-}
-
-.recommended-video {
-    margin-bottom: 1.5rem;
-}
-
-.recommended-video:last-child {
-    margin-bottom: 0;
-}
-
-.recommended-video a {
-    display: flex;
-    gap: 1rem;
-    text-decoration: none;
-}
-
-.video-thumb {
-    width: 168px;
-    height: 94px;
-    flex-shrink: 0;
-}
-
-.video-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 0.5rem;
-}
-
-.video-info {
-    flex-grow: 1;
-}
-
-.video-info h4 {
-    font-size: 1.4rem;
-    color: var(--color-sub);
-    margin-bottom: 0.5rem;
-    line-height: 1.2;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.video-info p {
-    font-size: 1.2rem;
-    color: var(--color-sub-light);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .content-layout {
-        grid-template-columns: 1fr;
-    }
-
-    .sidebar {
-        position: static;
-    }
-
-    .video-thumb {
-        width: 120px;
-        height: 67px;
-    }
-}
-
-.projects {
-    margin: 0;
-    padding: 0;
-}
-
-/* Card specific styles */
-.card.project {
-  background: var(--color-white);
-  border-radius: 0.7rem;
-  overflow: hidden;
-}
-
-/* Project link wrapper */
-.card.project .project {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-/* Thumbnail wrapper */
-.project__thumbnail-wrapper {
-    position: relative;
-    width: 100%;
-    padding-top: 56.25%; /* 16:9 aspect ratio */
-    background: #000; /* Black background for letterboxing */
-    overflow: hidden;
-}
-
-/* Thumbnail image */
-.project__thumbnail {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    transition: transform 0.2s ease-in-out;
-}
-
-/* Update hover effect */
-.project:hover .project__thumbnail {
-    transform: translate(-50%, -50%) scale(1.05);
-}
-
-/* Card body */
-.card__body {
-    padding: 1rem;
-    flex-grow: 1;
-}
-
-/* Sidebar specific thumbnail sizes */
-.video-recommendation__thumbnail {
-    width: 168px;
-    height: 94px;
-    flex-shrink: 0;
-}
-
-.video-thumb {
-    width: 120px;
-    height: 67px;
-    flex-shrink: 0;
-}
-
-/* Handle vertical videos */
-.vertical-thumbnail {
-    aspect-ratio: 9/16;
+  z-index: 99999;
 }
