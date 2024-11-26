@@ -75,3 +75,58 @@
         </div>
     </div>
 </div>
+
+<script>
+function showDeleteConfirmation(id, title, type = 'video') {
+    document.querySelector('.delete-popup__message strong').textContent = title;
+    
+    const form = document.querySelector('.delete-popup form');
+    const popup = document.querySelector('.delete-popup');
+    
+    if (type === 'comment') {
+        form.action = `/review/${id}/delete/`;
+        popup.dataset.commentId = id;
+        form.onsubmit = function(e) {
+            e.preventDefault();
+            handleDeleteComment(e);
+            return false;
+        };
+    } else {
+        form.action = `/delete-project/${id}/`;
+        popup.dataset.itemId = id;
+        form.onsubmit = function(e) {
+            e.preventDefault();
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    hideDeleteConfirmation();
+                    window.location.reload();
+                    return response.json();
+                }
+                throw new Error('Network response was not ok');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error deleting video', 'error');
+            });
+            return false;
+        };
+    }
+    
+    document.querySelector('.alert-overlay').style.display = 'block';
+    document.querySelector('.delete-popup').style.display = 'block';
+}
+
+function hideDeleteConfirmation() {
+    document.querySelector('.alert-overlay').style.display = 'none';
+    document.querySelector('.delete-popup').style.display = 'none';
+}
+</script>

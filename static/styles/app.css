@@ -9,6 +9,9 @@
 
 .card {
   border: 2px solid var(--color-light);
+  position: relative;
+  z-index: 1;
+  background: white;
 }
 
 img {
@@ -227,20 +230,35 @@ img {
   font-weight: 700;
 }
 
+.hero-section__search {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
 .hero-section__search > .form {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2rem;
+  align-items: stretch;
+  gap: 0.5rem;
+  width: 100%;
 }
 
-.hero-section__search > .form label {
-  position: absolute;
-  left: -9999px;
+.hero-section__search .form__field {
+  flex: 1;
+  margin: 0;
 }
 
-.hero-section__search > .form input.input--text {
-  width: 50rem;
+.hero-section__search .input--text {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.hero-section__search .btn {
+  padding: 1rem 2rem;
+  height: 100%;
+  margin: 0;
+  white-space: nowrap;
 }
 
 @media screen and (max-width: 700px) {
@@ -505,7 +523,7 @@ img {
 }
 
 .projectsList {
-  margin-top: 8rem;
+  margin-top: 0;
 }
 
 /*========== Projects ==========*/
@@ -961,18 +979,17 @@ img {
     color: var(--color-sub-light);
 }
 
-.vid-creator__link {
+.vid-creator a {
     display: inline-block;
     text-decoration: none;
     color: var(--color-sub);
     font-weight: 500;
     transition: all 0.3s ease;
-    font-size: 1.4rem;
+    font-size: 1.5rem;
 }
 
-.vid-creator__link:hover {
-    color: #d08f80;
-    transform: translateY(-1px);
+.vid-creator a:hover {
+    color: var(--color-main);
 }
 
 /* Add these to your existing form styles */
@@ -1181,3 +1198,1074 @@ img {
     color: var(--color-text);
     font-size: 1.4rem;
 }
+
+/* Video Player section styling */
+.video-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.video-section {
+  width: 100%;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.video-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 750px) 400px;
+  gap: 24px;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.video-message {
+  width: 100%;
+}
+
+.video-message__content {
+  background: var(--color-white);
+  padding: 2rem;
+  border-radius: 0.7rem;
+  border: 2px solid var(--color-light);
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.video-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: fit-content;
+}
+
+/* Keep existing message styles */
+.message__subject {
+  font-size: 2.4rem;
+  color: var(--color-sub);
+  margin-bottom: 0;
+}
+
+.message__author {
+  font-size: 1.6rem;
+  color: var(--color-sub-light);
+  margin-bottom: 0.5rem;
+}
+
+.message__date {
+  font-size: 1.4rem;
+  color: var(--color-text);
+  margin-bottom: 2rem;
+}
+
+.message__body {
+  font-size: 1.6rem;
+  line-height: 1.7;
+}
+
+.message__body p {
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1200px) {
+  .video-content-grid {
+      grid-template-columns: 1fr;
+      max-width: 850px;
+      margin: 0 auto;
+      gap: 24px;
+  }
+  
+  .video-sidebar {
+      order: 2;
+  }
+}
+
+/* Add these new styles */
+.video-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.video-stats {
+  display: flex;
+  gap: 24px;
+}
+
+.stats-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.stats-count {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--color-sub);
+}
+
+.stats-label {
+  font-size: 1.4rem;
+  color: var(--color-sub-light);
+}
+
+/* Add new tag styles */
+.video-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  justify-content: flex-start;
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.5rem 1.2rem;
+  background-color: var(--color-sub-lighter);
+  color: var(--color-sub);
+  border-radius: 15px;
+  font-size: 1.3rem;
+  border: none;
+}
+
+.tag:hover {
+  background-color: var(--color-sub-lighter);
+  color: var(--color-sub);
+}
+
+/* Update sidebar container style in video_sidebar.html */
+.sidebar-container {
+  background: var(--color-sub-lighter);
+  border-radius: 0.7rem;
+  border: 2px solid var(--color-light);
+  padding: 1.5rem;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.comment-form {
+  margin: 20px 0;
+}
+
+.comment-form textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 2px solid var(--color-light);
+  border-radius: 5px;
+  min-height: 100px;
+}
+
+.comment-form button {
+  background: var(--color-sub);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.comment-form button:hover {
+  background: var(--color-main);
+}
+
+/* Add this to ensure project cards maintain their shadow */
+.card.project {
+  margin: 0;
+  border: 2px solid var(--color-light);
+  background: var(--color-white);
+  border-radius: 0.3rem;
+  overflow: hidden;
+  width: 100%;
+  height: auto;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Remove any hover effects that might override the shadow */
+.card.project:hover,
+.project:hover,
+a.project:hover,
+.card.project:focus,
+.project:focus,
+a.project:focus,
+.card.project:active,
+.project:active,
+a.project:active {
+  text-decoration: none;
+  outline: none;
+  transform: none;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Basic link style without effects */
+.project {
+  display: block;
+  text-decoration: none;
+}
+
+.settings__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  width: 100%;
+}
+
+.settings__title {
+  font-size: 2.4rem;
+  color: var(--color-sub);
+  margin: 0;
+}
+
+.comment-form {
+  margin: 1rem 0;
+}
+
+.comments-list {
+  margin-top: 1rem;
+}
+
+.settings__table {
+  width: 100%;
+  margin-top: 0;
+}
+
+.settings__tableInfo {
+  padding: 1.5rem 0;
+}
+
+/* Add a subtle separator between comments */
+.settings__table tr {
+  border-bottom: 1px solid var(--color-light);
+}
+
+.settings__table tr:last-child {
+  border-bottom: none;
+}
+
+.tag--xl {
+  font-size: 1.6rem;
+  padding: 1.2rem 2.4rem;
+  transition: all 0.3s ease;
+  margin-left: auto;
+}
+
+.tag--xl:hover {
+  transform: scale(1.05);
+  background-color: var(--color-main);
+  color: white;
+}
+
+.alert-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: none;
+}
+
+/* Ensure alert appears above overlay */
+.alert {
+  z-index: 1000;
+}
+
+.video-player {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Comment form styles */
+.comment-form {
+    display: none;  /* This replaces style="display: none;" */
+}
+
+/* Submit button styles */
+.comment-form button[type="submit"] {
+    display: none;
+}
+
+
+/* Create a brand new class name that won't conflict with anything */
+.creator-studio-header {
+    position: relative;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.05), transparent);
+    padding: 5rem 0;
+}
+
+.creator-studio-header__content {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    text-align: center;
+    padding: 3rem 0;
+}
+
+.creator-studio-header__content h2 {
+    font-size: 3.2rem;
+    color: var(--color-sub);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.creator-studio-header__content h2 span {
+    color: var(--color-main);
+    font-weight: 600;
+}
+
+/* Update analytics card to connect with header */
+.analytics-card {
+    margin-top: 0;  /* Remove top margin to connect with header */
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+}
+
+.analytics-header {
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.analytics-header h3 {
+    font-size: 2rem;
+    color: var(--color-sub);
+    font-weight: 600;
+}
+
+.analytics-count {
+    color: var(--color-sub-light);
+    font-size: 1.4rem;
+}
+
+.checkered-background {
+    position: relative;
+    background: var(--color-sub-lighter);
+    min-height: 100vh;
+    padding-bottom: 3rem;
+}
+
+.checkered-background::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.1),  /* Changed from transparent */
+            rgba(255, 255, 255, 0.1) 10px,  /* Changed from transparent */
+            var(--color-bg) 10px,
+            var(--color-bg) 20px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            rgba(255, 255, 255, 0.1),  /* Changed from transparent */
+            rgba(255, 255, 255, 0.1) 10px,  /* Changed from transparent */
+            var(--color-bg) 10px,
+            var(--color-bg) 20px
+        );
+    z-index: 0;  /* Changed from -1 */
+    pointer-events: none;
+}
+
+/* Ensure content stays above pattern */
+.checkered-background > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Ensure cards stay above pattern */
+.card.project {
+    position: relative;
+    z-index: 2;
+    background: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);  /* Subtle shadow */
+    transition: all 0.3s ease;  /* Smooth hover effect */
+}
+
+.creator-studio-header {
+    position: relative;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.05), transparent);  /* Subtle gradient */
+}
+
+.creator-studio-header__content {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    text-align: center;
+}
+
+.creator-studio-header__content h2,
+.creator-studio-header__content h2 span {
+    font-size: 4rem;
+    color: var(--color-sub);
+    line-height: 1.3;
+    text-transform: uppercase;
+    animation: fadeInDown 0.6s ease-out;  /* Subtle animation */
+}
+
+.creator-studio-header__content h2 {
+    font-weight: 300;
+}
+
+.creator-studio-header__content h2 span {
+    font-weight: 700;
+}
+
+/* Keep the media queries for responsive design */
+@media screen and (max-width: 1000px) {
+    .creator-studio-header__content h2,
+    .creator-studio-header__content h2 span {
+        font-size: 3.4rem;
+    }
+}
+
+@media screen and (max-width: 800px) {
+    .creator-studio-header__content h2,
+    .creator-studio-header__content h2 span {
+        font-size: 3rem;
+    }
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Profile Card Button Styling */
+.profile-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.8rem 1.5rem;
+    background-color: var(--color-bg);
+    color: var(--color-sub);
+    font-size: 1.4rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.profile-btn:hover {
+    background-color: #f5f5f5;
+    border-color: #d0d0d0;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.profile-btn i {
+    font-size: 1.6rem;
+    color: var(--color-sub);
+}
+
+.profile-actions {
+    border-top: 1px solid #eee;
+    padding-top: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.profile-action-btn {
+    width: 100%;
+}
+
+/* Profile Button Styling */
+.profile-actions {
+    border-top: 1px solid #eee;
+    padding: 1.5rem 0 0 0;
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.profile-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.8rem 1.5rem;
+    background-color: var(--color-bg);
+    color: #8b8b8b;  /* Matching social icon default color */
+    font-size: 1.4rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.profile-btn:hover {
+    background-color: #f5f5f5;
+    transform: translateY(-2px);  /* Matching social icon hover effect */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.profile-btn i {
+    font-size: 2rem;  /* Matching social icon size */
+    color: #8b8b8b;  /* Matching social icon color */
+    transition: all 0.3s ease;
+}
+
+.profile-btn:hover i {
+    color: var(--color-main) !important;  /* Matching social icon hover color */
+}
+
+/* Button Separator */
+.profile-btn-separator {
+    width: 100%;
+    height: 1px;
+    background: #eee;
+    margin: 0.2rem 0;
+}
+
+/* Specific icon colors on hover - matching social icons */
+.profile-btn:has(.fa-video):hover i {
+    color: #FF0000 !important;  /* YouTube red */
+}
+
+.profile-btn:has(.fa-cog):hover i {
+    color: #2d2d39 !important;  /* Your theme color */
+}
+
+/* Profile Page Banner Styling */
+.hero-section.hero-section--profile {
+  background-color: transparent !important; 
+  
+ /* Remove the purple background */
+  
+}
+
+
+/* New Profile Pattern - Fresh Start */
+.profile-page-pattern {
+    position: relative;
+    min-height: 100vh;
+    background: #f8f9fa;  /* Light background like Creator Studio */
+}
+
+.profile-page-pattern::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 0;
+    background-image: 
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 17px,
+            rgba(45, 45, 57, 0.03) 10px,  /* Very subtle gray stripes */
+            rgba(45, 45, 57, 0.03) 20px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            transparent,
+            transparent 17px,
+            rgba(45, 45, 57, 0.03) 10px,  /* Very subtle gray stripes */
+            rgba(45, 45, 57, 0.03) 20px
+        );
+    pointer-events: none;
+}
+
+/* Keep cards above pattern */
+.profile-page-pattern .card {
+    position: relative;
+    z-index: 2;
+    background: white !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Override the hero section spacing for profile pages */
+.hero-section.hero-section--profile {
+    height: auto !important;
+    padding: 9rem 0 7rem 0 !important;  /* Just a bit of top padding */
+    background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+/* Remove the extra margin from hero box in profile */
+.hero-section--profile .hero-section__box {
+    margin: 0 !important;  /* Remove all margins */
+    width: 100% !important;
+}
+
+/* Adjust the container for profile */
+.hero-section--profile .container--narrow {
+    padding: 0 2rem !important;
+    width: 100% !important;
+}
+
+/* Clean up the header content spacing */
+.hero-section--profile .creator-studio-header__content {
+  padding: 0 !important;
+  margin: 0 !important;
+  text-align: center !important;
+}
+
+/* Ensure proper text sizing */
+.hero-section--profile h2,
+.hero-section--profile h2 span {
+  font-size: 3.2rem !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Analytics Card Enhanced Styling */
+.analytics-card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 2.5rem;
+  margin: 2rem 0;
+  border: 1px solid #e0e0e0;
+}
+
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--color-sub-lighter);
+}
+
+/* Enhanced Table Styling */
+.analytics-table.studio-style {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--color-white);
+  color: #030303;
+}
+
+.analytics-table.studio-style thead th {
+  padding: 1rem 1.6rem;  /* Reduced vertical padding */
+  font-size: 1.3rem;     /* Slightly smaller font */
+  color: var(--color-sub);
+  background: #f8f9fa;
+  border-bottom: 2px solid var(--color-sub-lighter);
+}
+
+/* Keep first column alignment */
+.analytics-table.studio-style thead th:first-child {
+    text-align: left;
+    padding-left: 1.2rem;
+}
+
+/* Keep center alignment for metric columns */
+.analytics-table.studio-style thead th:not(:first-child) {
+    text-align: center;
+}
+
+/* Remove any border radius from table headers */
+.analytics-table.studio-style thead th:first-child,
+.analytics-table.studio-style thead th:last-child {
+    border-radius: 0;
+}
+
+/* Add subtle background to entire table header row */
+.analytics-table.studio-style thead tr {
+    background: #fafafa;  /* Very light grey background */
+}
+
+/* Row styling */
+.analytics-table.studio-style tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: all 0.2s ease;
+}
+
+.analytics-table.studio-style tbody tr:hover {
+  background-color: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Cell styling */
+.analytics-table.studio-style td {
+  padding: 0.8rem;
+  font-size: 1.4rem;
+  vertical-align: middle;
+  border-right: 1px solid #e0e0e0;
+  border-bottom: none;
+}
+
+.analytics-table.studio-style td:last-child {
+  border-right: none;
+}
+
+/* Video info cell */
+.video-title-cell {
+  padding: 0.6rem 0.8rem !important;
+  border-right: 1px solid #e0e0e0;
+  width: 50%;
+}
+
+.video-info {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  max-width: 100%;
+}
+
+/* Thumbnail styling */
+.thumbnail {
+  flex-shrink: 0;
+  width: 100px;
+  height: 56px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f2f2f2;
+  border: 1px solid #e0e0e0;
+}
+
+.thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Metrics styling */
+.analytics-table.studio-style .metric {
+  text-align: center;
+  color: var(--color-sub);
+  font-weight: 500;
+  font-size: 1.5rem;
+  width: 10%;
+}
+
+/* Date styling */
+.analytics-table.studio-style .date {
+  color: #606060;
+  text-align: center;
+  width: 10%;
+  font-size: 1.3rem;
+}
+
+/* Title cell */
+.title-cell {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+  color: var(--color-sub);
+  font-weight: 500;
+  font-size: 1.5rem;
+}
+
+/* No data message */
+.no-data {
+  text-align: center;
+  color: #606060;
+  font-size: 1.6rem;
+  padding: 4rem 2rem;
+  background: var(--color-sub-lighter);
+  border-radius: 8px;
+  margin: 2rem 0;
+}
+
+/* Add hover actions for video entries */
+.video-info {
+  position: relative;  /* For positioning the hover buttons */
+}
+
+.video-actions {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;  /* Change from 'none' to 'flex' */
+  gap: 8px;
+  padding: 0;  /* Remove padding from container */
+  opacity: 0;  /* Start with 0 opacity instead of display: none */
+  transition: opacity 0.3s ease;  /* Smooth fade transition */
+}
+
+.video-title-cell:hover .video-actions {
+  opacity: 1;  /* Fade in on hover */
+}
+
+.video-action-btn {
+  padding: 4px 12px;
+  font-size: 1.2rem;
+  color: var(--color-sub);
+  background: #f8f9fa;  /* Background on individual buttons */
+  border: 1px solid var(--color-sub);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  transform: translateX(10px);  /* Start slightly offset */
+  opacity: 0;  /* Individual button opacity */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.video-action-btn:hover {
+  background: var(--color-sub);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.video-action-btn.delete {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.video-action-btn.delete:hover {
+  background: #dc3545;
+  color: white;
+}
+
+/* Stagger the button animations */
+.video-title-cell:hover .video-action-btn:nth-child(1) {
+  transition-delay: 0.1s;
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.video-title-cell:hover .video-action-btn:nth-child(2) {
+  transition-delay: 0.2s;
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.video-title-cell:hover .video-action-btn:nth-child(3) {
+  transition-delay: 0.3s;
+  transform: translateX(0);
+  opacity: 1;
+}
+
+/* Base styles for all video action buttons */
+.video-action-btn {
+    padding: 4px 12px;
+    font-size: 1.2rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    transform: translateX(10px);
+    opacity: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Watch button specific styles */
+.video-action-btn.watch {
+    color: #2196F3;  /* Blue */
+    border: 1px solid #2196F3;
+}
+
+.video-action-btn.watch:hover {
+    background: #2196F3;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(33, 150, 243, 0.3);
+}
+
+/* Edit button specific styles */
+.video-action-btn:not(.watch):not(.delete) {  /* Edit button */
+    color: #4CAF50;  /* Green */
+    border: 1px solid #4CAF50;
+}
+
+.video-action-btn:not(.watch):not(.delete):hover {
+    background: #4CAF50;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(76, 175, 80, 0.3);
+}
+
+/* Delete button specific styles */
+.video-action-btn.delete {
+    color: #dc3545;  /* Red */
+    border: 1px solid #dc3545;
+}
+
+.video-action-btn.delete:hover {
+    background: #dc3545;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(220, 53, 69, 0.3);
+}
+
+/* Add padding to the table wrapper and a subtle bottom border */
+.analytics-table-wrapper {
+    padding-bottom: 2rem;  /* Space after table ends */
+    margin-bottom: 1rem;   /* Additional margin */
+    border-bottom: 1px solid var(--color-sub-lighter);  /* Subtle separator */
+}
+
+/* Style the last row of the table to indicate end */
+.analytics-table.studio-style tbody tr:last-child {
+    border-bottom: none;  /* Remove default border */
+    margin-bottom: 1rem;  /* Add space */
+}
+
+/* Add subtle shadow to indicate end of table */
+.analytics-table.studio-style {
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);  /* Very subtle shadow */
+}
+
+/* Chart Card Specific Styling */
+.chart-card {
+    margin-top: 3rem !important;  /* Space between table and chart */
+    padding: 2rem;
+}
+
+.analytics-chart-wrapper {
+    padding: 2rem;
+    background: white;
+    border-radius: 8px;
+    height: 400px;  /* Fixed height for the chart */
+    position: relative;
+}
+
+/* Ensure proper chart sizing */
+.analytics-chart-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Enhanced analytics card styling */
+.analytics-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 2.5rem;
+  margin: 2rem 0;
+  border: 1px solid #e0e0e0;
+  width: 100%;
+}
+
+.analytics-card:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.analytics-header {
+    padding: 2rem;
+    border-bottom: 1px solid #e0e0e0;
+    background: var(--color-sub-lighter);
+}
+
+.analytics-header h3 {
+    font-size: 2rem;
+    color: var(--color-sub);
+    font-weight: 600;
+    margin: 0;
+}
+
+/* Analytics Section Layout */
+/* Remove nested container styles */
+.analytics-section .container {
+  padding: 0;
+  width: 100%;
+}
+
+/* Update analytics card styles */
+.analytics-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 2.5rem;
+  margin: 2rem 0;
+  border: 1px solid #e0e0e0;
+  width: 100%;
+}
+
+/* Chart card specific styles */
+.analytics-card.chart-card {
+  margin-top: 3rem;
+  padding: 2.5rem;
+  width: 100%;
+}
+
+.chart-navigation {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.analytics-chart-wrapper {
+    margin-top: 0.25rem;
+}
+
+.chart-nav-btn {
+  padding: 1rem 2rem;
+  border: 1px solid var(--color-light);
+  border-radius: 6px;
+  background: var(--color-white);
+  color: var(--color-sub);
+  font-weight: 500;
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 140px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.chart-nav-btn:hover {
+  background: var(--color-sub-lighter);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.chart-nav-btn.active {
+  background: var(--color-main);
+  color: var(--color-white);
+  border-color: var(--color-main);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Chart Navigation and Selector Styles */
+.chart-selector {
+  display: inline-flex;
+  margin: 0;
+  margin-left: auto;
+  width: fit-content;
+}
+
+.video-select {
+  width: auto;
+  min-width: 200px;
+  padding: 0.8rem 1.6rem;
+  font-size: 1.4rem;
+  border: 1px solid var(--color-light);
+  border-radius: 6px;
+  background: white;
+  height: 42px;
+}
+

@@ -2,11 +2,13 @@
 {% load static %}
 
 {% block content %}
-<main class="projects" style="background: #f8f8f8;">
-  <section class="hero-section text-center" style="margin-bottom: 0;">
+<main class="profile-page-pattern">
+  <section class="hero-section hero-section--profile">
     <div class="container container--narrow">
       <div class="hero-section__box">
-        <h2>{{ profile.user.first_name }}'s <span>Profile</span></h2>
+        <div class="creator-studio-header__content">
+          <h2>{{ profile.user.first_name }}'s <span>User Profile</span></h2>
+        </div>
       </div>
     </div>
   </section>
@@ -15,9 +17,9 @@
     <div class="container">
       <div class="grid" style="display: grid; grid-template-columns: 10% 90%; gap: 4rem; margin: 2rem 0;">
         <!-- Left Column - Profile Card (10%) -->
-        <div class="column" style="position: relative; z-index: 2;">
-          <div class="card project" style="text-align: center; padding: 1rem; border: none; background: white; height: 100%; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
-            <div class="card__body dev">
+        <div class="column" style="position: relative; z-index: 2; background: var(--color-sub-lighter);">
+          <div class="card project" style="text-align: center; border: none; background: var(--color-sub-lighter); height: 100%; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
+            <div class="card__body dev" style="background: var(--color-sub-lighter); height: 100%;">
               <!-- Only show edit button if the profile belongs to the logged-in user -->
               {% if request.user == profile.user %}
               <div class="edit-button-container">
@@ -34,9 +36,6 @@
               />
               <h3 class="dev__name" style="font-size: 2rem; margin-bottom: 0.2rem; color: #333;">{{ profile.name }}</h3>
               <p style="color: #666; font-size: 1.4rem; margin-bottom: 0.2rem;">(@{{ profile.username }})</p>
-              <p class="dev__title" style="color: #666; margin-bottom: 0.3rem; font-size: 1.3rem;">
-                {{ profile.bio|truncatechars:60|default:" " }}
-              </p>
               <p class="dev__location" style="color: #666; font-size: 1.3rem; margin-bottom: 0.2rem;">
                 {{ profile.user.email|default:"None" }}
               </p>
@@ -91,10 +90,26 @@
                 {% endif %}
               </div>
 
-              <div style="margin-top: 0.3rem;">
-                <a href="#" class="btn btn--sub btn--lg" style="width: 90%; margin: 0 auto; font-size: 1.1rem; padding: 0.2rem; background-color: #5f5f6e;">
-                  Message
-                </a>
+              <!-- Profile Action Buttons Container -->
+              <div class="profile-actions">
+                <!-- Creator Studio Button -->
+                <div class="profile-action-btn">
+                  <a href="{% url 'creator-studio' profile.id %}" class="profile-btn">
+                    <i class="fas fa-video"></i>
+                    <span>Manage Your Videos</span>
+                  </a>
+                </div>
+                
+                <!-- Button Separator -->
+                <div class="profile-btn-separator"></div>
+                
+                <!-- Settings Button -->
+                <div class="profile-action-btn">
+                  <a href="#" class="profile-btn">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                  </a>
+                </div>
               </div>
             </div>
           </div>

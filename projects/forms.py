@@ -9,38 +9,52 @@ class ProjectForm(ModelForm):
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'input',
-                'placeholder': 'Enter video title',
-                'required': True
+                'placeholder': 'Enter video title'
             }),
             'description': forms.Textarea(attrs={
                 'class': 'input',
                 'placeholder': 'Enter video description',
-                'rows': 4,
-                'required': True
+                'rows': 4
             }),
             'file': forms.FileInput(attrs={
                 'class': 'file-input',
-                'required': True,
                 'accept': 'video/mp4,video/mov'
             }),
             'thumbnail': forms.FileInput(attrs={
                 'class': 'file-input',
-                'required': True,
                 'accept': 'image/*'
             }),
             'tags': forms.CheckboxSelectMultiple(attrs={
-                'class': 'tag-checkbox',
-                'required': True
+                'class': 'tag-checkbox'
             })
         }
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['tags'].help_text = "Please select at least one tag"
+        
+        # Set base requirements
+        self.fields['title'].required = True
+        self.fields['description'].required = True
+        self.fields['tags'].required = True
+        
+        # Handle file requirements based on whether this is an update
+        if self.instance and self.instance.pk:
+            self.fields['file'].required = False
+            self.fields['thumbnail'].required = False
+            self.fields['file'].widget.attrs['required'] = False
+            self.fields['thumbnail'].widget.attrs['required'] = False
+        else:
+            self.fields['file'].required = True
+            self.fields['thumbnail'].required = True
+            self.fields['file'].widget.attrs['required'] = True
+            self.fields['thumbnail'].widget.attrs['required'] = True
+        
+        # Add input class to non-file fields
         for name, field in self.fields.items():
             if name not in ['file', 'thumbnail']:
                 field.widget.attrs.update({'class': 'input'})
-        
+    
     def clean_tags(self):
         tags = self.cleaned_data.get('tags')
         if not tags:
@@ -59,4 +73,3 @@ class ReviewForm(ModelForm):
                 'rows': 4
             })
         }
-

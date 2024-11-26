@@ -1,6 +1,9 @@
 from django.shortcuts import get_object_or_404
 from django.db import models
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.templatetags.static import static
+import json
+from projects.services.video_services import VideoService
 
 class ProfileService:
     def get_profile(self, profile_id, profile_model):
@@ -71,3 +74,43 @@ class ProfileService:
 
         except Exception as e:
             return False, f"Error updating profile: {str(e)}"
+    
+    def get_creator_studio_data(self, profile_id, profile_model):
+        """Get creator studio data for a profile"""
+        profile = self.get_profile(profile_id, profile_model)
+        videos = profile.user.uploaded_videos.all()
+        analytics_data = VideoService.get_creator_studio_analytics(videos)
+        
+        # Add default thumbnail URL to the context
+        default_thumbnail = static('images/default.jpg')
+        
+        return {
+            'profile': profile,
+            'default_thumbnail': default_thumbnail,
+            'video_analytics': analytics_data['video_analytics'],
+            'chart_labels': json.dumps(analytics_data['chart_labels']),
+            'chart_data': json.dumps(analytics_data['chart_data']),
+            'daily_views_data': json.dumps(analytics_data['daily_views_data']),
+            'hourly_views_data': json.dumps(analytics_data['hourly_views_data']),
+        }
+
+    def get_profile_data(self, profile_id, profile_model):
+        """Get complete profile data including videos and history"""
+        profile = self.get_profile(profile_id, profile_model)
+        videos = profile.user.uploaded_videos.all()[:2]
+        view_history = profile.user.view_history.all()[:2]
+        
+        # Add engagement metrics
+        for video in videos:
+            video.likes_count = VideoService.get_likes_count(video)
+            video.dislikes_count = VideoService.get_dislikes_count(video)
+        
+        for history in view_history:
+            history.video.likes_count = VideoService.get_likes_count(history.video)
+            history.video.dislikes_count = VideoService.get_dislikes_count(history.video)
+        
+        return {
+            'profile': profile,
+            'videos': videos,
+            'view_history': view_history
+        }

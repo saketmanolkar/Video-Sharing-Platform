@@ -1,4 +1,4 @@
-from django.db.models.signals import pre_save, post_save, pre_delete
+from django.db.models.signals import pre_save, post_save, pre_delete, post_delete
 from django.dispatch import receiver
 from .models import Video
 from django.utils.text import slugify
@@ -8,12 +8,7 @@ import os
 import logging
 from django.conf import settings
 from django.core.cache import cache
-from django.utils import timezone
-from datetime import timedelta
-from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from django.utils import timezone
-from django.db.models import Count, Q
 from .models import Video, Review, Like, VideoAnalytics, ViewHistory
 from .services.video_services import VideoService
 

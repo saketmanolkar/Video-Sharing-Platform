@@ -4,8 +4,14 @@
     <div class="content-box">
         <div class="formWrapper">
             <div class="backButton-container">
-                <a class="backButton" data-url="{% url 'projects' %}" href="{% url 'projects' %}">&lt;</a>
-                <h3 class="formWrapper__subject" style="text-align: center; flex: 1;">Upload Your Video</h3>
+                <a class="backButton" href="{% if page_type == 'update' %}{% url 'creator-studio' request.user.profile.id %}{% else %}{% url 'projects' %}{% endif %}">&lt;</a>
+                <h3 class="formWrapper__subject" style="text-align: center; flex: 1;">
+                    {% if page_type == 'update' %}
+                        Update Your Video Details
+                    {% else %}
+                        Upload Your Video
+                    {% endif %}
+                </h3>
             </div>
            
 
@@ -35,7 +41,13 @@
                         <div class="file-upload-wrapper">
                             {{ form.file }}
                             <label for="{{ form.file.auto_id }}" class="upload-label">Select</label>
-                            <div class="file-name">Choose a video...</div>
+                            <div class="file-name" style="pointer-events: none;">
+                                {% if form.instance.file %}
+                                    Current: {{ form.instance.file.name }}
+                                {% else %}
+                                    Choose a video...
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
 
@@ -47,7 +59,13 @@
                         <div class="file-upload-wrapper">
                             {{ form.thumbnail }}
                             <label for="{{ form.thumbnail.auto_id }}" class="upload-label">Select</label>
-                            <div class="file-name">Choose a thumbnail...</div>
+                            <div class="file-name">
+                                {% if form.instance.thumbnail %}
+                                    {{ form.instance.thumbnail.name }}
+                                {% else %}
+                                    Choose a thumbnail...
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>

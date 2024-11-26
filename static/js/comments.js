@@ -14,8 +14,8 @@ function createCommentRow(comment) {
                         <i class="im im-edit"></i> Edit
                     </button>
                     <button class="tag tag--pill tag--main settings__btn delete-btn" 
-                            data-id="${comment.id}" 
-                            data-comment="${escapedComment}">
+                            onclick="showDeleteConfirmation('${comment.id}', '${escapedComment}', 'comment')"
+                            data-id="${comment.id}">
                         <i class="im im-x-mark"></i> Delete
                     </button>
                 ` : ''}
@@ -100,9 +100,7 @@ function initializeAllButtonHandlers() {
         } else if (target.classList.contains('edit-btn')) {
             const commentText = target.closest('tr').querySelector('p').textContent;
             editComment(target.dataset.id, commentText);
-        } else if (target.classList.contains('delete-btn')) {
-            showDeleteConfirmation(target.dataset.id, target.dataset.comment);
-        }
+        } 
     });
 }
 
@@ -178,40 +176,13 @@ function loadInitialComments() {
     }
 }
 
-// Delete Comment Functions
-function showDeleteConfirmation(commentId, commentText) {
-    console.log('Using delete template:', document.querySelectorAll('.delete-popup').length);
-    
-    const overlay = document.querySelector('.alert-overlay');
-    const popup = document.querySelector('.delete-popup');
-    const messageElement = document.querySelector('.delete-popup__message strong');
-    
-    // Update message and store comment ID
-    messageElement.textContent = commentText;
-    popup.dataset.commentId = commentId;
-    
-    // Show overlay and popup
-    overlay.style.display = 'block';
-    popup.style.display = 'block';
-    
-    // Update form action and ensure it uses our handler
-    const form = popup.querySelector('form');
-    form.action = `/review/${commentId}/delete/`;
-    form.onsubmit = handleDeleteComment;
-}
 
-function hideDeleteConfirmation() {
-    const overlay = document.querySelector('.alert-overlay');
-    const popup = document.querySelector('.delete-popup');
-    
-    overlay.style.display = 'none';
-    popup.style.display = 'none';
-}
 
 function handleDeleteComment(event) {
     event.preventDefault();
     const form = event.target;
-    const commentId = form.closest('.delete-popup').dataset.commentId;
+    const popup = form.closest('.delete-popup');
+    const commentId = popup.dataset.commentId;
     
     fetch(form.action, {
         method: 'POST',
@@ -227,18 +198,14 @@ function handleDeleteComment(event) {
             if (commentElement) {
                 commentElement.remove();
             }
+            // Use the global hideDeleteConfirmation function from delete_object.html
             hideDeleteConfirmation();
             showMessage('Comment deleted successfully!', 'success');
             
-            // Properly reset the comment button
-            const commentButton = document.getElementById('commentButton');
-            if (commentButton) {
-                commentButton.onclick = handleCommentClick;
-                commentButton.innerHTML = '<i class="im im-plus"></i> Add Comment';
-            }
-            
-            // Ensure form is hidden and reset
+            // Reset the comment form and button
             const commentForm = document.getElementById('commentForm');
+            const commentButton = document.getElementById('commentButton');
+            
             if (commentForm) {
                 commentForm.style.display = 'none';
                 const form = document.getElementById('reviewForm');
@@ -246,6 +213,10 @@ function handleDeleteComment(event) {
                     form.reset();
                     form.action = addReviewUrl;
                 }
+            }
+            
+            if (commentButton) {
+                commentButton.innerHTML = '<i class="im im-plus"></i> Add Comment';
             }
         } else {
             showMessage(data.error || 'Error deleting comment', 'error');

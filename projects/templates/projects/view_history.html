@@ -2,17 +2,17 @@
 {% load static %}
 
 {% block content %}
-<main class="projects" style="background: #f8f8f8;">
-  <section class="hero-section text-center">
+<main class="checkered-background">
+  <section class="creator-studio-header">
     <div class="container container--narrow">
-      <div class="hero-section__box">
+      <div class="creator-studio-header__content">
         <h2>{{ profile.name }}'s <span>View History</span></h2>
         <p>Videos watched by {{ profile.username }}</p>
       </div>
     </div>
   </section>
 
-  <section class="projectsList">
+  <section class="projectsList" style="margin-top: 0;">
     <div class="container">
       {% include 'components/video_grid.html' with videos=history_videos %}
     </div>

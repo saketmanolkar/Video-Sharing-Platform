@@ -6,6 +6,7 @@ from django.core.cache import cache
 import time
 from django.utils import timezone
 from datetime import timedelta
+from projects.services.view_analytics import ViewAnalyticsService
 
 
 logger = logging.getLogger(__name__)
@@ -81,12 +82,15 @@ class VideoService:
     @staticmethod
     def update_video(video_id, data):
         """Update video and invalidate cache"""
-        from projects.models import Video  # Move import here to avoid circular import
+        from projects.models import Video
         video = Video.objects.get(id=video_id)
         video.title = data['title']
         video.save()
         
+        # Invalidate all related caches
         VideoService.invalidate_video_cache(video_id)
+        cache.delete(f'video_context_{video_id}')
+        cache.delete(f'video_{video_id}')  # Add any other related cache keys
     
     @staticmethod
     def get_likes_count(video):
@@ -177,6 +181,78 @@ class VideoService:
             'last_24h_views': VideoService.get_period_views_count(video, 1),
             'last_7d_views': VideoService.get_period_views_count(video, 7),
             'last_30d_views': VideoService.get_period_views_count(video, 30)
+        }
+    
+    @staticmethod
+    def get_creator_studio_analytics(videos):
+        """Get all analytics data for creator studio"""
+        
+        video_analytics = {}
+        chart_labels = []
+        chart_data = []
+        daily_views_data = {}
+        hourly_views_data = {}
+        analytics_service = ViewAnalyticsService()
+
+        for video in videos:
+            if hasattr(video, 'analytics'):
+                video_id = str(video.id)
+                
+                # Basic analytics data
+                video_analytics[video_id] = {
+                    'title': video.analytics.title,
+                    'thumbnail_url': video.thumbnail.url if video.thumbnail else None,
+                    'total_views': video.analytics.total_views,
+                    'total_likes': video.analytics.total_likes,
+                    'total_dislikes': video.analytics.total_dislikes,
+                    'total_comments': video.reviews.count(),
+                    'created_at': video.analytics.created_at,
+                }
+                
+                # Total views chart data
+                chart_labels.append(video.analytics.title)
+                chart_data.append(video.analytics.total_views)
+                
+                # Daily views data
+                daily_views = analytics_service.get_views_over_time(video)
+                if daily_views:
+                    daily_views_data[video_id] = VideoService._process_daily_views(daily_views)
+                
+                # Hourly views data
+                hourly_views = analytics_service.get_views_by_hour(video)
+                if hourly_views:
+                    hourly_views_data[video_id] = {
+                        'labels': [view['hour'].strftime('%H:00') for view in hourly_views],
+                        'data': [view['count'] for view in hourly_views]
+                    }
+
+        return {
+            'video_analytics': video_analytics,
+            'chart_labels': chart_labels,
+            'chart_data': chart_data,
+            'daily_views_data': daily_views_data,
+            'hourly_views_data': hourly_views_data
+        }
+    
+    @staticmethod
+    def _process_daily_views(daily_views):
+        """Helper method to process daily views data"""
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        date_range = [(timezone.now() - timedelta(days=x)).date() for x in range(30)]
+        views_dict = {view['day'].date(): view['count'] for view in daily_views}
+        
+        daily_data = []
+        daily_labels = []
+        
+        for date in reversed(date_range):
+            daily_labels.append(date.strftime('%Y-%m-%d'))
+            daily_data.append(views_dict.get(date, 0))
+        
+        return {
+            'labels': daily_labels,
+            'data': daily_data
         }
 
 class UtilityService:

@@ -5,7 +5,6 @@ from django.core.paginator import Paginator
 from .models import Video, Review, Playlist, ViewHistory
 from .forms import ProjectForm, ReviewForm
 from .recommendations import get_video_recommendations
-from .utils import add_black_bars, encode_video
 import os
 from django.http import JsonResponse, StreamingHttpResponse, HttpResponse
 from datetime import datetime
@@ -64,7 +63,7 @@ def project(request, pk):
     context['likes_count'] = video_service.get_likes_count(video)
     context['dislikes_count'] = video_service.get_dislikes_count(video)
     
-    return render(request, 'projects/single-project.html', context)
+    return render(request, 'projects/single_project.html', context)
 
 def file_iterator(file_path, start=0, length=None, chunk_size=8192):
     with open(file_path, 'rb') as f:
@@ -123,28 +122,57 @@ def create_project(request):
                 return render(request, 'projects/project_form.html', {'form': form})
     else:
         form = ProjectForm()
-    return render(request, 'projects/project_form.html', {'form': form})
+    return render(request, 'projects/project_form.html', {
+        'form': form,
+        'page_type': 'create'
+    })
 
 @login_required(login_url="login-page")
 def update_project(request, pk):
     project = get_object_or_404(Video, id=pk)
+    
+    # Check if the logged-in user is the project owner
+    if project.uploader != request.user:
+        messages.error(request, "You don't have permission to edit this project.")
+        return redirect('project', pk=project.id)
+    
     if request.method == 'POST':
-        form = ProjectForm(request.POST, request.FILES, instance=project)
-        if form.is_valid():
-            try:
-                project = form.save()
-                messages.success(request, 'Project updated successfully!')
-                return redirect('project', pk=project.id)
-            except Exception as e:
-                messages.error(request, f'Error updating project: {str(e)}')
+        try:
+            with transaction.atomic():
+                form = ProjectForm(request.POST, request.FILES, instance=project)
+                if form.is_valid():
+                    project = form.save(commit=False)
+                    if 'file' in request.FILES:
+                        project._file_changed = True
+                    project.save()
+                    form.save_m2m()
+                    
+                    # Invalidate all related caches
+                    VideoService.invalidate_video_cache(project.id)
+                    cache.delete(f'video_context_{project.id}')
+                    
+                    messages.success(request, 'Project updated successfully!')
+                    return redirect('creator-studio', pk=request.user.profile.id)
+        except Exception as e:
+            messages.error(request, f'Error updating project: {str(e)}')
     else:
         form = ProjectForm(instance=project)
     
-    return render(request, 'projects/project_form.html', {'form': form})
+    return render(request, 'projects/project_form.html', {
+        'form': form,
+        'page_type': 'update',
+        'project': project
+    })
 
 @login_required(login_url="login-page")
 def delete_project(request, pk):
     project = get_object_or_404(Video, id=pk)
+    
+    # Check if the logged-in user is the project owner
+    if project.uploader != request.user:
+        messages.error(request, "You don't have permission to delete this project.")
+        return redirect('project', pk=project.id)
+    
     if request.method == 'POST':
         try:
             project.delete()
@@ -170,10 +198,8 @@ def add_review(request, pk):
             review.user = request.user
             review.save()
             
-            # Invalidate video context cache
             cache.delete(f'video_context_{pk}')
             
-            # Return JSON response
             return JsonResponse({
                 'success': True,
                 'comment': {
@@ -195,13 +221,19 @@ def add_review(request, pk):
 def update_review(request, pk):
     review = get_object_or_404(Review, id=pk)
     
+    # Check if the logged-in user owns this review
+    if review.user != request.user:
+        return JsonResponse({
+            'success': False,
+            'error': "You don't have permission to edit this comment"
+        })
+    
     if request.method == 'POST':
         comment = request.POST.get('comment')
         if comment:
             review.comment = comment
             review.save()
             
-            # Invalidate cache
             cache.delete(f'video_context_{review.video.id}')
             
             return JsonResponse({
@@ -219,12 +251,18 @@ def update_review(request, pk):
 @login_required(login_url="login-page")
 def delete_review(request, pk):
     review = get_object_or_404(Review, id=pk)
-    video_id = review.video.id  # Get video ID before deletion
+    
+    # Check if the logged-in user owns this review or is the video owner
+    if review.user != request.user and review.video.uploader != request.user:
+        return JsonResponse({
+            'success': False,
+            'error': "You don't have permission to delete this comment"
+        })
     
     if request.method == 'POST':
         try:
+            video_id = review.video.id  # Get video ID before deletion
             review.delete()
-            # Invalidate cache
             cache.delete(f'video_context_{video_id}')
             return JsonResponse({
                 'success': True,
