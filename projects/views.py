@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.conf import settings
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import Video, Review, Playlist, ViewHistory
 from .forms import ProjectForm, ReviewForm
 from .recommendations import get_video_recommendations
@@ -14,9 +14,6 @@ from .services.video_services import VideoService, UtilityService
 from .services.media_servies import ModelService
 from django.core.cache import cache
 import json
-import time
-from django.db.models import Q
-from django.utils import timezone
 import uuid
 import re
 from django.db import transaction
@@ -25,12 +22,14 @@ import hashlib
 logger = logging.getLogger(__name__)
 
 def projects(request):
-    videos = Video.objects.all().order_by('-created_at')
-    paginator = Paginator(videos, 9)  # Show 9 videos per page
-    page = request.GET.get('page')
-    paged_videos = paginator.get_page(page)
+    search_query = request.GET.get('search', '')
+    videos = VideoService.search_videos(search_query)
     
-    # Add counts to each video object
+    paged_videos, custom_range = VideoService.get_paginated_videos(
+        videos, 
+        request.GET.get('page', 1)
+    )
+    
     for video in paged_videos:
         video.likes_count = VideoService.get_likes_count(video)
         video.dislikes_count = VideoService.get_dislikes_count(video)
@@ -38,13 +37,19 @@ def projects(request):
     context = {
         'videos': paged_videos, 
         'page': 'Projects',
-        'video_service': VideoService
+        'video_service': VideoService,
+        'search_query': search_query,
+        'custom_range': custom_range
     }
+    
     return render(request, 'projects/projects.html', context)
 
 def project(request, pk):    
     video_service = VideoService()
     video = video_service.get_video(pk, Video)
+    
+    # Add the user to the video object before getting context
+    video.request_user = request.user
     
     # Get video context including recommendations
     context = video_service.get_video_context(video, get_video_recommendations)
@@ -392,3 +397,15 @@ def stream_video(request, pk):
     response['Accept-Ranges'] = 'bytes'
     response['Content-Length'] = str(file_size)
     return response
+
+@login_required(login_url="login-page")
+def handle_like(request, pk):
+    if request.method == 'POST':
+        video_service = VideoService()
+        video = video_service.get_video(pk, Video)
+        is_like = request.POST.get('is_like') == 'true'
+        
+        result = VideoService.handle_like_action(video, request.user, is_like)
+        return JsonResponse(result)
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})

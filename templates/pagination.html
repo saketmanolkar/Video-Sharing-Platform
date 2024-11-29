@@ -1,0 +1,25 @@
+{% load static %}
+
+<div class="pagination">
+    <ul class="container">
+      {% if queryset.has_previous %}
+          <li><a href="?page={{ queryset.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="btn">&#10094; Prev</a></li>
+      {% else %}
+          <li><a class="btn btn--disabled">&#10094; Prev</a></li>
+      {% endif %}
+
+      {% for num in custom_range %}
+          {% if queryset.number == num %}
+              <li><a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}" class="btn btn--sub">{{ num }}</a></li>
+          {% else %}
+              <li><a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}" class="btn">{{ num }}</a></li>
+          {% endif %}
+      {% endfor %}
+
+      {% if queryset.has_next %}
+          <li><a href="?page={{ queryset.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="btn">Next &#10095;</a></li>
+      {% else %}
+          <li><a class="btn btn--disabled">Next &#10095;</a></li>
+      {% endif %}
+    </ul>
+</div>

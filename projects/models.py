@@ -18,6 +18,7 @@ from datetime import datetime
 from django.templatetags.static import static
 from .services.media_servies import ModelService
 from .services.video_services import VideoService
+from django.core.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,11 @@ class Video(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['title']),
+            models.Index(fields=['description']),
+            models.Index(fields=['uploader']),
+        ]
 
     def __str__(self):
         return self.title
@@ -166,6 +172,19 @@ class Like(models.Model):
     def __str__(self):
         action = "likes" if self.is_like else "dislikes"
         return f"{self.user.username} {action} {self.video.title}"
+
+    def clean(self):
+        # Prevent self-likes
+        if self.user == self.video.uploader:
+            raise ValidationError("Cannot like your own video")
+            
+        # Check for existing opposite reaction
+        if Like.objects.filter(
+            user=self.user,
+            video=self.video,
+            is_like=not self.is_like
+        ).exists():
+            raise ValidationError("Cannot like and dislike simultaneously")
 
 class ViewHistory(models.Model):
     id = models.UUIDField(

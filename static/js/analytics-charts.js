@@ -5,6 +5,29 @@ function initializeCharts(chartData) {
     const videoSelector = document.getElementById('videoSelector');
     const navButtons = document.querySelectorAll('.chart-nav-btn');
 
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: {
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)'
+                }
+            },
+            y: {
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)'
+                },
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top'
+            }
+        }
+    };
+
     function createTotalViewsChart() {
         return new Chart(chartCanvas, {
             type: 'line',
@@ -19,10 +42,7 @@ function initializeCharts(chartData) {
                     fill: true
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
+            options: commonOptions
         });
     }
 
@@ -41,10 +61,7 @@ function initializeCharts(chartData) {
                     fill: true
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
+            options: commonOptions
         });
     }
 
@@ -62,10 +79,7 @@ function initializeCharts(chartData) {
                     borderWidth: 1
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
+            options: commonOptions
         });
     }
 

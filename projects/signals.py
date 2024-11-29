@@ -11,6 +11,7 @@ from django.core.cache import cache
 from django.dispatch import receiver
 from .models import Video, Review, Like, VideoAnalytics, ViewHistory
 from .services.video_services import VideoService
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -137,12 +138,15 @@ def handle_analytics_create(sender, instance, created, **kwargs):
         return
         
     try:
-        # Use VideoService to get accurate initial data
-        data = VideoService.get_analytics_data(instance)
-        VideoAnalytics.objects.create(**data)
-        logger.info(f"✅ Created analytics record for video: {instance.title}")
+        with transaction.atomic():
+            # Check if analytics already exists
+            if not hasattr(instance, 'analytics'):
+                data = VideoService.get_analytics_data(instance)
+                VideoAnalytics.objects.create(**data)
     except Exception as e:
-        logger.error(f"❌ Error creating analytics: {str(e)}")
+        logger.error(f"Failed to create analytics: {str(e)}")
+        # Attempt recovery
+        VideoService.repair_analytics(instance)
 
 @receiver([post_save, post_delete], sender=Review)
 def handle_review_analytics_update(sender, instance, **kwargs):
@@ -193,20 +197,12 @@ def handle_view_analytics_update(sender, instance, **kwargs):
 def handle_video_cleanup(sender, instance, **kwargs):
     """DELETE signal - Handles complete cleanup when video is deleted"""
     try:
-        # Log final analytics state before deletion
-        analytics = instance.analytics
-        log_message = f"📊 Final analytics for video {instance.title} before deletion:\n"
-        log_message += f"Views: {analytics.total_views}\n"
-        log_message += f"Comments: {analytics.total_comments}\n"
-        log_message += f"Likes: {analytics.total_likes}\n"
-        log_message += f"Dislikes: {analytics.total_dislikes}\n"
-        logger.info(log_message)
-
-        # Delete related records in correct order
-        instance.likes.all().delete()  # Delete all likes
-        instance.reviews.all().delete()  # Delete all reviews
-        instance.views_history.all().delete()  # Delete view history
-        instance.analytics.delete()  # Delete analytics record
+        with transaction.atomic():
+            # Delete related records in transaction
+            instance.likes.all().delete()
+            instance.reviews.all().delete()
+            instance.views_history.all().delete()
+            instance.analytics.delete()
         
         logger.info(f"✅ Successfully cleaned up all related data for video: {instance.title}")
     except Exception as e:

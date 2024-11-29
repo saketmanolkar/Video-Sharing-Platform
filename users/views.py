@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_protect
 from .forms import CustomUserCreationForm
 from django.contrib.auth.decorators import login_required
 from .forms import ProfileForm
+from django.http import JsonResponse
 
 @login_required
 def creator_studio(request, pk):
@@ -138,3 +139,21 @@ def register_user(request):
         "form": form
     }
     return render(request, "users/login_register.html", context)
+
+@login_required
+def handle_follow(request, pk):
+    if request.method == 'POST':
+        follow_service = FollowService()
+        profile = get_object_or_404(Profile, id=pk)
+        
+        success, message = follow_service.follow_user(request.user, profile.user) \
+            if not follow_service.check_following_status(request.user, profile.user) \
+            else follow_service.unfollow_user(request.user, profile.user)
+        
+        return JsonResponse({
+            'status': 'success' if success else 'error',
+            'message': message,
+            'is_following': follow_service.check_following_status(request.user, profile.user)
+        })
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})

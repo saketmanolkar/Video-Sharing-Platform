@@ -10,5 +10,5 @@ urlpatterns = [
     path('register/', views.register_user, name="register-page"),
     path('profile/<str:pk>/edit/', views.update_profile, name="update-profile"),
     path('profile/<str:pk>/creator-studio/', views.creator_studio, name="creator-studio"),
-    
+    path('follow/<str:pk>/', views.handle_follow, name='handle-follow'),
 ]
