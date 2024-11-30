@@ -1,6 +1,9 @@
 {% extends 'main.html' %}
 {% block content %}
 <main class="formPage my-xl">
+    {% if page_type != 'update' %}
+        {% include 'components/vid_processing_overlay.html' %}
+    {% endif %}
     <div class="content-box">
         <div class="formWrapper">
             <div class="backButton-container">
@@ -138,5 +141,16 @@
             }
         });
     });
+
+    (function() {
+        if ("{{ page_type }}" !== 'update') {
+            document.querySelector('.form').addEventListener('submit', function(e) {
+                const fileInput = document.querySelector('input[name="file"]');
+                if (fileInput.files.length > 0) {
+                    document.getElementById('processingOverlay').style.display = 'flex';
+                }
+            });
+        }
+    })();
 </script>
 {% endblock %}
