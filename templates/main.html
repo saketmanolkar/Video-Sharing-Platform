@@ -6,24 +6,21 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Favicon -->
+  <!-- Icon -->
   <link rel="shortcut icon" href="{% static 'images/logo_icon.svg' %}" type="image/x-icon" />
-  <!-- Icon - Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <!-- Mumble UI -->
+
+   <!-- Custom CSS -->
   <link rel="stylesheet" href="{% static 'uikit/styles/uikit.css' %}" />
-  <!-- Dev Search UI -->
   <link rel="stylesheet" href="{% static 'styles/app.css' %}" />
+  <link rel="stylesheet" href="{% static 'uikit/app.css' %}">
 
   <title>FilmsNation - Movies</title>
 
-<!-- Video.js CSS -->
-  <link href="https://vjs.zencdn.net/8.16.1/video-js.css" rel="stylesheet" />
-  <link rel="stylesheet" href="{% static 'uikit/app.css' %}">
+  <!-- External Libraries -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <!-- Add Highlight.js CSS and JS -->
+  <link href="https://vjs.zencdn.net/8.16.1/video-js.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  
 </head>
 
 
@@ -44,10 +41,15 @@
     {% block content %}
 
     {% endblock %}
-    
     <!-- Video.js Script -->
     <script src="https://vjs.zencdn.net/8.16.1/video.min.js"></script>
+
+    <!-- Highlight.js Script -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <!-- Mumble UI Script -->
     <script src="{% static 'uikit/app.js' %}"></script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const alertWrapper = document.querySelector('.alert-wrapper');

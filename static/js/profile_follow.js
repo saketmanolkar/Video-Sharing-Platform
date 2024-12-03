@@ -14,17 +14,24 @@ function handleFollow(button) {
         if (data.status === 'success') {
             // Update button text and class
             const followText = button.querySelector('.follow-text');
-            if (data.is_following) {
-                button.classList.add('following');
-                followText.textContent = 'Unfollow';
-            } else {
-                button.classList.remove('following');
-                followText.textContent = 'Follow';
+            if (followText) {
+                if (data.is_following) {
+                    button.classList.add('following');
+                    followText.textContent = 'Unfollow';
+                } else {
+                    button.classList.remove('following');
+                    followText.textContent = 'Follow';
+                }
             }
             
             // Update follower count
-            document.querySelector('.followers-count').textContent = data.followers_count;
+            const followersCount = document.querySelector('.followers-count');
+            if (followersCount) {
+                followersCount.textContent = data.followers_count;
+            }
         }
     })
-    .catch(error => console.error('Error:', error));
+    .catch(error => {
+        console.error('Error:', error);
+    });
 }

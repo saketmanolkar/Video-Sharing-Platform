@@ -50,54 +50,21 @@
   {% endfor %}
 </div>
 
-<script>
-document.querySelectorAll('.project__thumbnail-wrapper').forEach(container => {
-    const video = container.querySelector('.thumbnail-preview');
-    const thumbnail = container.querySelector('img');
-
-    container.addEventListener('mouseenter', () => {
-        video.style.display = 'block'; // Show the video
-        video.play(); // Play the video
-    });
-
-    container.addEventListener('mouseleave', () => {
-        stopPreview(container);
-    });
-});
-
-function stopPreview(container) {
-    const video = container.querySelector('video');
-    const thumbnail = container.querySelector('img');
-    
-    if (video) {
-        video.pause(); // Pause the video
-        video.currentTime = 0; // Reset to the beginning
-        video.remove(); // Remove the video element immediately
-    }
-    
-    if (thumbnail) {
-        thumbnail.style.opacity = '1'; // Show the thumbnail
-    }
-
-    container.classList.remove('loading'); // Remove loading class
-}
-</script>
-
 <style>
 .video-card {
-    background: white; /* Ensure the background is white */
-    border-radius: 10px; 
-    box-shadow: none; /* Remove any shadow to avoid lift effect */
-    overflow: hidden; 
-    border: 2px solid #ccc; /* Add a light gray border */
-    transition: none; /* Disable any transition effects */
+    background: white;
+    border-radius: 10px;
+    box-shadow: none;
+    overflow: hidden;
+    border: 2px solid #ccc;
+    transition: none;
 }
 
 .video-thumbnail-wrapper {
-    transition: none; /* Disable any transition effects */
+    transition: none;
 }
 
 .video-thumbnail-wrapper img {
-    transition: none; /* Disable any transition effects on the image */
+    transition: none;
 }
 </style>
