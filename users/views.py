@@ -25,7 +25,18 @@ def creator_studio(request, pk):
 
 def profile(request, pk):
     profile_service = ProfileService()
+    follow_service = FollowService()
+    
+    # Get profile data
     context = profile_service.get_profile_data(pk, Profile)
+    
+    # Add follow status to context if user is authenticated
+    if request.user.is_authenticated and request.user != context['profile'].user:
+        context['is_following'] = follow_service.check_following_status(
+            request.user, 
+            context['profile'].user
+        )
+    
     return render(request, "users/profile.html", context)
 
 @login_required
@@ -146,14 +157,20 @@ def handle_follow(request, pk):
         follow_service = FollowService()
         profile = get_object_or_404(Profile, id=pk)
         
+        # Handle follow/unfollow
         success, message = follow_service.follow_user(request.user, profile.user) \
             if not follow_service.check_following_status(request.user, profile.user) \
             else follow_service.unfollow_user(request.user, profile.user)
         
+        # Get updated stats
+        stats = follow_service.get_follower_stats(profile)
+        
         return JsonResponse({
             'status': 'success' if success else 'error',
             'message': message,
-            'is_following': follow_service.check_following_status(request.user, profile.user)
+            'is_following': follow_service.check_following_status(request.user, profile.user),
+            'followers_count': stats['followers_count'],
+            'following_count': stats['following_count']
         })
     
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})

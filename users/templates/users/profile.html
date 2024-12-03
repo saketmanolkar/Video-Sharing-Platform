@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block content %}
+{% csrf_token %}
 <main class="profile-page-pattern">
   <section class="hero-section hero-section--profile">
     <div class="container container--narrow">
@@ -22,13 +23,27 @@
           <div class="card project" style="text-align: center; border: none; background: var(--color-sub-lighter); height: 100%; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
             <div class="card__body dev" style="background: var(--color-sub-lighter); height: 100%;">
               <!-- Only show edit button if the profile belongs to the logged-in user -->
-              {% if request.user == profile.user %}
               <div class="edit-button-container">
-                <a class="edit-button" href="{% url 'update-profile' profile.id %}">
-                  Edit Profile
-                </a>
+                {% if request.user == profile.user %}
+                  <a class="edit-button" href="{% url 'update-profile' profile.id %}">
+                    Edit Profile
+                  </a>
+                {% elif request.user.is_authenticated %}
+                  <button 
+                    class="edit-button {% if is_following %}following{% endif %}" 
+                    data-profile-id="{{ profile.id }}"
+                    onclick="handleFollow(this)"
+                  >
+                    <span class="follow-text">
+                      {% if is_following %}
+                        Unfollow
+                      {% else %}
+                        Follow
+                      {% endif %}
+                    </span>
+                  </button>
+                {% endif %}
               </div>
-              {% endif %}
               <img 
                 class="avatar avatar--xl" 
                 style="width: 150px; height: 150px; border-radius: 50%; margin: 0 auto 0.5rem auto; border: 3px solid #80D0C7;"
@@ -157,4 +172,7 @@
     </div>
   </section>
 </main>
+
+<script src="{% static 'js/profile_follow.js' %}"></script>
+
 {% endblock %}

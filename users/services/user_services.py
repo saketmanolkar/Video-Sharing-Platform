@@ -4,6 +4,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.templatetags.static import static
 import json
 from projects.services.video_services import VideoService
+from users.services.follow_services import FollowService
 
 class ProfileService:
     def get_profile(self, profile_id, profile_model):
@@ -94,11 +95,20 @@ class ProfileService:
             'hourly_views_data': json.dumps(analytics_data['hourly_views_data']),
         }
 
-    def get_profile_data(self, profile_id, profile_model):
-        """Get complete profile data including videos and history"""
+    def get_profile_data(self, profile_id, profile_model, current_user=None):
+        """Get complete profile data including videos, history, and follow status"""
         profile = self.get_profile(profile_id, profile_model)
+        follow_service = FollowService()
+        
+        # Get existing data
         videos = profile.user.uploaded_videos.all()[:2]
         view_history = profile.user.view_history.all()[:2]
+        
+        # Add follow-related data
+        follow_stats = follow_service.get_follower_stats(profile)
+        is_following = False
+        if current_user and current_user.is_authenticated:
+            is_following = follow_service.check_following_status(current_user, profile.user)
         
         # Add engagement metrics
         for video in videos:
@@ -112,5 +122,8 @@ class ProfileService:
         return {
             'profile': profile,
             'videos': videos,
-            'view_history': view_history
+            'view_history': view_history,
+            'followers_count': follow_stats['followers_count'],
+            'following_count': follow_stats['following_count'],
+            'is_following': is_following
         }
