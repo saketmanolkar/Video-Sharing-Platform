@@ -1,122 +1,118 @@
 // Invoke Functions Call on Document Loaded
 document.addEventListener('DOMContentLoaded', function () {
-  hljs.highlightAll();
-});
-
-
-let alertWrapper = document.querySelector('.alert')
-let alertClose = document.querySelector('.alert__close')
-
-if (alertWrapper) {
-  alertClose.addEventListener('click', () =>
-    alertWrapper.style.display = 'none'
-  )
-}
-
-// Video Preview Utility
-class VideoPreviewManager {
-    constructor() {
-        this.initializePreviews();
-    }
-
-    initializePreviews() {
-        document.querySelectorAll('.project__thumbnail-wrapper').forEach(container => {
-            const videoUrl = container.dataset.videoUrl;
-            if (!videoUrl) return;
-
-            let video; // Declare video variable
-
-            container.addEventListener('mouseenter', () => {
-                if (!video) {
-                    video = document.createElement('video');
-                    video.src = videoUrl;
-                    video.muted = true;
-                    video.playsInline = true;
-                    video.controls = false;
-                    video.loop = true;
-                    video.className = 'thumbnail-preview';
-
-                    Object.assign(video.style, {
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        position: 'absolute',
-                        top: '0',
-                        left: '0',
-                        zIndex: '1',
-                        opacity: '0',
-                        transition: 'opacity 0.3s ease'
-                    });
-
-                    container.appendChild(video);
-
-                    video.onloadeddata = () => {
-                        if (video && video.style) {
-                            video.style.opacity = '1';
-                            const thumbnail = container.querySelector('img');
-                            if (thumbnail) {
-                                thumbnail.style.opacity = '0.3';
-                            }
-                            video.play().catch(e => console.error('Playback failed:', e));
-                        }
-                    };
-                }
-            });
-
-            container.addEventListener('mouseleave', () => {
-                if (video) {
-                    video.pause();
-                    video.remove();
-                    video = null;
-                    
-                    const thumbnail = container.querySelector('img');
-                    if (thumbnail) {
-                        thumbnail.style.opacity = '1';
-                    }
-                }
-            });
-        });
-    }
-}
-
-// Add CSS
-const style = document.createElement('style');
-style.textContent = `
-    .project__thumbnail-wrapper, .sidebar-thumbnail {
-        position: relative;
-        overflow: hidden;
-    }
-
-    .project__thumbnail-wrapper img, .sidebar-thumbnail img {
-        transition: opacity 0.3s ease;
-    }
-
-    .preview-video {
-        background: #000;
-    }
-
-    .loading::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 30px;
-        height: 30px;
-        border: 3px solid rgba(255,255,255,0.3);
-        border-top-color: #fff;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        z-index: 2;
-    }
-
-    @keyframes spin {
-        to { transform: translate(-50%, -50%) rotate(360deg); }
-    }
-`;
-document.head.appendChild(style);
-
-// Initialize when document is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    new VideoPreviewManager();
-});
+    hljs.highlightAll();
+  });
+  
+  
+  let alertWrapper = document.querySelector('.alert')
+  let alertClose = document.querySelector('.alert__close')
+  
+  if (alertWrapper) {
+    alertClose.addEventListener('click', () =>
+      alertWrapper.style.display = 'none'
+    )
+  }
+  
+  // Video Preview Utility
+  class VideoPreviewManager {
+      constructor() {
+          this.previewTimeouts = new Map();
+          this.initializePreviews();
+      }
+  
+      initializePreviews() {
+          document.querySelectorAll('[data-video-url]').forEach(container => {
+              this.setupPreviewContainer(container);
+          });
+      }
+  
+      setupPreviewContainer(container) {
+          const videoUrl = container.dataset.videoUrl;
+          const previewDuration = parseInt(container.dataset.previewDuration || '15') * 1000;
+  
+          container.addEventListener('mouseenter', () => {
+              // Clear any existing video first
+              this.stopPreview(container);
+              // Start new preview
+              this.startPreview(container, videoUrl, previewDuration);
+          });
+  
+          container.addEventListener('mouseleave', () => {
+              this.stopPreview(container);
+          });
+      }
+  
+      startPreview(container, videoUrl, duration) {
+          try {
+              const video = document.createElement('video');
+              
+              // Add loading indicator
+              container.classList.add('loading');
+              
+              // Video settings
+              video.src = videoUrl;
+              video.muted = true;
+              video.className = 'thumbnail-preview';
+              video.playsInline = true;
+              video.controls = false;
+              video.loop = true;
+              
+              // Add inline styles
+              Object.assign(video.style, {
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: 'auto',
+                  height: '100%',
+                  objectFit: 'contain',
+                  objectPosition: 'center',
+                  zIndex: '1'
+              });
+              
+              // Error handling
+              video.onerror = () => {
+                  console.error('Error loading video:', videoUrl);
+                  container.classList.remove('loading');
+                  this.stopPreview(container);
+              };
+              
+              // Loaded handling
+              video.onloadeddata = () => {
+                  container.classList.remove('loading');
+                  const thumbnail = container.querySelector('img');
+                  if (thumbnail) thumbnail.style.opacity = '0';
+                  video.play().catch(e => console.error('Playback failed:', e));
+              };
+  
+              container.appendChild(video);
+          } catch (error) {
+              console.error('Preview error:', error);
+              container.classList.remove('loading');
+          }
+      }
+  
+      stopPreview(container) {
+          // Remove any existing video elements
+          const videos = container.querySelectorAll('video');
+          videos.forEach(video => {
+              video.pause();
+              video.removeAttribute('src'); // Clear source
+              video.load(); // Reset video element
+              video.remove();
+          });
+          
+          // Reset thumbnail
+          const thumbnail = container.querySelector('img');
+          if (thumbnail) {
+              thumbnail.style.opacity = '1';
+          }
+  
+          container.classList.remove('loading');
+      }
+  }
+  
+  // Initialize video previews when document is loaded
+  document.addEventListener('DOMContentLoaded', function() {
+      const previewManager = new VideoPreviewManager();
+  });

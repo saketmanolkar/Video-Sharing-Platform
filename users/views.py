@@ -1,15 +1,16 @@
 from django.shortcuts import render, get_object_or_404,redirect
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.models import User
-from users.models import Profile
+from users.models import Profile, Message
 from .services.user_services import ProfileService
 from .services.follow_services import FollowService
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_protect
 from .forms import CustomUserCreationForm
 from django.contrib.auth.decorators import login_required
-from .forms import ProfileForm
+from .forms import ProfileForm, MessageForm
 from django.http import JsonResponse
+from django.core.exceptions import ValidationError
 
 @login_required
 def creator_studio(request, pk):
@@ -49,21 +50,47 @@ def update_profile(request, pk):
         return redirect('profile', pk=pk)
     
     if request.method == 'POST':
-        form = ProfileForm(request.POST, request.FILES, instance=profile)
+        # Get all user fields
+        username = request.POST.get('username')
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
         
-        # Use the service to handle the update
-        success, message = profile_service.update_profile(
-            profile=profile,
-            user_data=request.POST,
-            profile_form=form,
-            should_clear_pic=request.POST.get('clear_profile_pic')
-        )
+        if not username or not first_name:
+            messages.error(request, "Username and first name cannot be empty")
+            form = ProfileForm(instance=profile)
+            return render(request, "users/profile_form.html", {
+                'form': form, 
+                'profile': profile,
+                'user': profile.user
+            })
+            
+        # Update user fields
+        user = profile.user
+        user.username = username
+        user.first_name = first_name
+        user.last_name = last_name
         
-        if success:
-            messages.success(request, message)
-            return redirect('profile', pk=profile.id)
-        else:
-            messages.error(request, message)
+        try:
+            if User.objects.exclude(pk=user.pk).filter(username=username).exists():
+                messages.error(request, "This username is already taken")
+                form = ProfileForm(instance=profile)
+                return render(request, "users/profile_form.html", {
+                    'form': form, 
+                    'profile': profile,
+                    'user': profile.user
+                })
+            
+            user.save()
+            
+            # Now process the profile form
+            form = ProfileForm(request.POST, request.FILES, instance=profile)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Profile updated successfully!')
+                return redirect('profile', pk=profile.id)
+            
+        except Exception as e:
+            messages.error(request, str(e))
     else:
         form = ProfileForm(instance=profile)
     
@@ -174,3 +201,56 @@ def handle_follow(request, pk):
         })
     
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+
+@login_required(login_url='login-page')
+def inbox(request):
+    profile = request.user.profile
+    messageList = profile.messages.all()
+    unreadCount = messageList.filter(is_read=False).count()
+    context = {
+        'messageList': messageList,
+        'unreadCount': unreadCount
+    }
+    return render(request, "users/inbox.html", context)
+
+def view_message(request,pk):
+    profile = request.user.profile
+    message=profile.messages.get(id=pk) 
+    if message.is_read == False:
+        message.is_read = True
+        message.save()
+    context = {
+        'message': message
+    }
+    return render(request, "users/message.html", context)
+
+def create_message(request,pk):
+    recipient= Profile.objects.get(id=pk)
+    form = MessageForm()
+
+    try:
+        sender = request.user.profile
+    except:
+        sender = None
+    
+    if request.method == "POST":
+        form = MessageForm(request.POST)
+        if form.is_valid():
+            message = form.save(commit=False)
+            message.sender = sender
+            message.recipient = recipient
+            
+            if sender:
+                message.name = sender.name
+                message.email = sender.email
+            
+            message.save()
+            messages.success(request, "Message sent successfully")
+            return redirect('profile', pk=recipient.id)
+        else:
+            messages.error(request, "An error occurred during message creation")
+    context = {
+        'recipient': recipient,
+        'form': form
+    }
+    return render(request, "users/message_form.html", context)

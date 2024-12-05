@@ -1,0 +1,58 @@
+{% extends 'main.html' %}
+{% load static %}
+
+
+{% block content %}
+
+<main class="checkered-background">
+  <section class="creator-studio-header">
+    <div class="container container--narrow">
+      <div class="creator-studio-header__content">
+        <h2> <span>Inbox</span></h2>
+        <p>Check your messages here.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="projectsList" style="margin-top: 0;">
+    <div class="container">
+      <div class="analytics-card">
+        <div class="analytics-header">
+          <h3>Messages</h3>
+          <span class="analytics-count" style="font-weight: bold;">Unread : {{ unreadCount }}</span>
+        </div>
+        
+        <div class="analytics-table-wrapper">
+          <table class="analytics-table studio-style" style="border-collapse: collapse;">
+            <tbody>
+              {% for message in messageList %}
+              {% if not message.is_read %}
+              <tr class="message-row unread">
+              {% else %}
+              <tr class="message-row">
+              {% endif %}
+                <td class="sender-cell" style="border: none;">
+                  <div class="sender-info">
+                    <span class="sender-name">{{ message.name}}</span>
+                  </div>
+                </td>
+                <td class="subject-cell" style="border: none;">{{ message.subject }}</td>
+                <td class="date-cell" style="border: none;">{{ message.created|date:"M d, Y, H:i" }}</td>
+                <td class="action-cell" style="border: none;">
+                  <a href="{% url 'message' message.id %}" class="btn btn--sm">View</a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+  <br>
+  <br>
+</main>
+
+
+{% endblock %}
+
