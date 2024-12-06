@@ -82,6 +82,11 @@ def update_profile(request, pk):
             
             user.save()
             
+            # Handle profile picture clearing
+            if request.POST.get('clear_profile_pic'):
+                profile.profile_pics = None
+                profile.save()
+            
             # Now process the profile form
             form = ProfileForm(request.POST, request.FILES, instance=profile)
             if form.is_valid():
