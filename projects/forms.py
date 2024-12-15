@@ -73,3 +73,91 @@ class ReviewForm(ModelForm):
                 'rows': 4
             })
         }
+
+class MovieRecommendationForm(forms.Form):
+    MEDIA_CHOICES = [
+        ('any', 'TV Show or Movie'),
+        ('tv', 'TV Show'),
+        ('movie', 'Movie'),
+    ]
+
+    TIME_PERIOD_CHOICES = [
+        ('any', 'Any Period'),
+        ('Pre-1970s', 'Pre-1970s'), 
+        ('1970s-1980s', 'Early 70s to Mid 80s'),
+        ('1980s-1990s', 'Late 80s to Early 90s'),
+        ('1990s-2000s', 'Mid 90s to Late 2000s'),
+        ('2010s-Present', '2010s to Present'),
+        ('Unknown', 'Unknown'),
+        ('Upcoming', 'Upcoming'),
+    ]
+
+    GENRE_CHOICES = [
+        ('any', 'Any'),
+        ('Action', 'Action'),
+        ('Adventure', 'Adventure'),
+        ('Animation', 'Animation'),
+        ('Comedy', 'Comedy'),
+        ('Crime', 'Crime'),
+        ('Documentary', 'Documentary'),
+        ('Drama', 'Drama'),
+        ('Family', 'Family'),
+        ('Fantasy', 'Fantasy'),
+        ('History', 'History'),
+        ('Horror', 'Horror'),
+        ('Music', 'Music'),
+        ('Mystery', 'Mystery'),
+        ('Romance', 'Romance'),
+        ('Science Fiction', 'Science Fiction'),
+        ('TV Movie', 'TV Movie'),
+        ('Thriller', 'Thriller'),
+        ('War', 'War'),
+        ('Western', 'Western'),
+    ]
+
+    LANGUAGE_CHOICES = [
+        ('any', 'Any Language'),
+        ('English', 'English'),
+        ('French', 'French'),
+        ('German', 'German'),
+        ('Italian', 'Italian'),
+        ('Japanese', 'Japanese'),
+        ('Korean', 'Korean'),
+        ('Mandarin', 'Mandarin'),
+        ('Spanish', 'Spanish'),
+        ('Hindi', 'Hindi'),
+        ('Russian', 'Russian'),
+    ]
+    
+    media_type = forms.ChoiceField(
+        choices=MEDIA_CHOICES,
+        widget=forms.Select(attrs={
+            'class': 'form-control inline-select',
+            'style': 'display: inline-block; width: auto;'
+        })
+    )
+    
+    time_period = forms.ChoiceField(
+        choices=TIME_PERIOD_CHOICES,
+        required=True,
+        widget=forms.Select(attrs={
+            'class': 'form-control inline-select',
+            'style': 'display: inline-block; width: auto;'
+        })
+    )
+    
+    genres = forms.ChoiceField(
+        choices=GENRE_CHOICES,
+        widget=forms.Select(attrs={
+            'class': 'form-control inline-select',
+            'style': 'display: inline-block; width: auto;'
+        })
+    )
+    
+    language = forms.ChoiceField(
+        choices=LANGUAGE_CHOICES,
+        widget=forms.Select(attrs={
+            'class': 'form-control inline-select',
+            'style': 'display: inline-block; width: auto;'
+        })
+    )

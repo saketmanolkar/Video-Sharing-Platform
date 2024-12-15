@@ -80,7 +80,11 @@
                   <div class="profile-action-btn">
                     <a href="{% url 'inbox' %}" class="profile-btn">
                       <i class="fas fa-inbox"></i>
-                      <span>Inbox</span>
+                      {% if unread_messages_count > 0 %}
+                        <span>Inbox <span style="color: rgb(253, 143, 133);">({{ unread_messages_count }})</span></span>
+                      {% else %}
+                        <span>Inbox </span>
+                      {% endif %}
                     </a>
                   </div>
 
@@ -88,9 +92,9 @@
                   
                   <!-- Settings Button -->
                   <div class="profile-action-btn">
-                    <a href="#" class="profile-btn">
-                      <i class="fas fa-cog"></i>
-                      <span>Settings</span>
+                    <a href="{% url 'fun-corner' %}" class="profile-btn">
+                      <i class="fas fa-gamepad"></i>
+                      <span>Fun Corner</span>
                     </a>
                   </div>
                 </div>

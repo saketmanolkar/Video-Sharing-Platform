@@ -15,4 +15,5 @@ urlpatterns = [
     path('debug-videos/', views.debug_videos, name='debug_videos'),
     path('comments-stream/<uuid:video_id>/', views.comments_stream, name='comments-stream'),
     path('video/<str:pk>/like/', views.handle_like, name='handle-like'),
+    path('fun-corner/', views.fun_corner, name='fun-corner'),
 ]

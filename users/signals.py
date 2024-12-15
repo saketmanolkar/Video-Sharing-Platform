@@ -2,6 +2,10 @@ from django.db.models.signals import post_save, pre_delete, post_delete, pre_sav
 from django.dispatch import receiver
 from django.contrib.auth.models import User
 from django.apps import apps
+from django.core.mail import send_mail
+from django.conf import settings
+import os
+
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
@@ -11,6 +15,20 @@ def create_user_profile(sender, instance, created, **kwargs):
         Profile = apps.get_model('users', 'Profile')
         Profile.objects.create(user=instance)
         print(f'✨ Profile created for user: {instance.username}')
+
+        # Read and format welcome email from txt file
+        email_template_path = os.path.join(settings.BASE_DIR, 'templates', 'welcome_email.txt')
+        with open(email_template_path, 'r') as file:
+            message = file.read().format(username=instance.username)
+        
+        send_mail(
+            subject='Welcome to FilmsNation',
+            message=message,
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[instance.email],
+            fail_silently=False,
+        )
+
 
 @receiver(pre_save, sender='users.Profile')
 def handle_profile_picture_update(sender, instance, **kwargs):

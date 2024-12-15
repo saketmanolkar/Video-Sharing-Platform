@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from .models import Video, Review, Playlist, ViewHistory
-from .forms import ProjectForm, ReviewForm
+from .forms import ProjectForm, ReviewForm, MovieRecommendationForm
 from .recommendations import get_video_recommendations
 import os
 from django.http import JsonResponse, StreamingHttpResponse, HttpResponse
@@ -18,6 +18,10 @@ import uuid
 import re
 from django.db import transaction
 import hashlib
+from .fun_corner.movie_recs import create_optimized_clusters, get_optimized_recommendations
+import pandas as pd
+from pathlib import Path
+from .fun_corner.hollywood_analytics import get_major_studios_data, get_current_movies_data
 
 logger = logging.getLogger(__name__)
 
@@ -409,3 +413,51 @@ def handle_like(request, pk):
         return JsonResponse(result)
     
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+
+def fun_corner(request):
+    # Keep all existing movie recommendation code unchanged
+    if request.method == 'POST':
+        movie_form = MovieRecommendationForm(request.POST)
+        if movie_form.is_valid():
+            # Print form data
+            print("\nMovie Recommendation Form Data:")
+            print(f"Media Type: {movie_form.cleaned_data['media_type']}")
+            print(f"Genres: {movie_form.cleaned_data['genres']}")
+            print(f"Time Period: {movie_form.cleaned_data['time_period']}")
+            print(f"Language: {movie_form.cleaned_data['language']}")
+            
+            # Get the correct path to CSV
+            csv_path = os.path.join(os.path.dirname(__file__), 'fun_corner', 'data', 'tmdb_all_media.csv')
+            df = pd.read_csv(csv_path)
+            
+            query = {
+                'media_type': movie_form.cleaned_data['media_type'],
+                'genres': movie_form.cleaned_data['genres'],
+                'language': movie_form.cleaned_data['language'],
+                'time_period': movie_form.cleaned_data['time_period']
+            }
+            
+            df_clustered, X, kmeans = create_optimized_clusters(df)
+            recommendations, metrics = get_optimized_recommendations(df_clustered, X, query)
+            
+            if isinstance(recommendations, pd.DataFrame):
+                recommendations = recommendations.to_dict('records')
+    else:
+        movie_form = MovieRecommendationForm()
+    
+    # Get the data for both charts
+    box_office_data = get_major_studios_data()
+    current_movies_data = get_current_movies_data()
+    
+    context = {
+        'movie_form': movie_form,
+        'recommendations': recommendations if 'recommendations' in locals() else None,
+        'box_office_data': json.dumps(box_office_data),
+        'current_movies_data': json.dumps(current_movies_data)
+    }
+    
+    return render(request, 'projects/fun_corner.html', context)
+
+def movie_recommendation(request):
+    form = MovieRecommendationForm()
+    return render(request, 'projects/movie_rec.html', {'form': form})

@@ -1,0 +1,143 @@
+
+
+
+{% block content %}
+<main class="formPage my-xl">
+    <div class="content-container">
+        <br>
+        <h1 class="rec-title">Find Your Next Watch</h1>
+        
+        <p class="rec-subtitle">Get personalized movie and TV show recommendations powered by AI and TMDB</p>
+        
+        <form method="post" style="text-align: center; margin-bottom: 3rem;">
+            {% csrf_token %}
+            <p style="font-size: 1.8rem; line-height: 2.2;">
+                I'm looking for a 
+                <span style="display: inline-block; margin: 0 10px;">{{ movie_form.media_type }}</span> 
+                in 
+                <span style="display: inline-block; margin: 0 10px;">{{ movie_form.language }}</span> 
+                from
+                <span style="display: inline-block; margin: 0 10px;">{{ movie_form.time_period }}</span> 
+                with 
+                <span style="display: inline-block; margin: 0 10px;">{{ movie_form.genres }}</span> 
+                genres.
+            </p>
+            <button type="submit" style="background-color: #28a745; color: white; border: none; padding: 15px 20px; border-radius: 8px; font-size: 1.3rem; margin-top: 2rem; margin-bottom: -10rem; cursor: pointer; transition: all 0.3s ease;">Get Recommendations</button>
+        </form>
+    </div>
+</main>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .content-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .rec-title {
+        font-size: 3.5rem;
+        color: #666;
+        margin-bottom: 1rem;
+        font-weight: 500;
+    }
+
+    .rec-subtitle {
+        font-size: 1.5rem;
+        color: #888;
+        margin-bottom: 3rem;
+    }
+
+    .rec-form {
+        margin: 2rem 0;
+    }
+
+    .search-line {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 80px;
+        color: #666;
+    }
+
+    .search-line select {
+        border: 1px solid #ccc;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 20px;
+        color: #666;
+    }
+
+    .rec-button {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        font-size: 1.2rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .rec-button:hover {
+        background-color: #218838;
+        transform: translateY(-2px);
+    }
+    .search-text {
+        font-size: 80px;
+    }
+
+    /* Make the text bigger */
+    .search-line span {
+        font-size: 24px !important;
+        color: #666 !important;
+    }
+
+    /* Make the select boxes match the text */
+    .search-line select {
+        font-size: 24px !important;
+        padding: 8px 15px !important;
+        min-width: 200px !important;
+        height: 45px !important;
+    }
+
+    /* Keep everything aligned */
+    .search-line {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        margin: 30px 0 !important;
+    }
+
+    /* Updated select box styles */
+    select {
+        font-size: 1.4rem !important;
+        padding: 8px 16px !important;
+        min-width: 200px !important;
+        height: auto !important;
+        border-radius: 8px !important;
+        border: 2px solid #ccc !important;
+        cursor: pointer !important;
+    }
+
+    select:hover {
+        border-color: #28a745 !important;
+        transform: translateY(-1px) !important;
+    }
+
+    button:hover {
+        background-color: #218838 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+    }
+
+    /* Increased spacing between elements */
+    span {
+        margin: 0 5px !important;
+    }
+</style>
+{% endblock %}
+

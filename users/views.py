@@ -30,6 +30,9 @@ def profile(request, pk):
     
     # Get profile data
     context = profile_service.get_profile_data(pk, Profile)
+
+    # Get unread messages count to the context
+    context['unread_messages_count'] = context['profile'].messages.filter(is_read=False).count()
     
     # Add follow status to context if user is authenticated
     if request.user.is_authenticated and request.user != context['profile'].user:
