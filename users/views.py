@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_protect
 from .forms import CustomUserCreationForm
 from django.contrib.auth.decorators import login_required
 from .forms import ProfileForm, MessageForm
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.core.exceptions import ValidationError
 
 @login_required
@@ -23,6 +23,20 @@ def creator_studio(request, pk):
 
     context = profile_service.get_creator_studio_data(pk, Profile)
     return render(request, "users/creator_studio.html", context)
+
+@login_required
+def analytics(request, pk):
+    profile_service = ProfileService()
+    profile = profile_service.get_profile(pk, Profile)
+    
+    # Check if the requested profile matches current user
+    if request.user.profile != profile:
+        messages.error(request, "You don't have permission to access this analytics")
+        return redirect('profile', pk=pk)
+    
+    # Get analytics data using the existing method
+    context = profile_service.get_analytics_data(pk, Profile)
+    return render(request, 'users/analytics.html', context)
 
 def profile(request, pk):
     profile_service = ProfileService()

@@ -1,0 +1,60 @@
+{% extends 'main.html' %}
+{% load static %}
+
+{% block content %}
+<main class="checkered-background" style="min-height: 100vh; margin: 0; padding: 3rem 0;">
+  <section class="projectsList" style="margin: 0;">
+        <div class="container">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h2 style="font-size: 4.5rem; font-weight: 600; color: #2D2D2D; margin-bottom: -1rem; margin-top: 2rem;">ANALYTICS</h2>
+                <p style="font-size: 1.57rem; color: #666; margin-bottom: 4rem;">Explore your analytics data</p>
+            </div>
+        
+        
+            <div class="analytics-card chart-card">
+                <div class="analytics-header">
+                <h3>Views Based Analytics</h3>
+                <span class="analytics-count">Total Videos: {{ video_analytics|length }}</span>
+                </div>
+                
+                <!-- Navigation Buttons -->
+                <div class="chart-navigation">
+                <button class="chart-nav-btn active" data-chart="total">Total Views</button>
+                <button class="chart-nav-btn" data-chart="daily">Daily Views</button>
+                <button class="chart-nav-btn" data-chart="hourly">Hourly Distribution</button>
+                <div class="chart-selector" style="display: none;">
+                    <select id="videoSelector" class="video-select">
+                    {% for video_id, analytics in video_analytics.items %}
+                        <option value="{{ video_id }}">{{ analytics.title }}</option>
+                    {% endfor %}
+                    </select>
+                </div>
+                </div>
+
+                <!-- Single Chart Container -->
+                <div class="chart-display">
+                <div class="analytics-chart-wrapper">
+                    <canvas id="analyticsChart"></canvas>
+                </div>
+                </div>
+            </div>
+        </div>
+  </section>
+</main>
+
+<script src="{% static 'js/analytics-charts.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartData = {
+        total: {
+            labels: JSON.parse('{{ chart_labels|safe }}'),
+            data: JSON.parse('{{ chart_data|safe }}')
+        },
+        daily: JSON.parse('{{ daily_views_data|safe }}'),
+        hourly: JSON.parse('{{ hourly_views_data|safe }}')
+    };
+    
+    initializeCharts(chartData);
+});
+</script>
+{% endblock %}

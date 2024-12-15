@@ -5,6 +5,7 @@ from django.templatetags.static import static
 import json
 from projects.services.video_services import VideoService
 from users.services.follow_services import FollowService
+from users.models import Profile
 
 class ProfileService:
     def get_profile(self, profile_id, profile_model):
@@ -85,14 +86,16 @@ class ProfileService:
         # Add default thumbnail URL to the context
         default_thumbnail = static('images/default.jpg')
         
+        # Get followers and following profiles
+        followers = Profile.objects.filter(user__in=profile.user.followers_set.values('user'))
+        following = Profile.objects.filter(user__in=profile.user.following_set.values('following'))
+        
         return {
             'profile': profile,
             'default_thumbnail': default_thumbnail,
             'video_analytics': analytics_data['video_analytics'],
-            'chart_labels': json.dumps(analytics_data['chart_labels']),
-            'chart_data': json.dumps(analytics_data['chart_data']),
-            'daily_views_data': json.dumps(analytics_data['daily_views_data']),
-            'hourly_views_data': json.dumps(analytics_data['hourly_views_data']),
+            'followers': followers,  # Now contains Profile objects
+            'following': following,  # Now contains Profile objects
         }
 
     def get_profile_data(self, profile_id, profile_model, current_user=None):
@@ -126,4 +129,19 @@ class ProfileService:
             'followers_count': follow_stats['followers_count'],
             'following_count': follow_stats['following_count'],
             'is_following': is_following
+        }
+
+    def get_analytics_data(self, profile_id, profile_model):
+        """Get analytics data for a profile"""
+        profile = self.get_profile(profile_id, profile_model)
+        videos = profile.user.uploaded_videos.all()
+        analytics_data = VideoService.get_creator_studio_analytics(videos)
+        
+        return {
+            'profile': profile,
+            'video_analytics': analytics_data['video_analytics'],
+            'chart_labels': json.dumps(analytics_data['chart_labels']),
+            'chart_data': json.dumps(analytics_data['chart_data']),
+            'daily_views_data': json.dumps(analytics_data['daily_views_data']),
+            'hourly_views_data': json.dumps(analytics_data['hourly_views_data']),
         }

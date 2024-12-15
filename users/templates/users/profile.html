@@ -3,7 +3,8 @@
 
 {% block content %}
 {% csrf_token %}
-<main class="profile-page-pattern">
+<!-- <main class="profile-page-pattern"> -->
+<main class="checkered-background">
   <br>
 
   <section class="projectsList" style="margin-top: 0;">
@@ -43,9 +44,6 @@
               />
               <h3 class="dev__name" style="font-size: 2rem; margin-bottom: 0.2rem; color: #333;">{{ profile.name }}</h3>
               <p style="color: #666; font-size: 1.4rem; margin-bottom: 0.2rem;">(@{{ profile.username }})</p>
-              <p class="dev__location" style="color: #666; font-size: 1.3rem; margin-bottom: 0.3rem;">
-                Based in {{ profile.location|default:"None" }}
-              </p>
               
               <div class="stats" style="display: flex; justify-content: center; gap: 2rem; margin: 1rem 0; margin-bottom: -2rem;">
                   <div class="stat-item" style="text-align: center;">
@@ -66,12 +64,7 @@
               {% if request.user.profile.id == profile.id %}
                 <div class="profile-actions">
                   <!-- Creator Studio Button -->
-                  <div class="profile-action-btn">
-                    <a href="{% url 'creator-studio' profile.id %}" class="profile-btn">
-                      <i class="fas fa-video"></i>
-                      <span>Creator Studio</span>
-                    </a>
-                  </div>
+                  
                   
                   <!-- Button Separator -->
                   <div class="profile-btn-separator"></div>
@@ -88,6 +81,28 @@
                     </a>
                   </div>
 
+                  <!-- Button Separator -->
+                  <div class="profile-btn-separator"></div>
+
+                  <!-- Inbox Button -->
+                  <div class="profile-action-btn">
+                    <a href="{% url 'creator-studio' profile.id %}" class="profile-btn">
+                      <i class="fas fa-video"></i>
+                      <span>Creator Studio</span>
+                    </a>
+                  </div>
+
+                  <!-- Button Separator -->
+                  <div class="profile-btn-separator"></div>
+
+                  <!-- Inbox Button -->
+                  <div class="profile-action-btn">
+                    <a href="{% url 'analytics' profile.id %}" class="profile-btn">
+                      <i class="fas fa-chart-line"></i>
+                      <span>Your Analytics</span>
+                    </a>
+                  </div>
+
                   <div class="profile-btn-separator"></div>
                   
                   <!-- Settings Button -->
@@ -98,7 +113,9 @@
                     </a>
                   </div>
                 </div>
+
               {% else %}
+
                 <!-- Message Button -->
                 <div class="profile-actions">
                   <div class="profile-action-btn">

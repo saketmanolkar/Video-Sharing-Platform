@@ -3,123 +3,145 @@
 
 
 {% block content %}
-<main class="checkered-background">
-  <section class="creator-studio-header">
-    <div class="container container--narrow">
-      <div class="creator-studio-header__content">
-        <h2>{{ profile.user.first_name }}'s <span>Creator Studio</span></h2>
-        <p>Manage your videos and analytics here.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="projectsList" style="margin-top: 0;">
+<main class="checkered-background" style="min-height: 100vh; margin: 0; padding: 3rem 0;">
     <div class="container">
-      <div class="analytics-card">
-        <div class="analytics-header">
-          <h3>Edit & Delete Your Videos</h3>
-          <span class="analytics-count">Total Videos: {{ video_analytics|length }}</span>
-        </div>
-        
-        {% if video_analytics %}
-          <div class="analytics-table-wrapper">
-            <table class="analytics-table studio-style">
-              <thead>
-                <tr>
-                  <th style="width: 50%">Video</th>
-                  <th style="width: 10%">Views</th>
-                  <th style="width: 10%">Likes</th>
-                  <th style="width: 10%">Dislikes</th>
-                  <th style="width: 10%">Comments</th>
-                  <th style="width: 10%">Upload Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for video_id, analytics in video_analytics.items %}
-                  <tr data-video-id="{{ video_id }}">
-                    <td class="video-title-cell">
-                      <div class="video-info">
-                        <div class="thumbnail">
-                          <img src="{{ analytics.thumbnail_url|default:default_thumbnail }}" alt="Video thumbnail">
-                        </div>
-                        <div class="title-cell">{{ analytics.title }}</div>
-                        <div class="video-actions">
-                          <a href="{% url 'project' video_id %}" class="video-action-btn watch">Watch</a>
-                          <a href="{% url 'update-project' video_id %}" class="video-action-btn">Edit</a>
-                          <a href="#" 
-                             onclick="showDeleteConfirmation('{{ video_id }}', '{{ analytics.title|escapejs }}')" 
-                             class="video-action-btn delete">
-                            Delete
-                          </a>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="metric">{{ analytics.total_views }}</td>
-                    <td class="metric">{{ analytics.total_likes }}</td>
-                    <td class="metric">{{ analytics.total_dislikes }}</td>
-                    <td class="metric">{{ analytics.total_comments }}</td>
-                    <td class="date">{{ analytics.created_at|date:"M d, Y" }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% else %}
-          <p class="no-data">No analytics data available for your videos.</p>
-        {% endif %}
-      </div>
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <h2 style="font-size: 4.5rem; font-weight: 600; color: #2D2D2D; margin-bottom: -1rem; margin-top: 2rem;">CREATOR STUDIO</h2>
+        <p style="font-size: 1.57rem; color: #666; margin-bottom: 4rem;">Manage your videos and followers here.</p>
+    </div>
 
-      <section class="analytics-section">
-        <div class="container">
-          <div class="analytics-card chart-card">
+        <div class="analytics-card">
             <div class="analytics-header">
-              <h3>Views Based Analytics</h3>
-              <span class="analytics-count">Total Videos: {{ video_analytics|length }}</span>
+                <h3>Edit & Delete Your Videos</h3>
+                <span class="analytics-count">Total Videos: {{ video_analytics|length }}</span>
             </div>
             
-            <!-- Navigation Buttons -->
-            <div class="chart-navigation">
-              <button class="chart-nav-btn active" data-chart="total">Total Views</button>
-              <button class="chart-nav-btn" data-chart="daily">Daily Views</button>
-              <button class="chart-nav-btn" data-chart="hourly">Hourly Distribution</button>
-              <div class="chart-selector" style="display: none;">
-                <select id="videoSelector" class="video-select">
-                  {% for video_id, analytics in video_analytics.items %}
-                    <option value="{{ video_id }}">{{ analytics.title }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-            </div>
-
-            <!-- Single Chart Container -->
-            <div class="chart-display">
-              <div class="analytics-chart-wrapper">
-                <canvas id="analyticsChart"></canvas>
-              </div>
-            </div>
-          </div>
+            {% if video_analytics %}
+                <div class="analytics-table-wrapper">
+                    <table class="analytics-table studio-style">
+                        <thead>
+                            <tr>
+                                <th style="width: 50%">Video</th>
+                                <th style="width: 10%">Views</th>
+                                <th style="width: 10%">Likes</th>
+                                <th style="width: 10%">Dislikes</th>
+                                <th style="width: 10%">Comments</th>
+                                <th style="width: 10%">Upload Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for video_id, analytics in video_analytics.items %}
+                                <tr data-video-id="{{ video_id }}">
+                                    <td class="video-title-cell">
+                                        <div class="video-info">
+                                            <div class="thumbnail">
+                                                <img src="{{ analytics.thumbnail_url|default:default_thumbnail }}" alt="Video thumbnail">
+                                            </div>
+                                            <div class="title-cell">{{ analytics.title }}</div>
+                                            <div class="video-actions">
+                                                <a href="{% url 'project' video_id %}" class="video-action-btn watch">Watch</a>
+                                                <a href="{% url 'update-project' video_id %}" class="video-action-btn">Edit</a>
+                                                <a href="#" 
+                                                   onclick="showDeleteConfirmation('{{ video_id }}', '{{ analytics.title|escapejs }}')" 
+                                                   class="video-action-btn delete">
+                                                    Delete
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="metric">{{ analytics.total_views }}</td>
+                                    <td class="metric">{{ analytics.total_likes }}</td>
+                                    <td class="metric">{{ analytics.total_dislikes }}</td>
+                                    <td class="metric">{{ analytics.total_comments }}</td>
+                                    <td class="date">{{ analytics.created_at|date:"M d, Y" }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="no-data">No analytics data available for your videos.</p>
+            {% endif %}
         </div>
-      </section>
+
+        <div class="analytics-card">
+            <div class="analytics-header">
+                <h3>Followers & Following</h3>
+                <span class="analytics-count">Total Followers: {{ followers|length }}, Total Following: {{ following|length }}</span>
+            </div>
+            
+            {% if followers or following %}
+                <div class="analytics-table-wrapper">
+                    <table class="analytics-table studio-style">
+                        <thead>
+                            <tr>
+                                <th style="width: 50%">Followers</th>
+                                <th style="width: 50%">Following</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    {% for follower in followers %}
+                                        <div class="user-info">
+                                            <img src="{{ follower.get_profile_pic_url }}" alt="Profile image">
+                                            <span>{{ follower.name }}</span>
+                                        </div>
+                                    {% empty %}
+                                        <p>No followers yet</p>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% for following_user in following %}
+                                        <div class="user-info">
+                                            <img src="{{ following_user.get_profile_pic_url }}" alt="Profile image">
+                                            <span>{{ following_user.name }}</span>
+                                        </div>
+                                    {% empty %}
+                                        <p>Not following anyone yet</p>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="no-data">No follower or following data available.</p>
+            {% endif %}
+        </div>
     </div>
-  </section>
 </main>
 
-<script src="{% static 'js/analytics-charts.js' %}"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const chartData = {
-        total: {
-            labels: JSON.parse('{{ chart_labels|safe }}'),
-            data: JSON.parse('{{ chart_data|safe }}')
-        },
-        daily: JSON.parse('{{ daily_views_data|safe }}'),
-        hourly: JSON.parse('{{ hourly_views_data|safe }}')
-    };
-    
-    initializeCharts(chartData);
-});
-</script>
+<style>
+.user-info {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.user-info:hover {
+  background-color: #f5f5f5;
+}
+
+.user-info img {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 15px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.user-info span {
+  font-size: 16px;
+  color: #333;
+  font-weight: 500;
+}
+</style>
+
 
 {% include 'delete_object.html' %}
 {% endblock %}
-
