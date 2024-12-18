@@ -15,4 +15,5 @@ urlpatterns = [
     path('message/<str:pk>/', views.view_message, name='message'),
     path('create-message/<str:pk>/', views.create_message, name='create-message'),
     path('profile/<str:pk>/analytics/', views.analytics, name="analytics"),
+    path('settings/', views.settings, name='settings'),
 ]

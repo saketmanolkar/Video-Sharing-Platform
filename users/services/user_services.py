@@ -6,6 +6,7 @@ import json
 from projects.services.video_services import VideoService
 from users.services.follow_services import FollowService
 from users.models import Profile
+from projects.services.analytics_service import AnalyticsService
 
 class ProfileService:
     def get_profile(self, profile_id, profile_model):
@@ -132,9 +133,9 @@ class ProfileService:
         }
 
     def get_analytics_data(self, profile_id, profile_model):
-        """Get analytics data for a profile"""
         profile = self.get_profile(profile_id, profile_model)
-        videos = profile.user.uploaded_videos.all()
+        # Filter videos to only get the current user's videos
+        videos = profile.user.uploaded_videos.filter(uploader=profile.user)
         analytics_data = VideoService.get_creator_studio_analytics(videos)
         
         return {
@@ -144,4 +145,6 @@ class ProfileService:
             'chart_data': json.dumps(analytics_data['chart_data']),
             'daily_views_data': json.dumps(analytics_data['daily_views_data']),
             'hourly_views_data': json.dumps(analytics_data['hourly_views_data']),
+            'likes_data': json.dumps(analytics_data['likes_data']),
+            'comments_data': json.dumps(analytics_data['comments_data'])
         }

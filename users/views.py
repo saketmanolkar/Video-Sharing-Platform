@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404,redirect
-from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
 from django.contrib.auth.models import User
 from users.models import Profile, Message
 from .services.user_services import ProfileService
@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from .forms import ProfileForm, MessageForm
 from django.http import JsonResponse, HttpResponseForbidden
 from django.core.exceptions import ValidationError
+from django.contrib.auth.forms import PasswordChangeForm
 
 @login_required
 def creator_studio(request, pk):
@@ -34,7 +35,6 @@ def analytics(request, pk):
         messages.error(request, "You don't have permission to access this analytics")
         return redirect('profile', pk=pk)
     
-    # Get analytics data using the existing method
     context = profile_service.get_analytics_data(pk, Profile)
     return render(request, 'users/analytics.html', context)
 
@@ -276,3 +276,22 @@ def create_message(request,pk):
         'form': form
     }
     return render(request, "users/message_form.html", context)
+@login_required
+def settings(request):
+    if request.method == 'POST':
+        password_form = PasswordChangeForm(user=request.user, data=request.POST)
+        if password_form.is_valid():
+            password_form.save()
+            # Update the session to prevent logging out
+            update_session_auth_hash(request, password_form.user)
+            messages.success(request, 'Your password was successfully updated!')
+            return redirect('settings')
+        else:
+            messages.error(request, 'Please correct the error below.')
+    else:
+        password_form = PasswordChangeForm(user=request.user)
+    
+    context = {
+        'password_form': password_form
+    }
+    return render(request, 'users/settings.html', context)

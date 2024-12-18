@@ -5,7 +5,7 @@ from django.core.cache import cache
 import time
 from django.utils import timezone
 from datetime import timedelta
-from projects.services.view_analytics import ViewAnalyticsService
+from projects.services.analytics_service import AnalyticsService
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from users.services.follow_services import FollowService
 
@@ -209,16 +209,22 @@ class VideoService:
     
     @staticmethod
     def get_creator_studio_analytics(videos):
-        """Get all analytics data for creator studio"""
+        analytics_service = AnalyticsService()
+        
+        # Filter for current user's videos only
+        user = videos.first().uploader if videos.exists() else None
+        user_videos = videos.filter(uploader=user)
+        
+        # Use AnalyticsService to get total views data
+        views_data = analytics_service.get_total_views_data(user_videos)
+        chart_labels = views_data['labels']
+        chart_data = views_data['data']
         
         video_analytics = {}
-        chart_labels = []
-        chart_data = []
         daily_views_data = {}
         hourly_views_data = {}
-        analytics_service = ViewAnalyticsService()
 
-        for video in videos:
+        for video in user_videos:
             if hasattr(video, 'analytics'):
                 video_id = str(video.id)
                 
@@ -229,13 +235,9 @@ class VideoService:
                     'total_views': video.analytics.total_views,
                     'total_likes': video.analytics.total_likes,
                     'total_dislikes': video.analytics.total_dislikes,
-                    'total_comments': video.reviews.count(),
+                    'total_comments': video.analytics.total_comments,
                     'created_at': video.analytics.created_at,
                 }
-                
-                # Total views chart data
-                chart_labels.append(video.analytics.title)
-                chart_data.append(video.analytics.total_views)
                 
                 # Daily views data
                 daily_views = analytics_service.get_views_over_time(video)
@@ -250,12 +252,18 @@ class VideoService:
                         'data': [view['count'] for view in hourly_views]
                     }
 
+        # Get likes and comments data for filtered videos
+        likes_data = analytics_service.get_likes_dislikes_data(user_videos)
+        comments_data = analytics_service.get_comments_data(user_videos)
+
         return {
             'video_analytics': video_analytics,
             'chart_labels': chart_labels,
             'chart_data': chart_data,
             'daily_views_data': daily_views_data,
-            'hourly_views_data': hourly_views_data
+            'hourly_views_data': hourly_views_data,
+            'likes_data': likes_data,
+            'comments_data': comments_data
         }
     
     @staticmethod
