@@ -92,12 +92,21 @@ class ProfileService:
         followers = Profile.objects.filter(user__in=profile.user.followers_set.values('user'))
         following = Profile.objects.filter(user__in=profile.user.following_set.values('following'))
         
+        # Get videos with their privacy status
+        videos_with_privacy = videos.values('id', 'title', 'views', 'created_at', 'privacy_status', 'thumbnail')
+        
+        # Merge privacy status into analytics data
+        for video in videos_with_privacy:
+            video_id = str(video['id'])
+            if video_id in analytics_data['video_analytics']:
+                analytics_data['video_analytics'][video_id]['privacy_status'] = video['privacy_status']
+        
         return {
             'profile': profile,
             'default_thumbnail': default_thumbnail,
             'video_analytics': analytics_data['video_analytics'],
-            'followers': followers,  # Now contains Profile objects
-            'following': following,  # Now contains Profile objects
+            'followers': followers,
+            'following': following,
         }
 
     def get_profile_data(self, profile_id, profile_model, current_user=None):

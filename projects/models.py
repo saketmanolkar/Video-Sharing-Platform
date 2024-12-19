@@ -25,6 +25,26 @@ logger = logging.getLogger(__name__)
 # Create your models here.
 
 class Video(models.Model):
+
+    PRIVACY_PUBLIC = 'public'
+    PRIVACY_PRIVATE = 'private'
+    PRIVACY_UNLISTED = 'unlisted'
+    PRIVACY_FOLLOWERS = 'followers'
+    
+    PRIVACY_CHOICES = [
+        (PRIVACY_PUBLIC, 'Public - Anyone can view'),
+        (PRIVACY_PRIVATE, 'Private - Only you can view'),
+        (PRIVACY_UNLISTED, 'Unlisted - Only people with the link can view'),
+        (PRIVACY_FOLLOWERS, 'Followers - Only your followers can view'),
+    ]
+
+    # Add the privacy field
+    privacy_status = models.CharField(
+        max_length=10,
+        choices=PRIVACY_CHOICES,
+        default=PRIVACY_PUBLIC, 
+    )
+
     id = models.UUIDField(
         default=uuid.uuid4,
         primary_key=True,

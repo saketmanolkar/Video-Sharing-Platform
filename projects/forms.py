@@ -5,7 +5,7 @@ from .models import Video, Tag, Review, Playlist, PlaylistItem
 class ProjectForm(ModelForm):
     class Meta:
         model = Video
-        fields = ['title', 'description', 'file', 'thumbnail', 'tags']
+        fields = ['title', 'description', 'file', 'thumbnail', 'tags', 'privacy_status']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'input',
@@ -26,6 +26,9 @@ class ProjectForm(ModelForm):
             }),
             'tags': forms.CheckboxSelectMultiple(attrs={
                 'class': 'tag-checkbox'
+            }),
+            'privacy_status': forms.Select(attrs={
+                'class': 'input',
             })
         }
         
@@ -33,10 +36,14 @@ class ProjectForm(ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['tags'].help_text = "Please select at least one tag"
         
+        # Add help text for privacy
+        self.fields['privacy_status'].help_text = "Choose who can view this video"
+        
         # Set base requirements
         self.fields['title'].required = True
         self.fields['description'].required = True
         self.fields['tags'].required = True
+        self.fields['privacy_status'].required = True
         
         # Handle file requirements based on whether this is an update
         if self.instance and self.instance.pk:
