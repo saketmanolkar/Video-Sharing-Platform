@@ -3,11 +3,17 @@ import os
 from django.conf import settings
 
 
+
 class ProjectsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'projects'
 
     def ready(self):
+        # Import signals
+        from . import signals
+        import projects.signals  # This will import all signals
+        
+        # Create necessary directories
         media_root = settings.MEDIA_ROOT
         videos_dir = os.path.join(media_root, 'videos')
         thumbnails_dir = os.path.join(media_root, 'thumbnails')

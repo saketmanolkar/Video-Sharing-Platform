@@ -60,7 +60,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    "projects.apps.ProjectsConfig"
+    "projects.apps.ProjectsConfig",
+    "users.apps.UsersConfig",
 ]
 
 MIDDLEWARE = [
@@ -143,7 +144,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static')
@@ -165,4 +166,21 @@ VIDEO_ENCODING = {
         '480p': {'width': 854, 'height': 480, 'bitrate': '1000k'},
         '360p': {'width': 640, 'height': 360, 'bitrate': '800k'},
     }
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'filters': ['ignore_broken_pipe'],
+        },
+    },
+    'filters': {
+        'ignore_broken_pipe': {
+            '()': 'django.utils.log.CallbackFilter',
+            'callback': lambda record: 'Broken pipe' not in str(record.exc_info),
+        },
+    },
 }

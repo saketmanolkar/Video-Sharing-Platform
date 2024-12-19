@@ -1,5 +1,7 @@
-<form method="POST" action="{% url 'add-review' pk=video.id %}" id="reviewForm">
+<form method="POST" action="{% if review %}{% url 'update-review' pk=review.id %}{% else %}{% url 'add-review' pk=video.id %}{% endif %}" id="reviewForm">
     {% csrf_token %}
     {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">Submit Review</button>
+    <button type="submit" class="btn btn-primary">
+        {% if review %}Update{% else %}Submit{% endif %} Review
+    </button>
 </form> 

@@ -1,0 +1,170 @@
+{% extends 'main.html' %}
+{% load static %}
+
+{% block content %}
+<main class="formPage my-xl">
+    <div class="content-box">
+        <div class="formWrapper">
+            <div class="backButton-container">
+                <a class="backButton" href="{% url 'profile' profile.id %}"><</a>
+                <h3 class="formWrapper__subject" style="text-align: center; flex: 1;">Update Your Profile & Social Links</h3>
+            </div>
+
+            <form class="form" method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <!-- Personal Information Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <!-- Left Column -->
+                    <div>
+                        <div class="form__field">
+                            <label for="formInput#text">First Name: </label>
+                            <input class="input input--text" id="formInput#text" type="text" name="first_name"
+                                placeholder="Enter your first name" value="{{ profile.user.first_name }}" />
+                        </div>
+
+                        <div class="form__field">
+                            <label for="formInput#text">Username: </label>
+                            <input class="input input--text" id="formInput#text" type="text" name="username"
+                                placeholder="Enter your username" value="{{ profile.username }}" />
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div>
+                        <div class="form__field">
+                            <label for="formInput#text">Last Name: </label>
+                            <input class="input input--text" id="formInput#text" type="text" name="last_name"
+                                placeholder="Enter your last name" value="{{ profile.user.last_name }}" />
+                        </div>
+
+                        <div class="form__field">
+                            <label for="formInput#text">Profile Picture: </label>
+                            <div class="profile-edit__pic-wrapper">
+                                <!-- Upload Section First -->
+                                <div class="profile-edit__upload-wrapper">
+                                    {% if profile.profile_pics %}
+                                        <div class="profile-edit__clear-wrapper">
+                                            <label class="profile-edit__clear-option">
+                                                <input type="checkbox" name="clear_profile_pic" id="clear_profile_pic">
+                                                <span>Clear profile picture</span>
+                                            </label>
+                                        </div>
+                                    {% endif %}
+                                    <label class="profile-edit__upload-btn" for="id_profile_pics">
+                                        Choose New Picture
+                                        {{ form.profile_pics }}
+                                    </label>
+                                </div>
+                                
+                                <!-- Preview Image Second -->
+                                <div class="profile-edit__preview">
+                                    <img 
+                                        id="profileEditPreview"
+                                        class="profile-edit__preview-img" 
+                                        src="{{ profile.get_profile_pic_url }}"
+                                        alt="{{ profile.username }}" 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bio Section -->
+                <div class="form__field">
+                    <label for="formInput#text">Bio: </label>
+                    <textarea 
+                        name="bio" 
+                        class="input input--text" 
+                        id="id_bio" 
+                        placeholder="Write a short bio about yourself..."
+                        maxlength="300"
+                        rows="4"
+                        style="resize: none; height: auto;"
+                    >{{ profile.bio }}</textarea>
+                    <small class="form__info" id="bioCount">0/300 characters</small>
+                </div>
+
+                <!-- Social Links Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <!-- Left Column -->
+                    <div>
+                        <div class="form__field">
+                            <label for="formInput#text">Location: </label>
+                            {{ form.location }}
+                        </div>
+
+                        <div class="form__field">
+                            <label for="formInput#text">Github: </label>
+                            {{ form.github }}
+                        </div>
+
+                        <div class="form__field">
+                            <label for="formInput#text">Twitter: </label>
+                            {{ form.twitter }}
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div>
+                        <div class="form__field">
+                            <label for="formInput#text">LinkedIn: </label>
+                            {{ form.linkedin }}
+                        </div>
+
+                        <div class="form__field">
+                            <label for="formInput#text">YouTube: </label>
+                            {{ form.youtube }}
+                        </div>
+
+                        <div class="form__field">
+                            <label for="formInput#text">Instagram: </label>
+                            {{ form.instagram }}
+                        </div>
+                    </div>
+                </div>
+
+                <input class="btn btn--sub btn--lg my-md" type="submit" value="Submit" />
+            </form>
+        </div>
+    </div>
+</main>
+
+<script>
+document.getElementById('id_profile_pics').onchange = function(e) {
+    const preview = document.getElementById('profileEditPreview');
+    const file = e.target.files[0];
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+// Bio character counter
+const bioTextarea = document.getElementById('id_bio');
+const bioCount = document.getElementById('bioCount');
+
+function updateBioCount() {
+    const currentLength = bioTextarea.value.length;
+    bioCount.textContent = `${currentLength}/300 characters`;
+}
+
+bioTextarea.addEventListener('input', updateBioCount);
+// Initial count
+updateBioCount();
+
+document.getElementById('clear_profile_pic').addEventListener('change', function(e) {
+    const preview = document.getElementById('profileEditPreview');
+    if (this.checked) {
+        preview.src = '/static/images/user-default.png';  // Replace with your default image path
+    } else {
+        preview.src = "{{ profile.get_profile_pic_url }}";
+    }
+});
+</script>
+{% endblock content %}

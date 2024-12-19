@@ -1,0 +1,49 @@
+from django.db.models.signals import post_save, pre_delete, post_delete, pre_save
+from django.dispatch import receiver
+from django.contrib.auth.models import User
+from django.apps import apps
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Create Profile when User is created"""
+    print('🟢 Creating Profile Signal: New user profile being created')
+    if created:
+        Profile = apps.get_model('users', 'Profile')
+        Profile.objects.create(user=instance)
+        print(f'✨ Profile created for user: {instance.username}')
+
+@receiver(pre_save, sender='users.Profile')
+def handle_profile_picture_update(sender, instance, **kwargs):
+    """Handle profile picture replacement when updating"""
+    print('🔄 Profile Update: Checking for profile picture changes')
+    if instance.pk:  # Only for existing profiles
+        try:
+            old_profile = sender.objects.get(pk=instance.pk)
+            if old_profile.profile_pics and old_profile.profile_pics != instance.profile_pics:
+                old_profile.profile_pics.delete(save=False)
+                print('🖼️ Old profile picture deleted')
+        except sender.DoesNotExist:
+            pass
+
+@receiver(pre_delete, sender='users.Profile')
+def cleanup_profile_files(sender, instance, **kwargs):
+    """Clean up profile files before deletion"""
+    print('🔴 Profile Deletion: Starting cleanup')
+    try:
+        if instance.profile_pics:
+            instance.profile_pics.delete(save=False)
+            print('📸 Profile picture deleted')
+    except Exception as e:
+        print(f'❌ Error cleaning up profile files: {str(e)}')
+
+@receiver(post_delete, sender='users.Profile')
+def delete_user(sender, instance, **kwargs):
+    """Delete User after Profile is deleted"""
+    print('🗑️ Profile Deleted: Cleaning up user')
+    try:
+        if instance.user:
+            username = instance.user.username
+            instance.user.delete()
+            print(f'👤 User deleted: {username}')
+    except Exception as e:
+        print(f'❌ Error deleting user: {str(e)}')

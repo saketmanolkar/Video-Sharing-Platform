@@ -1,0 +1,21 @@
+{% extends 'main.html' %}
+{% load static %}
+
+{% block content %}
+<main class="checkered-background">
+  <section class="creator-studio-header">
+    <div class="container container--narrow">
+      <div class="creator-studio-header__content">
+        <h2>{{ profile.name }}'s <span>Videos</span></h2>
+        <p>All uploaded videos by {{ profile.username }}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="projectsList" style="margin-top: 0;">
+    <div class="container">
+      {% include 'components/video_grid.html' with videos=videos %}
+    </div>
+  </section>
+</main>
+{% endblock %}

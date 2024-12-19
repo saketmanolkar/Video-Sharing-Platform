@@ -1,0 +1,132 @@
+<style>
+.alert-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none;
+}
+
+.delete-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    background: var(--color-sub-lighter);
+    padding: 2rem;
+    border-radius: 0.7rem;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    min-width: 300px;
+    text-align: center;
+    display: none;
+}
+
+.delete-popup__message {
+    margin-bottom: 1.5rem;
+    font-size: 1.6rem;
+    color: var(--color-sub);
+}
+
+.delete-popup__message strong {
+    color: var(--color-main);
+    font-weight: 600;
+}
+
+.delete-popup__actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.delete-popup .btn {
+    padding: 0.8rem 2rem;
+    border-radius: 5px;
+    font-size: 1.4rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.delete-popup .btn--sub {
+    background-color: var(--color-main);
+    color: white;
+}
+
+.delete-popup .btn--sub:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+}
+</style>
+
+<div class="alert-overlay">
+    <div class="delete-popup">
+        <p class="delete-popup__message">
+            Are you sure you want to delete "<strong></strong>"?
+        </p>
+        <div class="delete-popup__actions">
+            <form method="POST" style="display: inline;">
+                {% csrf_token %}
+                <input type="submit" value="Delete" class="btn btn--sub">
+            </form>
+            <button onclick="hideDeleteConfirmation()" class="btn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function showDeleteConfirmation(id, title, type = 'video') {
+    document.querySelector('.delete-popup__message strong').textContent = title;
+    
+    const form = document.querySelector('.delete-popup form');
+    const popup = document.querySelector('.delete-popup');
+    
+    if (type === 'comment') {
+        form.action = `/review/${id}/delete/`;
+        popup.dataset.commentId = id;
+        form.onsubmit = function(e) {
+            e.preventDefault();
+            handleDeleteComment(e);
+            return false;
+        };
+    } else {
+        form.action = `/delete-project/${id}/`;
+        popup.dataset.itemId = id;
+        form.onsubmit = function(e) {
+            e.preventDefault();
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    hideDeleteConfirmation();
+                    window.location.reload();
+                    return response.json();
+                }
+                throw new Error('Network response was not ok');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error deleting video', 'error');
+            });
+            return false;
+        };
+    }
+    
+    document.querySelector('.alert-overlay').style.display = 'block';
+    document.querySelector('.delete-popup').style.display = 'block';
+}
+
+function hideDeleteConfirmation() {
+    document.querySelector('.alert-overlay').style.display = 'none';
+    document.querySelector('.delete-popup').style.display = 'none';
+}
+</script>
