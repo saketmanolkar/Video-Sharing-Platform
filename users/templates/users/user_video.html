@@ -37,7 +37,7 @@
 <style>
   .section-separator {
       max-width: 1200px;
-      margin: 4rem auto;
+      margin: -5rem auto 3rem;
       height: 2px;  /* Thinner line */
       background: linear-gradient(to right, 
           transparent, 
@@ -45,6 +45,22 @@
           transparent
       );  /* Gradient fade effect */
       opacity: 0.8;  /* Subtle opacity */
+  }
+
+  /* Add these styles to remove blue highlight */
+  .column {
+      background: transparent;
+      outline: none;
+  }
+
+  .grid--three .column {
+      background: none;
+  }
+
+  .column:focus, 
+  .column:active {
+      outline: none;
+      background: none;
   }
 </style>
 
