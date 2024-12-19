@@ -124,20 +124,59 @@ class Playlist(models.Model):
         editable=False
     )
     name = models.CharField(max_length=100)
+    description = models.TextField(null=True, blank=True)
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='playlists',
         null=True
     )
-    videos = models.ManyToManyField(
-        Video,
-        related_name='playlists'
-    )
+    is_private = models.BooleanField(default=False)
+    thumbnail = models.ImageField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.thumbnail:
+            # Get first video in playlist if any items exist
+            first_item = self.items.first()
+            if first_item and first_item.video.thumbnail:
+                self.thumbnail = first_item.video.thumbnail
+        
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.name} by {self.user.username}"
+        return f"{self.name} by {self.user.username if self.user else 'Unknown'}"
+
+class PlaylistItem(models.Model):
+    id = models.UUIDField(
+        default=uuid.uuid4, 
+        primary_key=True,
+        unique=True, 
+        editable=False
+    )
+    playlist = models.ForeignKey(
+        Playlist,
+        on_delete=models.CASCADE,
+        related_name='items'
+    )
+    video = models.ForeignKey(
+        'Video',
+        on_delete=models.CASCADE,
+        related_name='playlist_items'
+    )
+    position = models.PositiveIntegerField()
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['position']
+        unique_together = ['playlist', 'position']
+
+    def __str__(self):
+        return f"{self.video.title} in {self.playlist.name}"
 
 class Like(models.Model):
     video = models.ForeignKey(

@@ -2,8 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.conf import settings
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from .models import Video, Review, Playlist, ViewHistory
-from .forms import ProjectForm, ReviewForm, MovieRecommendationForm
+from .models import Video, Review, Playlist, ViewHistory, PlaylistItem
+from .forms import ProjectForm, ReviewForm, MovieRecommendationForm, CreatePlaylistForm
 from .recommendations import get_video_recommendations
 import os
 from django.http import JsonResponse, StreamingHttpResponse, HttpResponse
@@ -22,6 +22,9 @@ from .fun_corner.movie_recs import create_optimized_clusters, get_optimized_reco
 import pandas as pd
 from pathlib import Path
 from .fun_corner.hollywood_analytics import get_major_studios_data, get_current_movies_data
+from django.contrib.auth.models import User
+from django.http import HttpResponseForbidden
+from users.models import Profile  # Import Profile model
 
 logger = logging.getLogger(__name__)
 
@@ -461,3 +464,130 @@ def fun_corner(request):
 def movie_recommendation(request):
     form = MovieRecommendationForm()
     return render(request, 'projects/movie_rec.html', {'form': form})
+
+@login_required
+def create_playlist(request, pk):
+    profile = get_object_or_404(Profile, id=pk)
+    
+    if request.user != profile.user:
+        return HttpResponseForbidden("You can only create playlists on your own profile")
+    
+    if request.method == 'POST':
+        form = CreatePlaylistForm(request.POST)
+        video_ids = request.POST.getlist('videos')
+        
+        if not video_ids:
+            messages.error(request, 'Please select at least one video for your playlist.')
+            videos = Video.objects.all()
+            return render(request, 'projects/playlist_form.html', {'form': form, 'videos': videos})
+            
+        if form.is_valid():
+            playlist = form.save(commit=False)
+            playlist.user = request.user
+            playlist.save()
+            
+            # Create PlaylistItems for selected videos
+            for position, video_id in enumerate(video_ids, 1):
+                video = Video.objects.get(id=video_id)
+                PlaylistItem.objects.create(
+                    playlist=playlist,
+                    video=video,
+                    position=position
+                )
+            
+            # Set thumbnail from first video
+            first_video = Video.objects.get(id=video_ids[0])
+            if first_video.thumbnail:
+                playlist.thumbnail = first_video.thumbnail
+                playlist.save()
+            
+            return redirect('profile', pk=pk)
+    else:
+        form = CreatePlaylistForm()
+    
+    videos = Video.objects.all()
+    context = {
+        'form': form,
+        'videos': videos
+    }
+    return render(request, 'projects/playlist_form.html', context)
+
+@login_required
+def update_playlist(request, pk):
+    playlist = get_object_or_404(Playlist, id=pk)
+    
+    # Check if user owns this playlist
+    if request.user != playlist.user:
+        return HttpResponseForbidden("You can only edit your own playlists")
+    
+    if request.method == 'POST':
+        form = CreatePlaylistForm(request.POST, instance=playlist)
+        video_ids = request.POST.getlist('videos')
+        
+        if not video_ids:
+            messages.error(request, 'Please select at least one video for your playlist.')
+            videos = Video.objects.all()
+            return render(request, 'projects/playlist_form.html', {
+                'form': form, 
+                'videos': videos,
+                'playlist': playlist,
+                'selected_videos': [int(vid) for vid in video_ids]
+            })
+            
+        if form.is_valid():
+            playlist = form.save()
+            
+            # Clear existing playlist items
+            playlist.items.all().delete()
+            
+            # Create new PlaylistItems for selected videos
+            for position, video_id in enumerate(video_ids, 1):
+                video = Video.objects.get(id=video_id)
+                PlaylistItem.objects.create(
+                    playlist=playlist,
+                    video=video,
+                    position=position
+                )
+            
+            # Update thumbnail from first video
+            first_video = Video.objects.get(id=video_ids[0])
+            if first_video.thumbnail:
+                playlist.thumbnail = first_video.thumbnail
+                playlist.save()
+            
+            return redirect('profile', pk=playlist.user.profile.id)
+    else:
+        form = CreatePlaylistForm(instance=playlist)
+        
+    videos = Video.objects.all()
+    selected_videos = list(playlist.items.values_list('video_id', flat=True))
+    
+    context = {
+        'form': form,
+        'videos': videos,
+        'playlist': playlist,
+        'selected_videos': selected_videos,
+    }
+    return render(request, 'projects/playlist_form.html', context)
+
+@login_required(login_url="login-page")
+def delete_playlist(request, pk):
+    playlist = get_object_or_404(Playlist, id=pk)
+    
+    # Check if the logged-in user is the playlist owner
+    if playlist.user != request.user:
+        messages.error(request, "You don't have permission to delete this playlist.")
+        return redirect('profile', pk=request.user.profile.id)
+    
+    if request.method == 'POST':
+        try:
+            playlist.delete()
+            messages.success(request, 'Playlist deleted successfully!')
+            return redirect('profile', pk=request.user.profile.id)
+        except Exception as e:
+            messages.error(request, f'Error deleting playlist: {str(e)}')
+            return redirect('profile', pk=request.user.profile.id)
+    
+    return render(request, 'delete_object.html', {
+        'object': playlist.name
+    })

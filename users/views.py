@@ -127,7 +127,7 @@ def update_profile(request, pk):
 def user_videos(request, pk):
     profile_service = ProfileService()
     context = profile_service.get_user_videos(pk, Profile)
-    return render(request, "projects/user_video.html", context)
+    return render(request, "users/user_video.html", context)
 
 @login_required
 def user_history(request, pk):
@@ -142,7 +142,7 @@ def user_history(request, pk):
     # If authorized, proceed with getting the history
     profile_service = ProfileService()
     context = profile_service.get_user_history(pk, Profile)
-    return render(request, "projects/view_history.html", context)
+    return render(request, "users/view_history.html", context)
 
 def login_user(request):
     page = "login_page"
@@ -285,7 +285,7 @@ def settings(request):
             # Update the session to prevent logging out
             update_session_auth_hash(request, password_form.user)
             messages.success(request, 'Your password was successfully updated!')
-            return redirect('settings')
+            return redirect('profile', pk=request.user.profile.id)
         else:
             messages.error(request, 'Please correct the error below.')
     else:

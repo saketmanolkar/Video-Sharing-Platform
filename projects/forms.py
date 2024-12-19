@@ -1,6 +1,6 @@
 from django.forms import ModelForm
 from django import forms
-from .models import Video, Tag, Review
+from .models import Video, Tag, Review, Playlist, PlaylistItem
 
 class ProjectForm(ModelForm):
     class Meta:
@@ -161,3 +161,22 @@ class MovieRecommendationForm(forms.Form):
             'style': 'display: inline-block; width: auto;'
         })
     )
+
+class CreatePlaylistForm(forms.ModelForm):
+    class Meta:
+        model = Playlist
+        fields = ['name', 'is_private']
+        widgets = {
+            'name': forms.TextInput(
+                attrs={
+                    'class': 'input input--text',
+                    'placeholder': 'Enter playlist name...'
+                }
+            ),
+            'is_private': forms.CheckboxInput(
+                attrs={
+                    'class': 'input input--checkbox',
+                    'style': 'appearance: checkbox; -webkit-appearance: checkbox; display: inline-block;'
+                }
+            )
+        }

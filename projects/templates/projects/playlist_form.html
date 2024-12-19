@@ -1,0 +1,147 @@
+{% extends 'main.html' %}
+{% block content %}
+    <!-- Main Section -->
+    <main class="formPage my-xl">
+        <div class="content-box">
+            <div class="formWrapper">
+                <a class="backButton" href="{% url 'profile' request.user.profile.id %}">&lt;</a>
+                <h3 class="formWrapper__subject" style="text-align: center; flex: 1;margin-top: -3rem;">
+                    {% if playlist %}Edit{% else %}Create{% endif %} Playlist
+                </h3>
+
+                <form class="form" method="POST">
+                    {% csrf_token %}
+
+                    <!-- Playlist Name -->
+                    <div class="form__field">
+                        <label for="id_name">Playlist Name: </label>
+                        {{ form.name }}
+                    </div>
+
+                    <!-- Is Private -->
+                    <div class="form__field">
+                        <label for="id_is_private" class="checkbox-label">
+                            {{ form.is_private }}
+                            Private Playlist
+                        </label>
+                    </div>
+
+                    <!-- Video Selection -->
+                    <div class="form__field">
+                        <label>Select Videos:</label>
+                        <div class="video-selection">
+                            <input type="text" id="videoSearch" placeholder="Search videos..." class="input input--text">
+                            <div class="video-list">
+                                {% for video in videos %}
+                                <div class="video-item">
+                                    <label for="video_{{ video.id }}">{{ video.title }}</label>
+                                    <input type="checkbox" 
+                                           name="videos" 
+                                           value="{{ video.id }}"
+                                           id="video_{{ video.id }}"
+                                           {% if video.id in selected_videos %}checked{% endif %}>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <input class="btn btn--sub btn--lg my-md" type="submit" 
+                           value="{% if playlist %}Update{% else %}Create{% endif %} Playlist" />
+                </form>
+            </div>
+        </div>
+    </main>
+
+<style>
+    .video-selection {
+        margin: 1rem 0;
+        border: 1px solid var(--color-light);
+        border-radius: 5px;
+        padding: 1rem;
+        background: var(--color-bg);
+    }
+
+    .video-list {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-top: 1rem;
+    }
+
+    .video-item {
+        padding: 0.8rem;
+        display: flex;
+        align-items: center;
+        position: relative;
+    }
+
+    .video-item label {
+        flex: 1;
+        cursor: pointer;
+        color: var(--color-text);
+        padding-right: 60px;
+    }
+
+    .video-item input[type="checkbox"] {
+        position: absolute;
+        right: -20rem;
+        top: 50%;
+        transform: translateY(-50%);
+        margin: 0;
+    }
+
+    .video-item:last-child {
+        border-bottom: none;
+    }
+
+    #videoSearch {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+
+    .input--checkbox {
+        width: auto !important;
+        margin-right: 0.5rem;
+    }
+
+    .video-list::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .video-list::-webkit-scrollbar-track {
+        background: var(--color-bg);
+        border-radius: 4px;
+    }
+
+    .video-list::-webkit-scrollbar-thumb {
+        background: var(--color-main);
+        border-radius: 4px;
+    }
+</style>
+
+<script>
+    const searchInput = document.getElementById('videoSearch');
+    const videoItems = document.querySelectorAll('.video-item');
+
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        
+        videoItems.forEach(item => {
+            const title = item.querySelector('label').textContent.toLowerCase();
+            if (title.includes(searchTerm)) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+</script>
+
+{% endblock content %}

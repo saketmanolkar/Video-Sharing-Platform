@@ -16,7 +16,8 @@ class ProfileService:
         profile = get_object_or_404(profile_model, id=profile_id)
         return {
             'profile': profile,
-            'videos': profile.user.uploaded_videos.all().order_by('-created_at')
+            'videos': profile.user.uploaded_videos.all().order_by('-created_at'),
+            'playlists': profile.user.playlists.all().order_by('-created_at')
         }
     
     def get_user_history(self, profile_id, profile_model):
@@ -104,9 +105,13 @@ class ProfileService:
         profile = self.get_profile(profile_id, profile_model)
         follow_service = FollowService()
         
-        # Get existing data
-        videos = profile.user.uploaded_videos.all()[:2]
-        view_history = profile.user.view_history.all()[:2]
+        # Get existing data with limits
+        videos = profile.user.uploaded_videos.all()[:2]  # Already limited to 2
+        view_history = profile.user.view_history.all()[:2]  # Already limited to 2
+        playlists = profile.user.playlists.all()[:2]  # Add this line to limit playlists to 2
+        print(f"DEBUG - Playlists found: {playlists.count()}")
+        for playlist in playlists:
+            print(f"Playlist: {playlist.name}")
         
         # Add follow-related data
         follow_stats = follow_service.get_follower_stats(profile)
@@ -127,6 +132,7 @@ class ProfileService:
             'profile': profile,
             'videos': videos,
             'view_history': view_history,
+            'playlists': playlists,  # Add this to context
             'followers_count': follow_stats['followers_count'],
             'following_count': follow_stats['following_count'],
             'is_following': is_following
