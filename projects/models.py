@@ -90,11 +90,18 @@ class Video(models.Model):
         return self.title
 
     def save(self, *args, **kwargs):
+        # Check if thumbnail changed
+        if self.thumbnail and self.thumbnail != self._original_thumbnail:
+            self._thumbnail_changed = True
+        else:
+            self._thumbnail_changed = False
+        
         VideoService.handle_video_save(self, *args, **kwargs)
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._original_file = self.file if self.file else None
+        self._original_thumbnail = self.thumbnail if self.thumbnail else None
     
     def clean(self):
         super().clean()

@@ -12,6 +12,7 @@ from django.dispatch import receiver
 from .models import Video, Review, Like, VideoAnalytics, ViewHistory
 from .services.video_services import VideoService
 from django.db import transaction
+from django.db.transaction import on_commit
 
 logger = logging.getLogger(__name__)
 
@@ -71,29 +72,42 @@ def handle_video_encoding(sender, instance, **kwargs):
             logger.error(f'❌ Error encoding video: {str(e)}')
             cache.delete(cache_key)
 
-@receiver(pre_save, sender=Video)
-def handle_thumbnail_processing(sender, instance, **kwargs):
-    """Handle thumbnail processing separately"""
-    cache_key = f'thumbnail_processed_{instance.pk}'
+@receiver(post_save, sender=Video)
+def handle_thumbnail_processing(sender, instance, created, **kwargs):
+    """Queue thumbnail processing after video is saved"""
+    # Only process on creation
+    if not created:
+        return
+        
+    print(f"\n{'='*50}")
+    print(f"📝 Signal Triggered for NEW video {instance.pk}")
     
-    # Skip if already processed
-    if cache.get(cache_key) or getattr(instance, '_thumbnail_processed', False):
+    # Skip if no thumbnail
+    if not instance.thumbnail:
+        print("⏩ No thumbnail to process")
+        return
+        
+    cache_key = f'thumb_processing_{instance.pk}'
+    if cache.get(cache_key):
+        print(f"⏩ Already processing thumbnail for {instance.pk}")
         return
         
     try:
-        if instance.thumbnail:
-            print('🖼️ Processing thumbnail...')
-            # Force processing even for square images
-            processed_thumbnail = add_black_bars(instance.thumbnail)
-            if processed_thumbnail:
-                instance.thumbnail = processed_thumbnail
-                instance._thumbnail_processed = True
-                cache.set(cache_key, True, timeout=3600)
-                print('✨ Thumbnail processing complete')
-                
+        def queue_task():
+            from .tasks import process_thumbnail_task
+            cache.set(cache_key, True, timeout=300)
+            print(f"🎯 Queueing thumbnail task for video {instance.pk}")
+            task = process_thumbnail_task.delay(str(instance.pk))
+            print(f"📋 Task ID: {task.id}")
+            
+        print("🔄 Waiting for transaction...")
+        on_commit(queue_task)
+        print(f"{'='*50}\n")
+            
     except Exception as e:
-        logger.error(f'❌ Error processing thumbnail: {str(e)}')
-
+        print(f"❌ Error: {str(e)}")
+        cache.delete(cache_key)
+        
 @receiver(pre_delete, sender=Video)
 def cleanup_files(sender, instance, **kwargs):
     """Clean up all files before deletion"""
@@ -224,3 +238,4 @@ def handle_video_update(sender, instance, created, **kwargs):
             logger.info(f"✅ Updated analytics title for video: {instance.title}")
     except Exception as e:
         logger.error(f"❌ Error updating video analytics: {str(e)}")
+
