@@ -16,98 +16,77 @@ from django.db.transaction import on_commit
 
 logger = logging.getLogger(__name__)
 
-@receiver(pre_save, sender=Video)
-def handle_video_encoding(sender, instance, **kwargs):
-    """Handle video encoding for new uploads"""
-    cache_key = f'encoding_{instance.pk}'
+@receiver(post_save, sender=Video)
+def handle_video_encoding(sender, instance, created, **kwargs):
+    """Queue video encoding for new uploads AND updates"""
     
-    # Skip if already processing
-    if cache.get(cache_key):
+    print("\n🔍 DEBUG: Video Signal Triggered")
+    print(f"Created: {created}")
+    print(f"File changed: {getattr(instance, '_file_changed', False)}")
+    
+    # Process if new video OR file changed
+    if not (created or getattr(instance, '_file_changed', False)):
+        print("⏩ Skipping - no video changes")
         return
         
-    if not instance.encoded_versions and instance.file:
+    print("✅ Video changes detected - proceeding")
+    
+    if not instance.file:
+        print("❌ No video file to process")
+        return
+        
+    def queue_video_task():
+        cache_key = f'encoding_{instance.pk}'
+        if cache.get(cache_key):
+            print(f"⏩ Already processing video {instance.pk}")
+            return
+            
         try:
             cache.set(cache_key, True, timeout=300)
-            
-            if not hasattr(instance.file, 'path') or not os.path.exists(instance.file.path):
-                print("⚠️ File not accessible yet")
-                cache.delete(cache_key)
-                return
-                
-            print('🎥 Starting video encoding...')
-            
-            input_path = instance.file.path
-            print(f"📁 Input path: {input_path}")
-            
-            # Generate base output name
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            base_name = slugify(os.path.splitext(os.path.basename(instance.file.name))[0])
-            
-            # Ensure videos directory exists
-            videos_dir = os.path.join(settings.MEDIA_ROOT, 'videos')
-            os.makedirs(videos_dir, exist_ok=True)
-            
-            encoded_versions = {}
-            
-            # Encode versions
-            for quality in [('720p', '720'), ('360p', '360')]:
-                version, size = quality
-                print(f"🎬 Encoding {version}...")
-                output_name = f"{base_name}_{timestamp}_{version}.mp4"
-                output_path = os.path.join(videos_dir, output_name)
-                
-                if encode_video(input_path, output_path, size):
-                    encoded_versions[version] = output_name
-                    print(f"✨ Encoded successfully: {output_name}")
-            
-            if encoded_versions:
-                instance.encoded_versions = encoded_versions
-                # Update main file to point to 720p version
-                instance.file.name = f"videos/{encoded_versions['720p']}"
-                print(f"✨ Video processing complete")
-                
-            instance._encoding_done = True
+            from .tasks import process_video_task
+            task = process_video_task.delay(str(instance.pk))
+            print(f"🎯 Queued video task: {task.id}")
             
         except Exception as e:
-            logger.error(f'❌ Error encoding video: {str(e)}')
+            print(f"❌ Error: {str(e)}")
             cache.delete(cache_key)
+    
+    print("🔄 Waiting for transaction...")
+    transaction.on_commit(queue_video_task)
 
 @receiver(post_save, sender=Video)
 def handle_thumbnail_processing(sender, instance, created, **kwargs):
-    """Queue thumbnail processing after video is saved"""
-    # Only process on creation
-    if not created:
-        return
-        
-    print(f"\n{'='*50}")
-    print(f"📝 Signal Triggered for NEW video {instance.pk}")
+    """Queue thumbnail processing for new and updated thumbnails"""
     
-    # Skip if no thumbnail
-    if not instance.thumbnail:
-        print("⏩ No thumbnail to process")
+    print("\n🔍 DEBUG: Signal Triggered")
+    print(f"Created: {created}")
+    print(f"Has thumbnail: {bool(instance.thumbnail)}")
+    print(f"Thumbnail changed: {getattr(instance, '_thumbnail_changed', False)}")
+    
+    # Process if new video OR thumbnail changed
+    if not (created or getattr(instance, '_thumbnail_changed', False)):
+        print("⏩ Skipping - no changes")
         return
         
-    cache_key = f'thumb_processing_{instance.pk}'
-    if cache.get(cache_key):
-        print(f"⏩ Already processing thumbnail for {instance.pk}")
+    print("✅ Changes detected - proceeding")
+    
+    if not instance.thumbnail:
+        print("❌ No thumbnail to process")
         return
         
     try:
         def queue_task():
-            from .tasks import process_thumbnail_task
-            cache.set(cache_key, True, timeout=300)
-            print(f"🎯 Queueing thumbnail task for video {instance.pk}")
+            from projects.tasks import process_thumbnail_task
+            print("🎯 About to queue task...")
             task = process_thumbnail_task.delay(str(instance.pk))
-            print(f"📋 Task ID: {task.id}")
+            print(f"✨ Task queued! ID: {task.id}")
             
-        print("🔄 Waiting for transaction...")
-        on_commit(queue_task)
-        print(f"{'='*50}\n")
+        print("🔄 Committing transaction...")
+        transaction.on_commit(queue_task)
             
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
-        cache.delete(cache_key)
-        
+        print(f"❌ Error in signal: {str(e)}")
+
 @receiver(pre_delete, sender=Video)
 def cleanup_files(sender, instance, **kwargs):
     """Clean up all files before deletion"""

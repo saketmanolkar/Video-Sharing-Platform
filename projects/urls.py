@@ -19,4 +19,5 @@ urlpatterns = [
     path('profile/<uuid:pk>/create-playlist/', views.create_playlist, name='create-playlist'),
     path('update-playlist/<str:pk>/', views.update_playlist, name='update-playlist'),
     path('delete-playlist/<str:pk>/', views.delete_playlist, name='delete-playlist'),
+    path('api/video-status/<uuid:video_id>/', views.video_status, name='video-status'),
 ]

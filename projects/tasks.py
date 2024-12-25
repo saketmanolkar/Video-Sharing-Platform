@@ -80,3 +80,55 @@ def process_thumbnail_task(self, video_id):
         except:
             pass
         return False
+
+
+@shared_task(bind=True)
+def process_video_task(self, video_id):
+    """Process video encoding in background"""
+    from .models import Video
+    from django.conf import settings
+    import os
+    from datetime import datetime
+    from django.utils.text import slugify
+    from .utils import encode_video
+    
+    video = Video.objects.get(id=video_id)
+    
+    try:
+        input_path = video.file.path
+        print(f"📁 Input path: {input_path}")
+        
+        # Generate base output name
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        base_name = slugify(os.path.splitext(os.path.basename(video.file.name))[0])
+        
+        # Ensure videos directory exists
+        videos_dir = os.path.join(settings.MEDIA_ROOT, 'videos')
+        os.makedirs(videos_dir, exist_ok=True)
+        
+        encoded_versions = {}
+        
+        # Encode versions
+        for quality in [('720p', '720'), ('360p', '360')]:
+            version, size = quality
+            print(f"🎬 Encoding {version}...")
+            output_name = f"{base_name}_{timestamp}_{version}.mp4"
+            output_path = os.path.join(videos_dir, output_name)
+            
+            if encode_video(input_path, output_path, size):
+                encoded_versions[version] = output_name
+                print(f"✨ Encoded successfully: {output_name}")
+        
+        if encoded_versions:
+            video.encoded_versions = encoded_versions
+            video.file.name = f"videos/{encoded_versions['720p']}"
+            video.save()
+            print(f"✨ Video processing complete")
+            
+            # Only delete original after successful encoding
+            if os.path.exists(input_path):
+                os.remove(input_path)
+                print(f"🗑️ Cleaned up original file")
+            
+    except Exception as e:
+        print(f"❌ Error in task: {str(e)}")

@@ -143,7 +143,6 @@ def create_project(request):
 def update_project(request, pk):
     project = get_object_or_404(Video, id=pk)
     
-    # Check if the logged-in user is the project owner
     if project.uploader != request.user:
         messages.error(request, "You don't have permission to edit this project.")
         return redirect('project', pk=project.id)
@@ -154,19 +153,39 @@ def update_project(request, pk):
                 form = ProjectForm(request.POST, request.FILES, instance=project)
                 if form.is_valid():
                     project = form.save(commit=False)
+                    
+                    print("\n🎥 View Debug:")
+                    print(f"File in request: {'file' in request.FILES}")
+                    
                     if 'file' in request.FILES:
                         project._file_changed = True
+                        project._original_file = project.file
+                        print("✅ File change detected")
+                    
+                    if 'file' in request.FILES:
+                        # Clear any existing encoding cache
+                        cache.delete(f'encoding_{project.id}')
+                        
+                        from .tasks import process_video_task
+                        task = process_video_task.delay(str(project.id))
+                        print(f"🎯 Queued task: {task.id}")
+                        
+                        # Set new cache
+                        cache.set(f'encoding_{project.id}', True, timeout=60)  # Reduced timeout
+                    
                     project.save()
                     form.save_m2m()
                     
-                    # Invalidate all related caches
+                    # Invalidate caches
                     VideoService.invalidate_video_cache(project.id)
                     cache.delete(f'video_context_{project.id}')
                     
                     messages.success(request, 'Project updated successfully!')
                     return redirect('creator-studio', pk=request.user.profile.id)
+                    
         except Exception as e:
             messages.error(request, f'Error updating project: {str(e)}')
+            print(f"❌ Error: {str(e)}")
     else:
         form = ProjectForm(instance=project)
     
@@ -590,4 +609,11 @@ def delete_playlist(request, pk):
     
     return render(request, 'delete_object.html', {
         'object': playlist.name
+    })
+
+def video_status(request, video_id):
+    video = get_object_or_404(Video, id=video_id)
+    return JsonResponse({
+        'encoded': bool(video.encoded_versions),
+        'status': video.processing_status
     })

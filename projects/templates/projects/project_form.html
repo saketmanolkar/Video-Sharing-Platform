@@ -36,6 +36,8 @@
 
                 <!-- File Upload Grid at the top -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    
+                    {% if page_type != 'update' %}
                     <!-- Left Column - Video File -->
                     <div class="form__field">
                         <label for="{{ form.file.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
@@ -53,7 +55,7 @@
                             </div>
                         </div>
                     </div>
-
+                    {% endif %}
                     <!-- Right Column - Thumbnail -->
                     <div class="form__field">
                         <label for="{{ form.thumbnail.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">

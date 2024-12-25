@@ -180,12 +180,20 @@ LOGGING = {
         'console': {
             'class': 'logging.StreamHandler',
             'filters': ['ignore_broken_pipe'],
+            'level': 'INFO',
         },
     },
     'filters': {
         'ignore_broken_pipe': {
             '()': 'django.utils.log.CallbackFilter',
             'callback': lambda record: 'Broken pipe' not in str(record.exc_info),
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
         },
     },
 }

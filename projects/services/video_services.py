@@ -129,34 +129,13 @@ class VideoService:
     @staticmethod
     def handle_video_save(video, *args, **kwargs):
         """Handle video save operations including encoding"""
-        # Skip if we're already in a save operation
         if getattr(video, '_saving', False):
             return
         
         video._saving = True
         try:
-            is_new_upload = not video.pk or (
-                video.pk and 
-                not video.encoded_versions and 
-                hasattr(video, '_file_changed') and 
-                video._file_changed
-            )
-            
-            if is_new_upload:
-                cache_key = f'thumbnail_processed_{video.pk}'
-                cache.delete(cache_key)
-            
-            super(video.__class__, video).save(*args, **kwargs)  # Call the actual model save
-            
-            if is_new_upload and video.file:
-                original_file = video.file.path
-                from projects.signals import handle_video_encoding
-                handle_video_encoding(sender=video.__class__, instance=video)
-                
-                if video.encoded_versions:
-                    VideoService.cleanup_original_file(original_file)
-                
-                super(video.__class__, video).save(update_fields=['encoded_versions', 'file'])
+            # Just save, and don't queue here
+            super(video.__class__, video).save(*args, **kwargs)
         finally:
             video._saving = False
     

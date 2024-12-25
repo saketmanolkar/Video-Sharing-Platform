@@ -68,42 +68,155 @@
     background-size: cover;
     background-position: center center;
 }
+
+.processing-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 10;
+}
+
+.processing-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.refresh-btn {
+    margin-top: 20px;
+    padding: 12px 24px;
+    background: #6366f1;  /* Indigo color */
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.refresh-btn:hover {
+    background: #4f46e5;  /* Darker indigo */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.refresh-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.refresh-btn i {
+    font-size: 14px;
+}
+
+/* Loader animation CSS */
+.loader {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.loader .circle {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #6366f1;
+    animation: bounce 0.5s alternate infinite;
+}
+
+.loader .circle:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.loader .circle:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.loader .circle:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+@keyframes bounce {
+    to {
+        transform: translateY(-10px);
+    }
+}
 </style>
 
 <!-- Video Player Component -->
 <div class="video-player-container">
   {% if video %}
     <div class="video-wrapper" id="wrapper-{{ video.id }}">
-      <video
-        id="my-video-{{ video.id }}"
-        class="video-js vjs-big-play-centered"
-        controls
-        preload="metadata"
-        poster="{% if video.thumbnail %}{{ video.thumbnail.url }}{% else %}{% static 'images/default.jpg' %}{% endif %}"
-        data-setup='{
-            "controls": true,
-            "autoplay": false,
-            "preload": "metadata",
-            "responsive": true,
-            "fluid": false
-        }'
-      >
-        <source src="{% url 'stream-video' video.id %}" type="video/mp4" />
-      </video>
+      {% if video.processing_status == 'processing' and not video.encoded_versions %}
+        <div class="processing-overlay">
+            <div class="processing-content">
+                <div class="loader">
+                    <div class="circle"></div>
+                    <div class="circle"></div>
+                    <div class="circle"></div>
+                    <div class="circle"></div>
+                </div>
+                <h3>🎬 Processing Video</h3>
+                <p>Please wait while we process your video for the best quality!</p>
+                <button onclick="window.location.reload()" class="refresh-btn">
+                    <i class="fas fa-sync-alt"></i> Check Processing Status or Keep Refreshing
+                </button>
+            </div>
+        </div>
+      {% else %}
+        <video 
+            id="video-js-player" 
+            class="video-js vjs-big-play-centered vjs-theme-forest" 
+            controls 
+            preload="auto" 
+            poster="{{ video.thumbnail.url }}"
+            width="100%"
+            height="auto">
+            <source src="{% url 'stream-video' video.id %}" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+
+        <script>
+            // Wait for DOM to be ready
+            document.addEventListener('DOMContentLoaded', function() {
+                // Initialize player only if it exists
+                const videoElement = document.getElementById('video-js-player');
+                if (videoElement) {
+                    const player = videojs(videoElement, {
+                        controls: true,
+                        autoplay: false,
+                        preload: 'auto'
+                    });
+                }
+            });
+        </script>
+      {% endif %}
     </div>
   {% endif %}
 </div>
 
 <!-- Video.js Script -->
 <script src="https://vjs.zencdn.net/8.16.1/video.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const players = document.querySelectorAll('.video-js');
-    
-    players.forEach(player => {
-        if (player) {
-            videojs(player.id);
-        }
-    });
-});
-</script>

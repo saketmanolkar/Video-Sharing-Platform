@@ -108,6 +108,23 @@ class Video(models.Model):
         if self.file and self._original_file != self.file:
             self._file_changed = True
 
+    @property
+    def processing_status(self):
+        """Get video processing status"""
+        # Check if currently being encoded
+        if cache.get(f'encoding_{self.id}'):
+            return 'processing'
+        
+        # If has encoded versions, it's ready
+        if self.encoded_versions:
+            return 'ready'
+        
+        # If no encoded versions but has file, it's processing
+        if self.file:
+            return 'processing'
+        
+        return 'ready'  # Default to ready if no file
+
 class Review(models.Model):
     video = models.ForeignKey(
         Video, 
