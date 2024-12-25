@@ -294,4 +294,5 @@ def settings(request):
     context = {
         'password_form': password_form
     }
-    return render(request, 'users/settings.html', context)
+    # setting.html is in the base directory templates folder
+    return render(request, 'settings.html', context)

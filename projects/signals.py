@@ -9,10 +9,11 @@ import logging
 from django.conf import settings
 from django.core.cache import cache
 from django.dispatch import receiver
-from .models import Video, Review, Like, VideoAnalytics, ViewHistory
+from .models import Video, Review, Like, VideoAnalytics, ViewHistory, Playlist
 from .services.video_services import VideoService
 from django.db import transaction
 from django.db.transaction import on_commit
+from django.db import models
 
 logger = logging.getLogger(__name__)
 
@@ -218,3 +219,30 @@ def handle_video_update(sender, instance, created, **kwargs):
     except Exception as e:
         logger.error(f"❌ Error updating video analytics: {str(e)}")
 
+@receiver(pre_delete, sender=Video)
+def cleanup_empty_playlists(sender, instance, **kwargs):
+    """
+    When a video is about to be deleted:
+    1. Get playlist IDs BEFORE cascade happens
+    2. Delete playlists that will become empty
+    """
+    try:
+        # Get playlists that only contain this video
+        playlist_ids = list(instance.playlist_items.values_list('playlist_id', flat=True))
+        print(f"🎯 Found playlists before delete: {playlist_ids}")
+        
+        if playlist_ids:
+            # Find playlists that only have this one video
+            playlists_to_delete = Playlist.objects.filter(
+                id__in=playlist_ids
+            ).annotate(
+                video_count=models.Count('items')
+            ).filter(video_count=1)
+            
+            count = playlists_to_delete.count()
+            if count > 0:
+                print(f"🗑️ Deleting {count} playlists that will be empty")
+                playlists_to_delete.delete()
+                
+    except Exception as e:
+        print(f"❌ Error in cleanup: {str(e)}")

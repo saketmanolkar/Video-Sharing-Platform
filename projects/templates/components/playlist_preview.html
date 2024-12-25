@@ -108,12 +108,18 @@
         position: relative;
         aspect-ratio: 16/9;
         overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
     }
 
     .playlist-preview__thumbnail img {
-        width: 100%;
+        width: auto;
         height: 100%;
-        object-fit: cover;
+        max-width: 100%;
+        object-fit: contain;
+        object-position: center;
     }
 
     .playlist-preview__count {
