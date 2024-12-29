@@ -12,6 +12,8 @@ from .forms import ProfileForm, MessageForm
 from django.http import JsonResponse, HttpResponseForbidden
 from django.core.exceptions import ValidationError
 from django.contrib.auth.forms import PasswordChangeForm
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.middleware.csrf import get_token
 
 @login_required
 def creator_studio(request, pk):
@@ -145,36 +147,49 @@ def user_history(request, pk):
     return render(request, "users/view_history.html", context)
 
 def login_user(request):
-    page = "login_page"
-
-    if request.user.is_authenticated:
-        return redirect("projects")
-
     if request.method == "POST":
         username = request.POST.get("username").lower()
         password = request.POST.get("password")
 
         try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            messages.error(request, "Username does not exist")
-            return render(request, "users/login_register.html", {"page": page})
-
-        user = authenticate(request, username=username, password=password)
-
-        if user is not None:
-            login(request, user)
-            messages.success(request, "Successfully logged in!")
-            return redirect("projects")
-        else:
-            messages.error(request, "Username OR password is incorrect")
-
-    return render(request, "users/login_register.html", {"page": page})
+            user = authenticate(request, username=username, password=password)
+            
+            if user is not None:
+                login(request, user)
+                
+                # Generate tokens
+                refresh = RefreshToken.for_user(user)
+                
+                # Return JSON response
+                return JsonResponse({
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                    'username': user.username,
+                    'user_id': user.id,
+                    'message': 'Login successful'
+                })
+            else:
+                return JsonResponse({
+                    'message': 'Invalid username or password'
+                }, status=400)
+                
+        except Exception as e:
+            print(f"Login error: {e}")
+            return JsonResponse({
+                'message': 'An error occurred during login'
+            }, status=500)
+    
+    # GET request - render login form
+    # Ensure CSRF token is set
+    get_token(request)
+    return render(request, "users/login_register.html", {"page": "login_page"})
 
 def logout_user(request):
+    # Clear JWT tokens using JavaScript before redirecting
+    response = redirect('login-page')  # or whatever your login URL name is
+    response.set_cookie('logout', 'true', max_age=5)  # This will trigger our JavaScript
     logout(request)
-    messages.info(request, "You have been logged out")
-    return redirect("login-page")
+    return response
 
 @csrf_protect
 def register_user(request):

@@ -58,20 +58,26 @@
                         </div>
                     </div>
 
-                    <!-- Integrated Review Form -->
-                    <div class="comment-form" id="commentForm">
-                        <form method="POST" action="{% url 'add-review' pk=video.id %}" id="reviewForm">
+                    <!-- Make sure this form structure exists -->
+                    <div class="comments" id="commentForm" style="display: none;">
+                        <form method="POST" action="" id="reviewForm">
                             {% csrf_token %}
-                            <div class="form-group">
-                                <textarea name="comment" class="form-control" placeholder="Write your comment here...">{{ form.comment.value|default:'' }}</textarea>
+                            <div class="form__field">
+                                <textarea 
+                                    class="input input--textarea" 
+                                    name="comment" 
+                                    id="formInput#textarea" 
+                                    placeholder="Write your comments here..."
+                                ></textarea>
                             </div>
-                            <button type="submit">Submit</button>
                         </form>
                     </div>
 
                     <div class="comments-list">
                         <table class="settings__table">
-                            <!-- Comments will be loaded dynamically -->
+                            <tbody>
+                                <!-- Comments will be loaded here dynamically -->
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -92,8 +98,6 @@
     data-comments='[{% for review in reviews %}{% if review.comment %}{"id":"{{ review.id }}","username":"{{ review.user.username|escapejs }}","comment":"{{ review.comment|escapejs }}","is_owner":{% if review.user == request.user %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}]'
     data-auth="{{ request.user.is_authenticated|lower }}"
     data-login-url="{% url 'login-page' %}"
-    data-add-review-url="{% url 'add-review' pk=video.id %}"
-    data-update-review-base-url="/review/"
     data-csrf="{{ csrf_token }}"
 >
 
@@ -107,10 +111,14 @@
     window.initialComments = JSON.parse(dataElement.dataset.comments);
     window.username = "{{ request.user.username }}";
 </script>
-<script src="{% static 'js/comments.js' %}"></script>
-<script src="{% static 'js/like_dislike.js' %}"></script>
-<script src="{% static 'js/follow.js' %}"></script>
+  
 
+    <!-- Make sure auth.js is loaded first -->
+    <script src="{% static 'js/api_comments.js' %}"></script>
+    <script src="{% static 'js/api_like_dislike.js' %}"></script>
+    <script src="{% static 'js/follow.js' %}"></script>
+
+<!-- Include the delete confirmation popup -->
 {% include 'delete_object.html' %}
 
 {% endblock %}

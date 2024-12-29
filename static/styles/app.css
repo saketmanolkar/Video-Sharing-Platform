@@ -3,31 +3,37 @@
   --color-error: #dc3545;
 }
 
-.btn--sub {
-  background-color: var(--color-sub-light);
+
+/* Add these styles */
+.settings__table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.card {
-  border: 2px solid var(--color-light);
-  position: relative;
-  z-index: 1;
-  background: white;
+.settings__table tr {
+    width: 100%;
+    display: block;
+    margin-bottom: 2rem;
 }
 
-img {
-  width: 100%;
+.settings__tableInfo {
+    width: 100%;
+    display: block;
+    padding: 0;
 }
 
-.tag > i.im {
-  font-size: 1.5rem;
-  margin-right: 0.5rem;
+.settings__tableInfo h4 {
+    margin-bottom: 1rem;
 }
 
-.content-box {
-  width: 95%;
-  max-width: 85rem;
-  margin: 0 auto;
+.settings__tableActions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 1rem 0 0 0;
 }
+
+
+
 
 /*=======================
   Header Section
@@ -1458,16 +1464,43 @@ a.project:active {
 }
 
 .settings__tableInfo {
-  padding: 1.5rem 0;
+  padding: 2rem;
+  width: 70%;
 }
 
-/* Add a subtle separator between comments */
+.settings__tableInfo p {
+  font-size: 1.8rem;
+  color: #2D2D2D;
+  margin: 0;
+}
+
+.settings__thumbnail {
+  width: 15%;
+}
+
+.settings__thumbnail p {
+  font-size: 1.4rem;
+  color: var(--color-main);
+  font-weight: 500;
+}
+
+.settings__tableActions {
+  width: 15%;
+  padding-right: 2rem;
+}
+
 .settings__table tr {
-  border-bottom: 1px solid var(--color-light);
+  background: white;
+  margin-bottom: 1rem;
 }
 
-.settings__table tr:last-child {
-  border-bottom: none;
+.settings__table td {
+  padding: 2rem;
+  vertical-align: top;
+}
+
+.settings__table tr:not(:last-child) {
+  border-bottom: 1px solid #eee;
 }
 
 .tag--xl {
@@ -2553,4 +2586,154 @@ a.project:active {
 .message-unread,
 .message-unread * {
   font-weight: 700 !important;
+}
+
+/* Comment Styles */
+.comment-row {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--color-light);
+    transition: background-color 0.3s;
+}
+
+.comment-row:hover {
+    background-color: var(--color-bg);
+}
+
+.comment-content {
+    width: 100%;
+    padding: 0 1rem;
+}
+
+.comment-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: var(--color-main);
+    font-size: 1.4rem;
+}
+
+.comment-time {
+    color: var(--color-gray);
+    font-size: 1.2rem;
+}
+
+.comment-text {
+    color: var(--color-text);
+    font-size: 1.4rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+}
+
+.comment-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.comment-actions .btn--sm {
+    padding: 0.5rem 1rem;
+    font-size: 1.2rem;
+}
+
+.btn--danger {
+    background-color: var(--color-error);
+    color: white;
+}
+
+.btn--danger:hover {
+    opacity: 0.9;
+}
+
+/* Update existing table styles */
+.settings__table {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.05);
+}
+
+.settings__table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.settings__tableActions {
+    width: 150px;
+    text-align: right;
+    vertical-align: top;
+}
+
+.settings__table {
+    background: var(--color-bg);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.settings__table tr {
+    width: 100%;
+}
+
+.settings__table td {
+    padding: 1.5rem 2.5rem;
+}
+
+.settings__table tr:not(:last-child) td {
+    border-bottom: 2px solid var(--color-white);
+}
+
+.tag--pill {
+    border-radius: 3px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+}
+
+.settings__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.settings__btn:hover {
+    opacity: 0.9;
+}
+
+.settings__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.settings__table tr {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.settings__tableInfo {
+  flex: 1;
+  padding: 0;
+  margin-left: 4rem;
+}
+
+.settings__tableInfo h4 {
+  margin-bottom: 1rem;
+  margin-left: 2rem;
+}
+
+.settings__tableActions {
+  display: flex;
+  gap: 1rem;
+  padding: 0;
+  margin-left: 2rem;
+}
+
+.settings__btn {
+  white-space: nowrap;
 }

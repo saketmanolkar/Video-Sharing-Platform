@@ -5,6 +5,8 @@
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="user_authenticated" content="{{ request.user.is_authenticated|lower }}">
+  <meta name="username" content="{{ request.user.username|default:'' }}">
 
   <!-- Icon -->
   <link rel="shortcut icon" href="{% static 'images/logo_icon.svg' %}" type="image/x-icon" />
@@ -24,7 +26,8 @@
 </head>
 
 
-<body>
+<body class="{% if request.user.is_authenticated %}user-authenticated{% endif %}">
+    {% csrf_token %}
     {% include 'navbar.html' %}
     {% if messages %}
     <div class="alert-wrapper">
@@ -41,15 +44,22 @@
     {% block content %}
 
     {% endblock %}
-    <!-- Video.js Script -->
+    
+    <!-- Core Scripts -->
     <script src="https://vjs.zencdn.net/8.16.1/video.min.js"></script>
-
-    <!-- Highlight.js Script -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-
-    <!-- Mumble UI Script -->
     <script src="{% static 'uikit/app.js' %}"></script>
+    
+    <!-- Auth script with guard -->
+    {% if not auth_script_loaded %}
+        <script src="{% static 'js/auth.js' %}"></script>
+        {% with auth_script_loaded=True %}{% endwith %}
+    {% endif %}
 
+    <!-- Template specific scripts -->
+    {% block scripts %}{% endblock %}
+
+    <!-- Alert handler script stays the same -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const alertWrapper = document.querySelector('.alert-wrapper');
@@ -59,10 +69,20 @@
                         alertWrapper.remove();
                     }
                 });
-                
                 observer.observe(alertWrapper, { childList: true });
             }
         });
+    </script>
+
+    <!-- Add this near the end of your body tag, before other scripts -->
+    <script>
+        // Check for logout cookie and clear tokens
+        if (document.cookie.includes('logout=true')) {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            document.cookie = 'logout=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        }
     </script>
 </body>
 </html>

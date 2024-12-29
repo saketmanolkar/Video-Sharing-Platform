@@ -310,6 +310,11 @@ class VideoService:
         from projects.models import Like
         
         try:
+            # Debug log initial state
+            initial_likes = video.likes.filter(is_like=True).count()
+            initial_dislikes = video.likes.filter(is_like=False).count()
+            logger.info(f"Initial state - Likes: {initial_likes}, Dislikes: {initial_dislikes}")
+            
             # Clear any cached context for this video
             cache.delete(f'video_context_{video.id}')
             
@@ -334,6 +339,16 @@ class VideoService:
             # Get fresh counts directly from database
             likes_count = video.likes.filter(is_like=True).count()
             dislikes_count = video.likes.filter(is_like=False).count()
+            
+            # Debug log final state
+            logger.info(f"""
+                Like Action Debug:
+                User: {user.username}
+                Action: {action}
+                Is Like: {is_like}
+                Before - Likes: {initial_likes}, Dislikes: {initial_dislikes}
+                After - Likes: {likes_count}, Dislikes: {dislikes_count}
+            """)
             
             return {
                 'status': 'success',

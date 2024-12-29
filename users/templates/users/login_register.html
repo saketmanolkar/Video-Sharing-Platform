@@ -63,29 +63,29 @@
           <p>Hello Developer, Welcome Back!</p>
         </div>
 
-        <form method="POST" action="{% url 'login-page' %}" class="form auth__form">
+        <form id="loginForm" method="POST" class="form auth__form">
           {% csrf_token %}
-          <!-- Input:Email -->
           <div class="form__field">
-            <label for="formInput#text">Username: </label>
+            <label for="username">Username: </label>
             <input
               class="input input--text"
-              id="formInput#text"
+              id="username"
               type="text"
               name="username"
               placeholder="Enter your username..."
+              autocomplete="username"
             />
           </div>
 
-          <!-- Input:Password -->
           <div class="form__field">
-            <label for="formInput#password">Password: </label>
+            <label for="password">Password: </label>
             <input
               class="input input--password"
-              id="formInput#password"
+              id="password"
               type="password"
               name="password"
-              placeholder="•••••••"
+              placeholder="••••••••"
+              autocomplete="current-password"
             />
           </div>
           <div class="auth__actions">
@@ -100,4 +100,49 @@
       </div>
     </div>
 {% endif %}
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    try {
+        const response = await fetch('{% url "login-page" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+            },
+            body: formData,
+            credentials: 'same-origin'  // Important for CSRF
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.access) {
+            // Store tokens
+            localStorage.setItem('access_token', data.access);
+            localStorage.setItem('refresh_token', data.refresh);
+            localStorage.setItem('user', JSON.stringify({
+                username: data.username,
+                id: data.user_id
+            }));
+            
+            // Redirect after successful login
+            const nextUrl = new URLSearchParams(window.location.search).get('next');
+            window.location.href = nextUrl || '/projects/';
+        } else {
+            alert('Login failed: ' + (data.message || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        alert('Login failed. Please try again.');
+    }
+});
+</script>
 {% endblock %}
