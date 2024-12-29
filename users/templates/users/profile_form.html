@@ -2,6 +2,15 @@
 {% load static %}
 
 {% block content %}
+{% if request.session.temp_access_token %}
+<script>
+    // Store tokens from session
+    localStorage.setItem('access_token', '{{ request.session.temp_access_token }}');
+    localStorage.setItem('refresh_token', '{{ request.session.temp_refresh_token }}');
+    console.log('Tokens stored after registration');
+</script>
+{% endif %}
+
 <main class="formPage my-xl">
     <div class="content-box">
         <div class="formWrapper">

@@ -21,6 +21,8 @@ from django.contrib.auth.models import User
 from django.views.decorators.http import require_GET
 from django.contrib.auth import authenticate
 import logging
+from users.services.follow_services import FollowService
+from users.models import Profile
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,8 @@ def getRoutes(request):
         # Projects
         {'GET': '/api/projects/'},
         {'GET': '/api/projects/id/'},
+
+        # Likes
         {'GET, POST': '/api/projects/id/like/'},
         
         # Reviews/Comments
@@ -45,11 +49,15 @@ def getRoutes(request):
         {'GET': '/api/projects/id/reviews/stream/'},
         {'PUT, DELETE': '/api/projects/id/reviews/review_id/'},
         
+        # Users & Follow
+        {'POST': '/api/users/id/follow/'},
+        
         # Authentication
         {'POST': '/api/users/token/'},
         {'POST': '/api/users/token/refresh/'},
         {'GET': '/api/users/token-from-session/'},
     ]
+    
     return Response(routes)
 
 @api_view(['GET'])
@@ -261,3 +269,26 @@ def stream_reviews(request, pk):
         )
         response['Access-Control-Allow-Origin'] = '*'
         return response
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def api_handle_follow(request, pk):
+    follow_service = FollowService()
+    profile = get_object_or_404(Profile, id=pk)
+    
+    # Handle follow/unfollow
+    success, message = follow_service.follow_user(request.user, profile.user) \
+        if not follow_service.check_following_status(request.user, profile.user) \
+        else follow_service.unfollow_user(request.user, profile.user)
+    
+    # Get updated stats
+    stats = follow_service.get_follower_stats(profile)
+    
+    return Response({
+        'status': 'success' if success else 'error',
+        'message': message,
+        'is_following': follow_service.check_following_status(request.user, profile.user),
+        'followers_count': stats['followers_count'],
+        'following_count': stats['following_count']
+    })

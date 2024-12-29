@@ -11,32 +11,39 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const profileId = this.dataset.profileId;
+            const token = localStorage.getItem('access_token');
             
             try {
-                const response = await fetch(`/users/follow/${profileId}/`, {
+                console.log('Using JWT token:', token.substring(0, 20) + '...'); // Show part of token
+                
+                const response = await fetch(`/api/users/${profileId}/follow/`, {
                     method: 'POST',
                     headers: {
-                        'X-CSRFToken': csrfToken,
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
                     },
                 });
                 
                 const data = await response.json();
+                console.log('Server response:', {
+                    status: data.status,
+                    is_following: data.is_following,
+                    followers_count: data.followers_count,
+                    following_count: data.following_count
+                });
                 
                 if (data.status === 'success') {
-                    // Toggle active class
                     this.classList.toggle('active');
-                    // Toggle icon
                     const icon = this.querySelector('i');
                     icon.classList.toggle('fa-user-plus');
                     icon.classList.toggle('fa-user-minus');
-                    // Update text
                     const textSpan = this.querySelector('.follow-text');
                     textSpan.textContent = data.is_following ? 'Following' : 'Follow';
                 } else {
-                    console.error(data.message);
+                    console.error('Follow action failed:', data.message);
                 }
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Follow error:', error);
             }
         });
     });

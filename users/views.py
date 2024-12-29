@@ -14,6 +14,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.forms import PasswordChangeForm
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.middleware.csrf import get_token
+from django.views.decorators.http import require_POST
 
 @login_required
 def creator_studio(request, pk):
@@ -203,41 +204,24 @@ def register_user(request):
             user.username = user.username.lower()
             user.save()
             
-            messages.success(request, "User account was created")
-
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            
+            # Store tokens in session temporarily
+            request.session['temp_access_token'] = str(refresh.access_token)
+            request.session['temp_refresh_token'] = str(refresh)
+            
             login(request, user)
             return redirect('update-profile', pk=user.profile.id)
         else:
             messages.error(request, "An error occurred during registration")
+            
     context = {
         "page": page,
         "form": form
     }
     return render(request, "users/login_register.html", context)
 
-@login_required
-def handle_follow(request, pk):
-    if request.method == 'POST':
-        follow_service = FollowService()
-        profile = get_object_or_404(Profile, id=pk)
-        
-        # Handle follow/unfollow
-        success, message = follow_service.follow_user(request.user, profile.user) \
-            if not follow_service.check_following_status(request.user, profile.user) \
-            else follow_service.unfollow_user(request.user, profile.user)
-        
-        # Get updated stats
-        stats = follow_service.get_follower_stats(profile)
-        
-        return JsonResponse({
-            'status': 'success' if success else 'error',
-            'message': message,
-            'is_following': follow_service.check_following_status(request.user, profile.user),
-            'followers_count': stats['followers_count'],
-            'following_count': stats['following_count']
-        })
-    
-    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
 
 @login_required(login_url='login-page')
 def inbox(request):
@@ -311,3 +295,10 @@ def settings(request):
     }
     # setting.html is in the base directory templates folder
     return render(request, 'settings.html', context)
+
+@require_POST
+def clear_temp_tokens(request):
+    if 'temp_access_token' in request.session:
+        del request.session['temp_access_token']
+        del request.session['temp_refresh_token']
+    return JsonResponse({'status': 'success'})
