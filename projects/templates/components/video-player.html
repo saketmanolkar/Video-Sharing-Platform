@@ -195,7 +195,7 @@
             poster="{{ video.thumbnail.url }}"
             width="100%"
             height="auto">
-            <source src="{% url 'stream-video' video.id %}" type="video/mp4">
+            <source src="{% url 'api-stream-video' video.id %}" type="video/mp4">
             Your browser does not support the video tag.
         </video>
 

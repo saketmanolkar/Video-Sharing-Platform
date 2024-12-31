@@ -884,12 +884,14 @@
 ========================*/
 
 .formPage .formWrapper {
-  list-style: none;
-  background: var(--color-white);
-  padding: 3.5rem 5rem;
-  border: 2px solid var(--color-light);
-  border-radius: 0.7rem;
-  margin-top: -1rem;
+    width: 95%;
+    max-width: 1000px;  
+    margin: 0 auto;    /* Centers the form */
+    padding: 2rem 3rem;
+    background: var(--color-white);
+    border: 2px solid var(--color-light);
+    border-radius: 0.7rem;
+    margin-top: -1rem;
 }
 
 .formPage .formWrapper__subject {

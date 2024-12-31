@@ -23,6 +23,9 @@ from django.contrib.auth import authenticate
 import logging
 from users.services.follow_services import FollowService
 from users.models import Profile
+import os
+import re
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +44,12 @@ def getRoutes(request):
         {'GET': '/api/projects/'},
         {'GET': '/api/projects/id/'},
 
+        # Stream Video
+        {'GET': '/api/projects/id/stream/'},
+
+        # Debug Videos
+        {'GET': '/api/debug-videos/'},
+
         # Likes
         {'GET, POST': '/api/projects/id/like/'},
         
@@ -49,7 +58,7 @@ def getRoutes(request):
         {'GET': '/api/projects/id/reviews/stream/'},
         {'PUT, DELETE': '/api/projects/id/reviews/review_id/'},
         
-        # Users & Follow
+        # Follow
         {'POST': '/api/users/id/follow/'},
         
         # Authentication
@@ -84,7 +93,7 @@ def getProject(request, pk):
 @api_view(['GET', 'POST'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])  # Require authentication
-def ProjectLike(request, pk):
+def api_handle_like(request, pk):
     try:
         video_service = VideoService()
         video = video_service.get_video(pk, Video)
@@ -292,3 +301,118 @@ def api_handle_follow(request, pk):
         'followers_count': stats['followers_count'],
         'following_count': stats['following_count']
     })
+
+@api_view(['GET'])
+def stream_video_api(request, pk):
+    def file_iterator(file_path, start=0, length=None, chunk_size=8192):
+        with open(file_path, 'rb') as f:
+            f.seek(start)
+            remaining = length if length is not None else None
+            while True:
+                bytes_length = chunk_size if remaining is None else min(remaining, chunk_size)
+                data = f.read(bytes_length)
+                if not data:
+                    break
+                if remaining is not None:
+                    remaining -= len(data)
+                    if remaining < 0:
+                        data = data[:remaining]
+                yield data
+                if remaining is not None and remaining <= 0:
+                    break
+
+    # Start timing
+    import time
+    start_time = time.time()
+
+    # Get video
+    db_start = time.time()
+    video = get_object_or_404(Video, id=pk)
+    db_time = (time.time() - db_start) * 1000  # Convert to milliseconds
+
+    # File operations timing
+    file_start = time.time()
+    if video.encoded_versions and '720p' in video.encoded_versions:
+        file_path = os.path.join(settings.MEDIA_ROOT, 'videos', video.encoded_versions['720p'])
+    else:
+        file_path = video.file.path
+    file_time = (time.time() - file_start) * 1000
+
+    # Check if file exists
+    if not os.path.exists(file_path):
+        logger.error(f"Video file not found: {file_path}")
+        return Response({"error": "Video file not found"}, status=404)
+    
+    # Get file size
+    file_size = os.path.getsize(file_path)
+    
+    # Handle range requests
+    range_header = request.META.get('HTTP_RANGE', '').strip()
+    range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
+    
+    if range_match:
+        start = int(range_match.group(1))
+        end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
+        length = end - start + 1
+        
+        response = StreamingHttpResponse(
+            file_iterator(file_path, start=start, length=length),
+            status=206,
+            content_type='video/mp4'
+        )
+        
+        response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+        response['Accept-Ranges'] = 'bytes'
+        response['Content-Length'] = str(length)
+        return response
+    
+    response = StreamingHttpResponse(
+        file_iterator(file_path),
+        content_type='video/mp4'
+    )
+    response['Accept-Ranges'] = 'bytes'
+    response['Content-Length'] = str(file_size)
+    
+    # Add Server-Timing headers
+    total_time = (time.time() - start_time) * 1000
+    response['Server-Timing'] = f'db;dur={db_time:.2f}, file;dur={file_time:.2f}, total;dur={total_time:.2f}'
+
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])  # Only allow admin users to access this debug endpoint
+def api_debug_videos(request):
+    videos = Video.objects.all()
+    debug_info = []
+    
+    for video in videos:
+        # Database info
+        video_info = {
+            'id': str(video.id),
+            'title': video.title,
+            'file_path': str(video.file),
+            'thumbnail_path': str(video.thumbnail),
+            'encoded_versions': video.encoded_versions,
+        }
+        
+        # Check if files actually exist
+        if video.file:
+            full_path = os.path.join(settings.MEDIA_ROOT, str(video.file))
+            video_info['file_exists'] = os.path.exists(full_path)
+            
+        if video.thumbnail:
+            thumb_path = os.path.join(settings.MEDIA_ROOT, str(video.thumbnail))
+            video_info['thumbnail_exists'] = os.path.exists(thumb_path)
+            
+        # Check encoded versions
+        if video.encoded_versions:
+            existing_versions = {}
+            for quality, filename in video.encoded_versions.items():
+                version_path = os.path.join(settings.MEDIA_ROOT, 'videos', filename)
+                existing_versions[quality] = os.path.exists(version_path)
+            video_info['encoded_versions_exist'] = existing_versions
+            
+        debug_info.append(video_info)
+    
+    return Response({'videos': debug_info})

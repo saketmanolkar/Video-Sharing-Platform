@@ -77,23 +77,6 @@ def project(request, pk):
     
     return render(request, 'projects/single_project.html', context)
 
-def file_iterator(file_path, start=0, length=None, chunk_size=8192):
-    with open(file_path, 'rb') as f:
-        f.seek(start)
-        remaining = length if length is not None else None
-        while True:
-            bytes_length = chunk_size if remaining is None else min(remaining, chunk_size)
-            data = f.read(bytes_length)
-            if not data:
-                break
-            if remaining is not None:
-                remaining -= len(data)
-                if remaining < 0:
-                    data = data[:remaining]
-            yield data
-            if remaining is not None and remaining <= 0:
-                break
-
 @login_required(login_url="login-page")
 def create_project(request):
     if request.method == 'POST':
@@ -217,85 +200,6 @@ def delete_project(request, pk):
         'object': project.title
     })
 
-def debug_videos(request):
-    videos = Video.objects.all()
-    debug_info = []
-    
-    for video in videos:
-        # Database info
-        video_info = {
-            'id': str(video.id),
-            'title': video.title,
-            'file_path': str(video.file),
-            'thumbnail_path': str(video.thumbnail),
-            'encoded_versions': video.encoded_versions,
-        }
-        
-        # Check if files actually exist
-        if video.file:
-            full_path = os.path.join(settings.MEDIA_ROOT, str(video.file))
-            video_info['file_exists'] = os.path.exists(full_path)
-            
-        if video.thumbnail:
-            thumb_path = os.path.join(settings.MEDIA_ROOT, str(video.thumbnail))
-            video_info['thumbnail_exists'] = os.path.exists(thumb_path)
-            
-        # Check encoded versions
-        if video.encoded_versions:
-            existing_versions = {}
-            for quality, filename in video.encoded_versions.items():
-                version_path = os.path.join(settings.MEDIA_ROOT, 'videos', filename)
-                existing_versions[quality] = os.path.exists(version_path)
-            video_info['encoded_versions_exist'] = existing_versions
-            
-        debug_info.append(video_info)
-    
-    return JsonResponse({'videos': debug_info})
-
-def stream_video(request, pk):
-    video = get_object_or_404(Video, id=pk)
-    
-    # Get the actual file path from encoded versions or fallback to original
-    if video.encoded_versions and '720p' in video.encoded_versions:
-        file_path = os.path.join(settings.MEDIA_ROOT, 'videos', video.encoded_versions['720p'])
-    else:
-        file_path = video.file.path
-        
-    # Check if file exists
-    if not os.path.exists(file_path):
-        logger.error(f"Video file not found: {file_path}")
-        return HttpResponse("Video file not found", status=404)
-    
-    # Get file size
-    file_size = os.path.getsize(file_path)
-    
-    # Handle range requests
-    range_header = request.META.get('HTTP_RANGE', '').strip()
-    range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
-    
-    if range_match:
-        start = int(range_match.group(1))
-        end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
-        length = end - start + 1
-        
-        response = StreamingHttpResponse(
-            file_iterator(file_path, start=start, length=length),
-            status=206,
-            content_type='video/mp4'
-        )
-        
-        response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
-        response['Accept-Ranges'] = 'bytes'
-        response['Content-Length'] = str(length)
-        return response
-    
-    response = StreamingHttpResponse(
-        file_iterator(file_path),
-        content_type='video/mp4'
-    )
-    response['Accept-Ranges'] = 'bytes'
-    response['Content-Length'] = str(file_size)
-    return response
 
 def fun_corner(request):
     # Keep all existing movie recommendation code unchanged

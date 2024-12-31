@@ -20,13 +20,19 @@ urlpatterns = [
     path('projects/<str:pk>/', views.getProject),
 
     # Likes
-    path('projects/<str:pk>/like/', views.ProjectLike, name='project-like'),
+    path('projects/<str:pk>/like/', views.api_handle_like, name='api-handle-like'),
     
     # Reviews
-    path('projects/<str:pk>/reviews/stream/', views.stream_reviews),
     path('projects/<str:pk>/reviews/', views.review_actions),
     path('projects/<str:pk>/reviews/<str:review_id>/', views.review_actions),
+    path('projects/<str:pk>/reviews/stream/', views.stream_reviews),
 
     # Follow
     path('users/<str:pk>/follow/', views.api_handle_follow, name='api-handle-follow'),
+
+    # Stream Video
+    path('projects/<str:pk>/stream/', views.stream_video_api, name='api-stream-video'),
+
+    # Debug
+    path('debug-videos/', views.api_debug_videos, name='api-debug-videos'),
 ]
