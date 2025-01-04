@@ -164,6 +164,22 @@ DATABASES = {
 }
 
 
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {
+                "max_connections": 10,
+                "socket_timeout": 20,
+                "socket_connect_timeout": 20,
+                "retry_on_timeout": True
+            }
+        }
+    }
+}
+
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -262,8 +278,27 @@ LOGGING = {
 }
 
 # Celery Configuration
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_BROKER_URL = 'redis://localhost:6379/0'      # Ensure DB 0
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Ensure DB 0
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+# Celery connection limits
+CELERY_BROKER_POOL_LIMIT = 10            # Limit Celery connections
+CELERY_BROKER_CONNECTION_TIMEOUT = 20    # Broker timeout
+CELERY_RESULT_BACKEND_TIMEOUT = 20       # Results timeout
+
+# Add these Celery settings
+CELERY_WORKER_CONCURRENCY = 2          # Limit worker processes
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 100  # Restart workers
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1   # Don't prefetch tasks
+
+# Add these Celery settings
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'max_connections': 2,
+    'socket_timeout': 20,
+}
+
+CELERY_WORKER_POOL_RESTARTS = True
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = 50000  # 50MB

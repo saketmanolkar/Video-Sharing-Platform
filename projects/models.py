@@ -19,6 +19,7 @@ from django.templatetags.static import static
 from .services.media_servies import ModelService
 from .services.video_services import VideoService
 from django.core.exceptions import ValidationError
+from django_redis import get_redis_connection
 
 logger = logging.getLogger(__name__)
 
@@ -111,19 +112,24 @@ class Video(models.Model):
     @property
     def processing_status(self):
         """Get video processing status"""
-        # Check if currently being encoded
-        if cache.get(f'encoding_{self.id}'):
-            return 'processing'
+        # Force refresh from DB to get latest encoded_versions
+        self.refresh_from_db()
         
-        # If has encoded versions, it's ready
+        # If we have encoded versions, it's definitely ready
         if self.encoded_versions:
             return 'ready'
         
-        # If no encoded versions but has file, it's processing
-        if self.file:
+        # Check Redis lock
+        from django_redis import get_redis_connection
+        redis_client = get_redis_connection("default")
+        lock_key = f'encoding_lock_{self.id}'
+        is_processing = redis_client.exists(lock_key)
+        
+        if is_processing:
             return 'processing'
         
-        return 'ready'  # Default to ready if no file
+        # No encoded versions and no lock means error
+        return 'error'
 
 class Review(models.Model):
     video = models.ForeignKey(
@@ -278,7 +284,7 @@ class ViewHistory(models.Model):
     )
     user = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name='view_history',
         null=True,  # Allow null for anonymous users
         blank=True

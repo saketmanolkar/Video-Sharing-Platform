@@ -43,7 +43,7 @@
                                                 <a href="{% url 'project' video_id %}" class="video-action-btn watch">Watch</a>
                                                 <a href="{% url 'update-project' video_id %}" class="video-action-btn">Edit</a>
                                                 <a href="#" 
-                                                   onclick="showDeleteConfirmation('{{ video_id }}', '{{ analytics.title|escapejs }}')" 
+                                                   onclick="showDeleteConfirmation('{{ video_id }}', '{{ analytics.title|escapejs }}', 'Video')" 
                                                    class="video-action-btn delete">
                                                     Delete
                                                 </a>

@@ -166,11 +166,22 @@
 }
 </style>
 
+<!-- Debug Info -->
+<div style="display: none;" id="debug-info">
+    <pre>
+    Video ID: {{ video.id }}
+    Processing Status: {{ video.processing_status }}
+    Has Encoded Versions: {{ video.encoded_versions|yesno:"Yes,No" }}
+    Encoded Versions: {{ video.encoded_versions|json_script:"encoded-versions" }}
+    File Path: {{ video.file }}
+    </pre>
+</div>
+
 <!-- Video Player Component -->
 <div class="video-player-container">
   {% if video %}
     <div class="video-wrapper" id="wrapper-{{ video.id }}">
-      {% if video.processing_status == 'processing' and not video.encoded_versions %}
+      {% if not video.encoded_versions %}
         <div class="processing-overlay">
             <div class="processing-content">
                 <div class="loader">
@@ -182,7 +193,7 @@
                 <h3>🎬 Processing Video</h3>
                 <p>Please wait while we process your video for the best quality!</p>
                 <button onclick="window.location.reload()" class="refresh-btn">
-                    <i class="fas fa-sync-alt"></i> Check Processing Status or Keep Refreshing
+                    <i class="fas fa-sync-alt"></i> Check Processing Status
                 </button>
             </div>
         </div>
@@ -195,24 +206,10 @@
             poster="{{ video.thumbnail.url }}"
             width="100%"
             height="auto">
+            <!-- Only show video if encoding is complete -->
             <source src="{% url 'api-stream-video' video.id %}" type="video/mp4">
             Your browser does not support the video tag.
         </video>
-
-        <script>
-            // Wait for DOM to be ready
-            document.addEventListener('DOMContentLoaded', function() {
-                // Initialize player only if it exists
-                const videoElement = document.getElementById('video-js-player');
-                if (videoElement) {
-                    const player = videojs(videoElement, {
-                        controls: true,
-                        autoplay: false,
-                        preload: 'auto'
-                    });
-                }
-            });
-        </script>
       {% endif %}
     </div>
   {% endif %}
@@ -220,3 +217,10 @@
 
 <!-- Video.js Script -->
 <script src="https://vjs.zencdn.net/8.16.1/video.min.js"></script>
+
+<script>
+function showDebug() {
+    const debug = document.getElementById('debug-info');
+    debug.style.display = debug.style.display === 'none' ? 'block' : 'none';
+}
+</script>

@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from django.conf import settings
 import os
 import logging
+from django.urls import reverse
 
 logger = logging.getLogger(__name__)
 
@@ -10,12 +11,16 @@ class ModelService:
     def get_video_url(video, quality=None):
         """Get URL for video file at specified quality"""
         try:
-            # Default to 720p if available
-            if video.encoded_versions and '720p' in video.encoded_versions:
-                return f"{settings.MEDIA_URL}videos/{video.encoded_versions['720p']}"
+            # Always return streaming URL with quality parameter
+            stream_url = reverse('api-stream-video', args=[str(video.id)])
             
-            # Fallback to original file
-            return video.file.url if video.file else None
+            # Add quality parameter if video has encoded versions
+            if video.encoded_versions and '720p' in video.encoded_versions:
+                return f"{stream_url}?quality=720p"
+            
+            # Fallback to original file quality
+            return stream_url if video.file else None
+            
         except Exception as e:
             logger.error(f"Error getting video URL: {str(e)}")
             return None

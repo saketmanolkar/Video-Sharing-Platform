@@ -14,16 +14,13 @@ from .services.video_services import VideoService
 from django.db import transaction
 from django.db.transaction import on_commit
 from django.db import models
+from django.contrib.auth.models import User
 
 logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Video)
 def handle_video_encoding(sender, instance, created, **kwargs):
     """Queue video encoding for new uploads AND updates"""
-    
-    print("\n🔍 DEBUG: Video Signal Triggered")
-    print(f"Created: {created}")
-    print(f"File changed: {getattr(instance, '_file_changed', False)}")
     
     # Process if new video OR file changed
     if not (created or getattr(instance, '_file_changed', False)):
@@ -37,20 +34,9 @@ def handle_video_encoding(sender, instance, created, **kwargs):
         return
         
     def queue_video_task():
-        cache_key = f'encoding_{instance.pk}'
-        if cache.get(cache_key):
-            print(f"⏩ Already processing video {instance.pk}")
-            return
-            
-        try:
-            cache.set(cache_key, True, timeout=300)
-            from .tasks import process_video_task
-            task = process_video_task.delay(str(instance.pk))
-            print(f"🎯 Queued video task: {task.id}")
-            
-        except Exception as e:
-            print(f"❌ Error: {str(e)}")
-            cache.delete(cache_key)
+        from .tasks import process_video_task
+        task = process_video_task.delay(str(instance.pk))
+        print(f"🎯 Queued video task: {task.id}")
     
     print("🔄 Waiting for transaction...")
     transaction.on_commit(queue_video_task)
@@ -246,3 +232,14 @@ def cleanup_empty_playlists(sender, instance, **kwargs):
                 
     except Exception as e:
         print(f"❌ Error in cleanup: {str(e)}")
+
+@receiver(pre_delete, sender=User)
+def modify_username_in_view_history_on_delete(sender, instance, **kwargs):
+    """Store both IP and deleted username in ip_address field in ViewHistory upon user deletion"""
+    views = ViewHistory.objects.filter(user=instance)
+    
+    for view in views:
+        original_ip = view.ip_address or "No IP"
+        view.user = None
+        view.ip_address = f"IP:{original_ip} | User:{instance.username}*DELETED*"
+        view.save()

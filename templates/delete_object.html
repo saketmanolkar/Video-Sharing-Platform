@@ -102,7 +102,7 @@
             Are you sure you want to delete "<strong></strong>"?
         </p>
         <div class="delete-popup__actions">
-            <form method="POST" style="display: inline;">
+            <form method="POST" id="deleteForm">
                 {% csrf_token %}
                 <input type="submit" value="Delete" class="btn btn--sub">
             </form>
@@ -112,50 +112,18 @@
 </div>
 
 <script>
-function showMessage(message, type = 'success') {
-    const messageContainer = document.getElementById('messageContainer');
-    if (!messageContainer) {
-        const container = document.createElement('div');
-        container.id = 'messageContainer';
-        container.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 10000;
-        `;
-        document.body.appendChild(container);
-    }
-
-    const messageElement = document.createElement('div');
-    messageElement.className = `alert alert--${type}`;
-    messageElement.textContent = message;
-
-    document.getElementById('messageContainer').appendChild(messageElement);
-
-    setTimeout(() => {
-        messageElement.remove();
-        const container = document.getElementById('messageContainer');
-        if (container && !container.hasChildNodes()) {
-            container.remove();
-        }
-    }, 3000);
-}
-
-async function handleDeleteComment(e) {
+async function handleDeleteComment(e, commentId) {
     e.preventDefault();
-    const popup = document.querySelector('.delete-popup');
-    const reviewId = popup.dataset.commentId;
     
     try {
-        const videoId = window.location.pathname.split('/').filter(Boolean).pop();
         const token = await AuthHandler.getToken();
-        
         if (!token) {
             showMessage('Authentication required', 'error');
             return;
         }
 
-        const response = await fetch(`/api/projects/${videoId}/reviews/${reviewId}/`, {
+        const videoId = window.location.pathname.split('/').filter(Boolean).pop();
+        const response = await fetch(`/api/projects/${videoId}/reviews/${commentId}/`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -164,11 +132,10 @@ async function handleDeleteComment(e) {
         });
 
         if (response.ok) {
-            const row = document.querySelector(`tr[data-review-id="${reviewId}"]`);
-            if (row) {
-                row.remove();
-            }
+            const row = document.querySelector(`tr[data-review-id="${commentId}"]`);
+            if (row) row.remove();
             showMessage('Comment deleted successfully!', 'success');
+            hideDeleteConfirmation();
         } else {
             const error = await response.json();
             showMessage(error.error || 'Error deleting comment', 'error');
@@ -183,28 +150,58 @@ function showDeleteConfirmation(itemId, itemName, itemType) {
     const overlay = document.querySelector('.alert-overlay');
     const popup = document.querySelector('.delete-popup');
     const messageElement = popup.querySelector('.delete-popup__message strong');
+    const form = document.getElementById('deleteForm');
     
-    // Set the item details
-    popup.dataset.commentId = itemId;
-    messageElement.textContent = `${itemType}: "${itemName}"`;
-
-    // Show both overlay and popup
-    overlay.style.display = 'flex';
-    popup.style.display = 'flex';
-
-    // Handle form submission
-    const form = popup.querySelector('form');
-    if (form) {
-        form.onsubmit = async (e) => {
-            e.preventDefault();
-            await handleDeleteComment(e);
-            hideDeleteConfirmation();
-        };
+    // Set the message
+    messageElement.textContent = itemName;
+    
+    // Show overlay and popup
+    overlay.style.display = 'block';
+    popup.style.display = 'block';
+    
+    // Handle different types
+    if (itemType === 'Video') {
+        // For videos, use regular form submission
+        form.action = `/delete-project/${itemId}/`;
+        form.onsubmit = null; // Remove any existing handlers
+    } else {
+        // For comments, use API deletion
+        form.action = '#';
+        form.onsubmit = (e) => handleDeleteComment(e, itemId);
     }
 }
 
 function hideDeleteConfirmation() {
     document.querySelector('.alert-overlay').style.display = 'none';
     document.querySelector('.delete-popup').style.display = 'none';
+}
+
+function showMessage(message, type = 'success') {
+    const messageContainer = document.getElementById('messageContainer') || 
+        document.createElement('div');
+    
+    if (!document.getElementById('messageContainer')) {
+        messageContainer.id = 'messageContainer';
+        messageContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+        `;
+        document.body.appendChild(messageContainer);
+    }
+
+    const messageElement = document.createElement('div');
+    messageElement.className = `alert alert--${type}`;
+    messageElement.textContent = message;
+
+    messageContainer.appendChild(messageElement);
+
+    setTimeout(() => {
+        messageElement.remove();
+        if (!messageContainer.hasChildNodes()) {
+            messageContainer.remove();
+        }
+    }, 3000);
 }
 </script>

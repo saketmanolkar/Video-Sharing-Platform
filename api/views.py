@@ -144,10 +144,6 @@ def get_token_for_user(request):
 def review_actions(request, pk=None, review_id=None):
     """Consolidated view for all review operations except streaming"""
     
-    print("Debug - Auth:", request.auth)  # Debug JWT token
-    print("Debug - User:", request.user)  # Debug authenticated user
-    print("Debug - Headers:", request.headers)  # Debug request headers
-    
     if request.method == 'GET':
         try:
             video = get_object_or_404(Video, id=pk)
@@ -304,7 +300,7 @@ def api_handle_follow(request, pk):
 
 @api_view(['GET'])
 def stream_video_api(request, pk):
-    def file_iterator(file_path, start=0, length=None, chunk_size=8192):
+    def file_iterator(file_path, start=0, length=None, chunk_size=262144):
         with open(file_path, 'rb') as f:
             f.seek(start)
             remaining = length if length is not None else None
@@ -321,39 +317,36 @@ def stream_video_api(request, pk):
                 if remaining is not None and remaining <= 0:
                     break
 
-    # Start timing
-    import time
-    start_time = time.time()
-
-    # Get video
-    db_start = time.time()
     video = get_object_or_404(Video, id=pk)
-    db_time = (time.time() - db_start) * 1000  # Convert to milliseconds
-
-    # File operations timing
-    file_start = time.time()
-    if video.encoded_versions and '720p' in video.encoded_versions:
+    
+    # Prefer 360p for initial load to reduce bandwidth
+    if video.encoded_versions and '360p' in video.encoded_versions:
+        file_path = os.path.join(settings.MEDIA_ROOT, 'videos', video.encoded_versions['360p'])
+    elif video.encoded_versions and '720p' in video.encoded_versions:
         file_path = os.path.join(settings.MEDIA_ROOT, 'videos', video.encoded_versions['720p'])
     else:
         file_path = video.file.path
-    file_time = (time.time() - file_start) * 1000
 
-    # Check if file exists
     if not os.path.exists(file_path):
         logger.error(f"Video file not found: {file_path}")
         return Response({"error": "Video file not found"}, status=404)
     
-    # Get file size
     file_size = os.path.getsize(file_path)
     
-    # Handle range requests
     range_header = request.META.get('HTTP_RANGE', '').strip()
     range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
+    
+    # Add debug logging
+    print(f"\n=== Video Stream Debug ===")
+    print(f"Range Request: {range_header}")
+    print(f"Request Headers: {request.headers}")
     
     if range_match:
         start = int(range_match.group(1))
         end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
         length = end - start + 1
+        
+        print(f"Streaming chunk: {start}-{end} (size: {length})")
         
         response = StreamingHttpResponse(
             file_iterator(file_path, start=start, length=length),
@@ -364,6 +357,8 @@ def stream_video_api(request, pk):
         response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
         response['Accept-Ranges'] = 'bytes'
         response['Content-Length'] = str(length)
+        # Add caching headers
+        response['Cache-Control'] = 'public, max-age=3600'
         return response
     
     response = StreamingHttpResponse(
@@ -372,10 +367,7 @@ def stream_video_api(request, pk):
     )
     response['Accept-Ranges'] = 'bytes'
     response['Content-Length'] = str(file_size)
-    
-    # Add Server-Timing headers
-    total_time = (time.time() - start_time) * 1000
-    response['Server-Timing'] = f'db;dur={db_time:.2f}, file;dur={file_time:.2f}, total;dur={total_time:.2f}'
+    response['Cache-Control'] = 'public, max-age=3600'
 
     return response
 
