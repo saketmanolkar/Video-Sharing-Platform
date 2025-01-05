@@ -13,17 +13,41 @@ def create_user_profile(sender, instance, created, **kwargs):
     print('🟢 Creating Profile Signal: New user profile being created')
     if created:
         Profile = apps.get_model('users', 'Profile')
-        Profile.objects.create(user=instance)
+        Message = apps.get_model('users', 'Message')
+        
+        # Create profile first
+        new_profile = Profile.objects.create(user=instance)
         print(f'✨ Profile created for user: {instance.username}')
 
-        # Read and format welcome email from txt file
+        # Now that profile exists, create welcome message
+        try:
+            admin_user = User.objects.get(username='saketmanolkar')
+            admin_profile = Profile.objects.get(user=admin_user)
+            
+            # Read welcome message template
+            message_template_path = os.path.join(settings.BASE_DIR, 'templates', 'welcome_message.txt')
+            with open(message_template_path, 'r') as file:
+                message_body = file.read().format(username=instance.username)
+            
+            Message.objects.create(
+                sender=admin_profile,
+                recipient=new_profile,
+                subject='Welcome to FilmsNation! 🎬',
+                body=message_body,
+                is_read=False
+            )
+            print(f'✨ Welcome message sent to: {instance.username}')
+        except Exception as e:
+            print(f'❌ Error sending welcome message: {str(e)}')
+
+        # Send welcome email
         email_template_path = os.path.join(settings.BASE_DIR, 'templates', 'welcome_email.txt')
         with open(email_template_path, 'r') as file:
-            message = file.read().format(username=instance.username)
+            email_body = file.read().format(username=instance.username)
         
         send_mail(
             subject='Welcome to FilmsNation',
-            message=message,
+            message=email_body,
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[instance.email],
             fail_silently=False,

@@ -216,7 +216,7 @@ def delete_project(request, pk):
         try:
             project.delete()
             messages.success(request, 'Video deleted successfully!')
-            return redirect('projects')
+            return redirect('creator-studio', pk=request.user.profile.id)
         except Exception as e:
             messages.error(request, f'Error deleting video: {str(e)}')
             return redirect('project', pk=pk)

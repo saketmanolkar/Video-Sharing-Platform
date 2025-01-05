@@ -1,0 +1,12 @@
+Hello {username}, Welcome to FilmsNation! 🎬
+
+CREATOR STUDIO
+Your creative headquarters where you can showcase your talent. Upload your videos, organize them into playlists, track your performance metrics, and manage your growing content library. Perfect for building your filmmaker portfolio and growing your audience.
+
+FUN CORNER
+Your go-to entertainment hub that keeps you in the loop. Discover what's trending in theaters, get personalized movie recommendations based on your taste, and stay updated with the latest box office hits and current releases.
+
+ANALYTICS HUB
+The heart of our creative community where discovery happens. Browse through diverse creator videos, connect with fellow filmmakers, engage in discussions, filter content that interests you, and build your personal collection of inspiring work.
+
+★MESSAGE FROM THE ADMIN★ 

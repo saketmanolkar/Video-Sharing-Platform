@@ -164,6 +164,10 @@ function showDeleteConfirmation(itemId, itemName, itemType) {
         // For videos, use regular form submission
         form.action = `/delete-project/${itemId}/`;
         form.onsubmit = null; // Remove any existing handlers
+    } else if (itemType === 'Playlist') {
+        // For playlists, use regular form submission
+        form.action = `/delete-playlist/${itemId}/`;
+        form.onsubmit = null;
     } else {
         // For comments, use API deletion
         form.action = '#';
