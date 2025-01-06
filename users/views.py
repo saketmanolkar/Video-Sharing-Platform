@@ -19,7 +19,8 @@ from .services.cache_service import ProfileCache
 from django.core.cache import cache
 from projects.services.cache_service import VideoContextCache,FormSubmissionCache
 import hashlib
-
+from django.core.paginator import Paginator
+from projects.services.video_services import VideoService
 
 @login_required
 def creator_studio(request, pk):
@@ -175,7 +176,8 @@ def update_profile(request, pk):
 
 def user_videos(request, pk):
     profile_service = ProfileService()
-    context = profile_service.get_user_videos(pk, Profile)
+    search_query = request.GET.get('search', '')  # Get search query from URL
+    context = profile_service.get_user_videos(pk, Profile, search_query)
     return render(request, "users/user_video.html", context)
 
 @login_required
@@ -190,7 +192,20 @@ def user_history(request, pk):
     
     # If authorized, proceed with getting the history
     profile_service = ProfileService()
-    context = profile_service.get_user_history(pk, Profile)
+    history_data = profile_service.get_user_history(pk, Profile)
+
+    # Add pagination similar to projects view
+    paged_history, custom_range = VideoService.get_paginated_videos(
+        history_data['history_videos'],
+        request.GET.get('page', 1)
+    )
+
+    context = {
+        'profile': history_data['profile'],
+        'view_history': paged_history,
+        'custom_range': custom_range
+    }
+    
     return render(request, "users/view_history.html", context)
 
 def login_user(request):

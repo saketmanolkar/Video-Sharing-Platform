@@ -8,6 +8,7 @@ from users.services.follow_services import FollowService
 from users.models import Profile
 from projects.services.analytics_service import AnalyticsService
 from .cache_service import ProfileCache
+from django.db.models import Q
 
 class ProfileService:
     def __init__(self):
@@ -32,12 +33,29 @@ class ProfileService:
         
         return profile
     
-    def get_user_videos(self, profile_id, profile_model):
+    def get_user_videos(self, profile_id, profile_model, search_query=None):
         profile = get_object_or_404(profile_model, id=profile_id)
+        videos = profile.user.uploaded_videos.all().order_by('-created_at')
+        playlists = profile.user.playlists.all().order_by('-created_at')
+
+        # Apply search if query exists
+        if search_query:
+            videos = videos.filter(
+                Q(title__icontains=search_query) |
+                Q(description__icontains=search_query) |
+                Q(tags__name__icontains=search_query)
+            ).distinct()
+
+            playlists = playlists.filter(
+                Q(name__icontains=search_query) |
+                Q(description__icontains=search_query)
+            ).distinct()
+
         return {
             'profile': profile,
-            'videos': profile.user.uploaded_videos.all().order_by('-created_at'),
-            'playlists': profile.user.playlists.all().order_by('-created_at')
+            'videos': videos,
+            'playlists': playlists,
+            'search_query': search_query
         }
     
     def get_user_history(self, profile_id, profile_model):

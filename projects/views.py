@@ -334,6 +334,7 @@ def create_playlist(request, pk):
                 if first_video.thumbnail:
                     playlist.thumbnail = first_video.thumbnail
                     playlist.save()
+                    messages.success(request, 'Playlist created successfully!')
                 
                 return redirect('profile', pk=pk)
                 
@@ -411,7 +412,7 @@ def update_playlist(request, pk):
                 if first_video.thumbnail:
                     playlist.thumbnail = first_video.thumbnail
                     playlist.save()
-                
+                    messages.success(request, 'Playlist updated successfully!')
                 return redirect('profile', pk=playlist.user.profile.id)
                 
             except Exception as e:
