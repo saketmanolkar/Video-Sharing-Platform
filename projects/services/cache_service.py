@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 # Cache time to live - 15 minutes
 CACHE_TTL = 900  # 15 * 60 seconds = 900 seconds
 
-# Cache time to live - 5 minutes for form submissions
-FORM_TTL = 300
+# Cache time to live - 60 seconds for form submissions
+FORM_TTL = 60
 
 class ProjectsCacheService:
     # Cache keys

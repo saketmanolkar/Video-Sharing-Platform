@@ -175,6 +175,10 @@ CACHES = {
                 "socket_timeout": 20,
                 "socket_connect_timeout": 20,
                 "retry_on_timeout": True
+            },
+            "REDIS_CLIENT_CONFIG": {
+                "maxmemory": "4gb",
+                "maxmemory-policy": "allkeys-lru"
             }
         }
     }

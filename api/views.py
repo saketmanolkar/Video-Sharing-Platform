@@ -336,10 +336,6 @@ def stream_video_api(request, pk):
     range_header = request.META.get('HTTP_RANGE', '').strip()
     range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
     
-    # Add debug logging
-    print(f"\n=== Video Stream Debug ===")
-    print(f"Range Request: {range_header}")
-    print(f"Request Headers: {request.headers}")
     
     if range_match:
         start = int(range_match.group(1))

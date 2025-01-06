@@ -7,10 +7,30 @@ from projects.services.video_services import VideoService
 from users.services.follow_services import FollowService
 from users.models import Profile
 from projects.services.analytics_service import AnalyticsService
+from .cache_service import ProfileCache
 
 class ProfileService:
+    def __init__(self):
+        self.profile_cache = ProfileCache()  # Initialize here
+    
     def get_profile(self, profile_id, profile_model):
-        return get_object_or_404(profile_model, id=profile_id)
+        """Get profile with cache"""
+        # Try to get from cache first
+        cached_data = self.profile_cache.get_profile_cache(profile_id)
+        
+        if cached_data:
+            print("\n🎯 CACHE HIT: Found in cache")
+            return profile_model.objects.get(id=profile_id)
+        
+        # If not in cache, get from DB
+        print("\n💾 CACHE MISS: Getting from DB")
+        profile = get_object_or_404(profile_model, id=profile_id)
+        
+        # Save to cache
+        self.profile_cache.set_profile_cache(profile_id, profile)
+        print(f"📝 Saved to cache: {profile_id}")
+        
+        return profile
     
     def get_user_videos(self, profile_id, profile_model):
         profile = get_object_or_404(profile_model, id=profile_id)
@@ -111,24 +131,22 @@ class ProfileService:
 
     def get_profile_data(self, profile_id, profile_model, current_user=None):
         """Get complete profile data including videos, history, and follow status"""
-        profile = self.get_profile(profile_id, profile_model)
+        profile = self.get_profile(profile_id, profile_model)  # This should handle caching
+        
         follow_service = FollowService()
         
-        # Get existing data with limits
-        videos = profile.user.uploaded_videos.all()[:2]  # Already limited to 2
-        view_history = profile.user.view_history.all()[:2]  # Already limited to 2
-        playlists = profile.user.playlists.all()[:2]  # Add this line to limit playlists to 2
-        print(f"DEBUG - Playlists found: {playlists.count()}")
-        for playlist in playlists:
-            print(f"Playlist: {playlist.name}")
+        # These are all dynamic data - don't cache
+        videos = profile.user.uploaded_videos.all()[:2]
+        view_history = profile.user.view_history.all()[:2]
+        playlists = profile.user.playlists.all()[:2]
         
-        # Add follow-related data
+        # Dynamic follow data
         follow_stats = follow_service.get_follower_stats(profile)
         is_following = False
         if current_user and current_user.is_authenticated:
             is_following = follow_service.check_following_status(current_user, profile.user)
         
-        # Add engagement metrics
+        # Dynamic engagement metrics
         for video in videos:
             video.likes_count = VideoService.get_likes_count(video)
             video.dislikes_count = VideoService.get_dislikes_count(video)
@@ -138,13 +156,13 @@ class ProfileService:
             history.video.dislikes_count = VideoService.get_dislikes_count(history.video)
         
         return {
-            'profile': profile,
-            'videos': videos,
-            'view_history': view_history,
-            'playlists': playlists,  # Add this to context
-            'followers_count': follow_stats['followers_count'],
-            'following_count': follow_stats['following_count'],
-            'is_following': is_following
+            'profile': profile,  # This contains cached static data
+            'videos': videos,    # Dynamic - fresh from DB
+            'view_history': view_history,  # Dynamic - fresh from DB
+            'playlists': playlists,        # Dynamic - fresh from DB
+            'followers_count': follow_stats['followers_count'],  # Dynamic count
+            'following_count': follow_stats['following_count'],  # Dynamic count
+            'is_following': is_following    # User-specific - always fresh
         }
 
     def get_analytics_data(self, profile_id, profile_model):

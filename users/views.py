@@ -15,6 +15,11 @@ from django.contrib.auth.forms import PasswordChangeForm
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.middleware.csrf import get_token
 from django.views.decorators.http import require_POST
+from .services.cache_service import ProfileCache
+from django.core.cache import cache
+from projects.services.cache_service import VideoContextCache,FormSubmissionCache
+import hashlib
+
 
 @login_required
 def creator_studio(request, pk):
@@ -63,6 +68,9 @@ def profile(request, pk):
 @login_required
 def update_profile(request, pk):
     profile_service = ProfileService()
+    profile_cache = ProfileCache()
+    video_context_cache = VideoContextCache()
+    form_cache = FormSubmissionCache()
     profile = profile_service.get_profile(pk, Profile)
     
     if request.user != profile.user:
@@ -70,29 +78,26 @@ def update_profile(request, pk):
         return redirect('profile', pk=pk)
     
     if request.method == 'POST':
-        # Get all user fields
-        username = request.POST.get('username')
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
+        # Generate hash from form data like other views
+        form_data = str(request.POST) + str(request.FILES)
+        submission_hash = hashlib.md5(form_data.encode()).hexdigest()
         
-        if not username or not first_name:
-            messages.error(request, "Username and first name cannot be empty")
-            form = ProfileForm(instance=profile)
-            return render(request, "users/profile_form.html", {
-                'form': form, 
-                'profile': profile,
-                'user': profile.user
-            })
+        if form_cache.check_submission(submission_hash):
+            messages.warning(request, "Form was already submitted")
+            return redirect('profile', pk=pk)
             
-        # Update user fields
-        user = profile.user
-        user.username = username
-        user.first_name = first_name
-        user.last_name = last_name
+        # Mark as submitted
+        form_cache.set_submission(submission_hash)
         
         try:
-            if User.objects.exclude(pk=user.pk).filter(username=username).exists():
-                messages.error(request, "This username is already taken")
+            # Get all user fields
+            username = request.POST.get('username')
+            first_name = request.POST.get('first_name')
+            last_name = request.POST.get('last_name')
+            
+            if not username or not first_name:
+                form_cache.clear_submission(submission_hash)
+                messages.error(request, "Username and first name cannot be empty")
                 form = ProfileForm(instance=profile)
                 return render(request, "users/profile_form.html", {
                     'form': form, 
@@ -100,21 +105,62 @@ def update_profile(request, pk):
                     'user': profile.user
                 })
             
-            user.save()
+            try:
+                # Update user fields
+                user = profile.user
+                old_username = user.username
+                user.username = username
+                user.first_name = first_name
+                user.last_name = last_name
+                
+                # Username validation
+                if User.objects.exclude(pk=user.pk).filter(username=username).exists():
+                    form_cache.clear_submission(submission_hash)
+                    messages.error(request, "This username is already taken")
+                    form = ProfileForm(instance=profile)
+                    return render(request, "users/profile_form.html", {
+                        'form': form, 
+                        'profile': profile,
+                        'user': profile.user
+                    })
+                
+                # If username changed, invalidate related video caches
+                if old_username != username:
+                    print(f"\n🔄 Username changed from {old_username} to {username}")
+                    # Get all videos by this user
+                    user_videos = profile.user.uploaded_videos.all()
+                    for video in user_videos:
+                        # Check if cache exists first
+                        if video_context_cache.get_context(video.id):
+                            print(f"\n🎯 Found cache for video: {video.id}")
+                            video_context_cache.invalidate(video.id)
+                
+                user.save()
+                
+            except Exception as e:
+                form_cache.clear_submission(submission_hash)
+                messages.error(request, f"Error updating user: {str(e)}")
+                return redirect('profile', pk=profile.id)
             
             # Handle profile picture clearing
             if request.POST.get('clear_profile_pic'):
                 profile.profile_pics = None
                 profile.save()
             
-            # Now process the profile form
+            # Process the profile form
             form = ProfileForm(request.POST, request.FILES, instance=profile)
             if form.is_valid():
                 form.save()
+                # Invalidate profile cache
+                profile_cache.invalidate(profile.id)
+                print(f"\n🗑️ Cache invalidated for profile: {profile.id}")
+                
                 messages.success(request, 'Profile updated successfully!')
                 return redirect('profile', pk=profile.id)
             
         except Exception as e:
+            # Clear submission cache on error
+            form_cache.clear_submission(submission_hash)
             messages.error(request, str(e))
     else:
         form = ProfileForm(instance=profile)
@@ -149,19 +195,27 @@ def user_history(request, pk):
 
 def login_user(request):
     if request.method == "POST":
-        username = request.POST.get("username").lower()
-        password = request.POST.get("password")
-
+        form_cache = FormSubmissionCache()
+        # Generate hash from form data
+        form_data = str(request.POST)
+        submission_hash = hashlib.md5(form_data.encode()).hexdigest()
+        
+        if form_cache.check_submission(submission_hash):
+            return JsonResponse({
+                'message': 'Form already submitted'
+            }, status=400)
+            
+        # Mark as submitted
+        form_cache.set_submission(submission_hash)
+        
         try:
+            username = request.POST.get("username").lower()
+            password = request.POST.get("password")
             user = authenticate(request, username=username, password=password)
             
             if user is not None:
                 login(request, user)
-                
-                # Generate tokens
                 refresh = RefreshToken.for_user(user)
-                
-                # Return JSON response
                 return JsonResponse({
                     'access': str(refresh.access_token),
                     'refresh': str(refresh),
@@ -170,18 +224,18 @@ def login_user(request):
                     'message': 'Login successful'
                 })
             else:
+                form_cache.clear_submission(submission_hash)  # Clear on failed login
                 return JsonResponse({
                     'message': 'Invalid username or password'
                 }, status=400)
                 
         except Exception as e:
+            form_cache.clear_submission(submission_hash)  # Clear on error
             print(f"Login error: {e}")
             return JsonResponse({
                 'message': 'An error occurred during login'
             }, status=500)
     
-    # GET request - render login form
-    # Ensure CSRF token is set
     get_token(request)
     return render(request, "users/login_register.html", {"page": "login_page"})
 
@@ -198,23 +252,39 @@ def register_user(request):
     form = CustomUserCreationForm()
 
     if request.method == "POST":
-        form = CustomUserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save(commit=False)
-            user.username = user.username.lower()
-            user.save()
+        form_cache = FormSubmissionCache()
+        # Generate hash from form data
+        form_data = str(request.POST)
+        submission_hash = hashlib.md5(form_data.encode()).hexdigest()
+        
+        if form_cache.check_submission(submission_hash):
+            messages.warning(request, "Form already submitted")
+            return redirect('login-page')
             
-            # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            
-            # Store tokens in session temporarily
-            request.session['temp_access_token'] = str(refresh.access_token)
-            request.session['temp_refresh_token'] = str(refresh)
-            
-            login(request, user)
-            return redirect('update-profile', pk=user.profile.id)
-        else:
-            messages.error(request, "An error occurred during registration")
+        # Mark as submitted
+        form_cache.set_submission(submission_hash)
+        
+        try:
+            form = CustomUserCreationForm(request.POST)
+            if form.is_valid():
+                user = form.save(commit=False)
+                user.username = user.username.lower()
+                user.save()
+                
+                # Generate JWT tokens
+                refresh = RefreshToken.for_user(user)
+                request.session['temp_access_token'] = str(refresh.access_token)
+                request.session['temp_refresh_token'] = str(refresh)
+                
+                login(request, user)
+                return redirect('update-profile', pk=user.profile.id)
+            else:
+                form_cache.clear_submission(submission_hash)
+                messages.error(request, "An error occurred during registration")
+                
+        except Exception as e:
+            form_cache.clear_submission(submission_hash)
+            messages.error(request, str(e))
             
     context = {
         "page": page,
@@ -245,56 +315,94 @@ def view_message(request,pk):
     }
     return render(request, "users/message.html", context)
 
-def create_message(request,pk):
-    recipient= Profile.objects.get(id=pk)
+def create_message(request, pk):
+    recipient = Profile.objects.get(id=pk)
     form = MessageForm()
 
     try:
         sender = request.user.profile
-    except:
+    except Profile.DoesNotExist:
         sender = None
     
     if request.method == "POST":
-        form = MessageForm(request.POST)
-        if form.is_valid():
-            message = form.save(commit=False)
-            message.sender = sender
-            message.recipient = recipient
-            
-            if sender:
-                message.name = sender.name
-                message.email = sender.email
-            
-            message.save()
-            messages.success(request, "Message sent successfully")
+        form_cache = FormSubmissionCache()
+        # Generate hash from form data
+        form_data = str(request.POST)
+        submission_hash = hashlib.md5(form_data.encode()).hexdigest()
+        
+        if form_cache.check_submission(submission_hash):
+            messages.warning(request, "Message already sent")
             return redirect('profile', pk=recipient.id)
-        else:
-            messages.error(request, "An error occurred during message creation")
+            
+        # Mark as submitted
+        form_cache.set_submission(submission_hash)
+        
+        try:
+            form = MessageForm(request.POST)
+            if form.is_valid():
+                message = form.save(commit=False)
+                message.sender = sender
+                message.recipient = recipient
+                
+                if sender:
+                    message.name = sender.name
+                    message.email = sender.email
+                
+                message.save()
+                messages.success(request, "Message sent successfully")
+                return redirect('profile', pk=recipient.id)
+            else:
+                form_cache.clear_submission(submission_hash)
+                messages.error(request, "An error occurred during message creation")
+                
+        except Exception as e:
+            form_cache.clear_submission(submission_hash)
+            messages.error(request, str(e))
+            
     context = {
         'recipient': recipient,
         'form': form
     }
     return render(request, "users/message_form.html", context)
+
 @login_required
 def settings(request):
     if request.method == 'POST':
-        password_form = PasswordChangeForm(user=request.user, data=request.POST)
-        if password_form.is_valid():
-            password_form.save()
-            # Update the session to prevent logging out
-            update_session_auth_hash(request, password_form.user)
-            messages.success(request, 'Your password was successfully updated!')
+        form_cache = FormSubmissionCache()
+        # Generate hash from form data
+        form_data = str(request.POST)
+        submission_hash = hashlib.md5(form_data.encode()).hexdigest()
+        
+        if form_cache.check_submission(submission_hash):
+            messages.warning(request, "Password change already submitted")
             return redirect('profile', pk=request.user.profile.id)
-        else:
-            messages.error(request, 'Please correct the error below.')
+            
+        # Mark as submitted
+        form_cache.set_submission(submission_hash)
+        
+        try:
+            password_form = PasswordChangeForm(user=request.user, data=request.POST)
+            if password_form.is_valid():
+                password_form.save()
+                update_session_auth_hash(request, password_form.user)
+                messages.success(request, 'Your password was successfully updated!')
+                return redirect('profile', pk=request.user.profile.id)
+            else:
+                form_cache.clear_submission(submission_hash)
+                messages.error(request, 'Please correct the error below.')
+                
+        except Exception as e:
+            form_cache.clear_submission(submission_hash)
+            messages.error(request, str(e))
+            
     else:
         password_form = PasswordChangeForm(user=request.user)
     
     context = {
         'password_form': password_form
     }
-    # setting.html is in the base directory templates folder
-    return render(request, 'settings.html', context)
+    
+    return render(request, 'users/settings.html', context)
 
 @require_POST
 def clear_temp_tokens(request):
