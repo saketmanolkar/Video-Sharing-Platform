@@ -74,6 +74,16 @@
         });
     </script>
 
+    {% if request.user.is_authenticated %}
+    <script src="{% static 'js/inactivity_monitor.js' %}"></script>
+    <script>
+        // Initialize monitor when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const monitor = new InactivityMonitor(2);  // 45 minute timeout
+        });
+    </script>
+    {% endif %}
+
     <!-- Add this near the end of your body tag, before other scripts -->
     <script>
         // Check for logout cookie and clear tokens

@@ -1,5 +1,8 @@
 from django.core.cache import cache
+from django_redis import get_redis_connection
 from logging import getLogger
+from django.utils import timezone
+from django.contrib.auth.models import User
 
 logger = getLogger(__name__)
 
@@ -42,3 +45,70 @@ class ProfileCache:
     def invalidate(self, profile_id):
         """Invalidate profile cache"""
         cache.delete(self.get_cache_key(profile_id))
+
+class SessionActivityCache:
+    FOLDER = ":1:session_activity"
+    TTL = 60 * 60 * 24  # 24 hours
+    MAX_ENTRIES = 1000  # Example limit
+    
+    def __init__(self):
+        self.redis = get_redis_connection("default")
+    
+    @staticmethod
+    def get_cache_key(user_id, session_id):
+        return f"{SessionActivityCache.FOLDER}:user_{user_id}_session_{session_id}"
+    
+    def add_page_visit(self, user_id, session_id, path):
+        """Add a page visit to the session activity cache"""
+        from users.tasks import save_activity_overflow  # New task
+        
+        if not path.startswith(('/api/', '/media/','/static/')):
+            cache_key = self.get_cache_key(user_id, session_id)
+            current_time = timezone.now().strftime('%H:%M:%S.%f')
+            
+            try:
+                # Add new entry first
+                pipeline = self.redis.pipeline()
+                pipeline.hset(cache_key, current_time, path)
+                pipeline.expire(cache_key, self.TTL)
+                pipeline.execute()
+                
+                # Check size after adding
+                current_size = self.redis.hlen(cache_key)
+                logger.info(f"📊 Current cache size: {current_size}")
+                
+                if current_size >= self.MAX_ENTRIES:
+                    # Queue overflow task
+                    task = save_activity_overflow.delay(
+                        session_id=str(session_id),
+                        user_id=user_id
+                    )
+                    logger.info(f"✅ Queued overflow task: {task.id}")
+            except Exception as e:
+                logger.error(f"Failed to cache activity: {str(e)}")
+    
+    def get_activity_log(self, user_id, session_id):
+        """Get all activity for a session"""
+        cache_key = self.get_cache_key(user_id, session_id)
+        activities = self.redis.hgetall(cache_key)
+        
+        pages_visited = []
+        for timestamp, path in sorted(activities.items()):
+            pages_visited.append({
+                "timestamp": timestamp.decode(),
+                "path": path.decode()
+            })
+            
+        return {
+            "pages_visited": pages_visited,
+            "session_stats": {
+                "total_pages": len(pages_visited),
+                "start_time": pages_visited[0]["timestamp"] if pages_visited else None,
+                "last_activity": pages_visited[-1]["timestamp"] if pages_visited else None
+            }
+        }
+    
+    def clear_activity_cache(self, user_id, session_id):
+        """Clear the activity cache for a session"""
+        cache_key = self.get_cache_key(user_id, session_id)
+        self.redis.delete(cache_key)

@@ -127,6 +127,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+
+    'users.middleware.UserSessionMiddleware', #Custom Middleware
 ]
 
 ROOT_URLCONF = "testrun.urls"
@@ -276,6 +278,11 @@ LOGGING = {
         'django': {
             'handlers': ['console'],
             'level': 'INFO',
+            'propagate': True,
+        },
+        'users.tasks': {
+            'handlers': ['console'],
+            'level': 'WARNING',
             'propagate': True,
         },
     },

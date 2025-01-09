@@ -121,3 +121,21 @@ class Message(models.Model):
     
     class Meta:
         ordering = ['is_read','-created']
+
+class UserSession(models.Model):
+    # Core info
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    start_time = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True)
+    
+    # Client info
+    device_info = models.JSONField(default=dict)
+    browser_info = models.JSONField(default=dict)
+    ip_location = models.GenericIPAddressField(null=True)
+    
+    # Activity log - empty to start
+    activity_log = models.JSONField(default=dict)
+
+    def __str__(self):
+        return f"Session for {self.user.username} at {self.start_time}"

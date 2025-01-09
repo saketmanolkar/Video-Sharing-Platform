@@ -21,6 +21,17 @@ from projects.services.cache_service import VideoContextCache,FormSubmissionCach
 import hashlib
 from django.core.paginator import Paginator
 from projects.services.video_services import VideoService
+from django.utils import timezone
+from .models import UserSession
+from django_redis import get_redis_connection
+from .services.cache_service import SessionActivityCache
+from django.contrib.auth.models import User
+from django.contrib.auth import logout
+from .tasks import save_session_activity
+from users.tasks import save_session_activity 
+import logging
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def creator_studio(request, pk):
@@ -209,6 +220,15 @@ def user_history(request, pk):
     return render(request, "users/view_history.html", context)
 
 def login_user(request):
+
+    
+    if request.COOKIES.get('show_timeout') == 'true':
+        print("Found timeout cookie, showing message")
+        messages.error(request, 'Session expired due to inactivity')
+        response = render(request, 'users/login_register.html', {"page": "login_page"})
+        response.delete_cookie('show_timeout')
+        return response
+    
     if request.method == "POST":
         form_cache = FormSubmissionCache()
         # Generate hash from form data
@@ -255,11 +275,38 @@ def login_user(request):
     return render(request, "users/login_register.html", {"page": "login_page"})
 
 def logout_user(request):
-    # Clear JWT tokens using JavaScript before redirecting
-    response = redirect('login-page')  # or whatever your login URL name is
-    response.set_cookie('logout', 'true', max_age=5)  # This will trigger our JavaScript
-    logout(request)
-    return response
+    if request.user.is_authenticated:
+        active_session = UserSession.objects.filter(
+            user=request.user,
+            end_time__isnull=True
+        ).first()
+        
+        if active_session:
+            try:
+                # Queue the activity save task
+                task = save_session_activity.delay(
+                    session_id=str(active_session.id),
+                    user_id=request.user.id
+                )
+                logger.info(f"✅ Queued session cleanup task: {task.id}")
+            except Exception as e:
+                logger.error(f"❌ Failed to queue cleanup task: {str(e)}")
+        
+        # Handle timeout case
+        if request.GET.get('timeout') == 'true':
+            response = redirect('login-page')
+            response.set_cookie('show_timeout', 'true', max_age=5)
+            response.set_cookie('logout', 'true', max_age=5)
+            logout(request)
+            return response
+
+        # Normal logout
+        response = redirect('login-page')
+        response.set_cookie('logout', 'true', max_age=5)
+        logout(request)
+        return response
+
+    return redirect('login-page')
 
 @csrf_protect
 def register_user(request):
