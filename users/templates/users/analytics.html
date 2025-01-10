@@ -10,9 +10,56 @@
                 <h2 style="font-size: 4.5rem; font-weight: 600; color: #2D2D2D; margin-bottom: -1rem; margin-top: 2rem;">ANALYTICS HUB</h2>
                 <p style="font-size: 1.57rem; color: #666; margin-bottom: 4rem;">Explore your analytics data - insights, trends, and more</p>
             </div>
+
+            <!-- After Engagement Analytics Card -->
+            <div class="analytics-flex-container" style="margin-top: 2rem; display: flex; gap: 20px;">
+                <!-- Heatmap Card - ENTIRE CARD is now 85% -->
+                <div class="analytics-card chart-card heatmap-container" style="width: 85%;">
+                    <div class="analytics-header">
+                        <h3 >Your Activity for the Past 30 Days</h3>
+                    </div>
+
+                    <div class="chart-display">
+                        <div class="analytics-chart-wrapper">
+                            <canvas id="heatmapChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- New Horizontal Card - Takes remaining 15% -->
+                <div class="analytics-card chart-card summary-container" style="flex: 1;">
+                    <div class="analytics-header">
+                        <h3>Overview</h3>
+                    </div>
+                    <div class="summary-content">
+                        <div class="summary-stat">
+                            <span class="summary-label">Your Total Activity</span>
+                            <span class="summary-value tooltip" 
+                                  data-tooltip="{{ activity_comparison }}">
+                                {{ activity_stats.total_time|floatformat:1 }} mins
+                            </span>
+                        </div>
+                        <br>
+                        <div class="summary-stat">
+                            <span class="summary-label">Visits to Your Profile</span>
+                            <span class="summary-value">{{ profile_visits }}</span>
+                        </div>
+                        <br>
+                        <div class="summary-stat">
+                            <span class="summary-label">Your Average Session Length</span>
+                            <span class="summary-value">{{ activity_stats.avg_session|floatformat:1 }} mins</span>
+                        </div>
+                        <br>
+                        <div class="summary-stat">
+                            <span class="summary-label">Average User Activity</span>
+                            <span class="summary-value">{{ platform_avg_total_time|floatformat:1 }} mins</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         
             <!-- Views Analytics Card -->
-            <div class="analytics-card chart-card">
+            <div class="analytics-card chart-card" style="width: 85%; margin-left: 10%;">
                 <div class="analytics-header">
                     <h3>Views Based Analytics</h3>
                     <span class="analytics-count">Total Videos: {{ video_analytics|length }}</span>
@@ -39,7 +86,7 @@
             </div>
 
             <!-- Engagement Analytics Card -->
-            <div class="analytics-card chart-card" style="margin-top: 2rem;">
+            <div class="analytics-card chart-card" style="margin-top: 2rem; width: 85%; margin-left: 10%;">
                 <div class="analytics-header">
                     <h3>Engagement Based Analytics</h3>
                 
@@ -64,6 +111,7 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix"></script>
 <script src="{% static 'js/analytics-charts.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -75,7 +123,8 @@ document.addEventListener('DOMContentLoaded', function() {
         daily: JSON.parse('{{ daily_views_data|safe }}'),
         hourly: JSON.parse('{{ hourly_views_data|safe }}'),
         likes_data: JSON.parse('{{ likes_data|safe }}'),
-        comments_data: JSON.parse('{{ comments_data|safe }}')
+        comments_data: JSON.parse('{{ comments_data|safe }}'),
+        activity_data: JSON.parse('{{ activity_heatmap|safe }}')
     };
     
     initializeCharts(chartData);
@@ -142,6 +191,119 @@ document.addEventListener('DOMContentLoaded', function() {
         display: flex;
         justify-content: flex-start;
         align-items: center;
+    }
+
+    .activity-stats {
+        display: flex;
+        gap: 2rem;
+        margin: 1rem 0;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+        font-size: 1.2rem;
+        font-weight: 500;
+        color: #2D2D2D;
+    }
+
+    .analytics-flex-container {
+        display: flex;
+        gap: 20px;
+        margin-top: 2rem;
+        width: 100%;
+    }
+
+    .heatmap-container {
+        width: 85%;
+        flex-shrink: 0;  /* Prevents shrinking below 85% */
+    }
+
+    .summary-container {
+        flex: 1;
+        min-width: 200px;  /* Minimum width for readability */
+    }
+
+    .analytics-chart-wrapper {
+        position: relative;
+        width: 100%;
+        height: 450px;
+        margin: 0 auto;
+        padding: 10px 10px 30px 10px;  /* More padding at bottom for labels */
+    }
+
+    .chart-display {
+        margin-top: 1rem;
+        margin-bottom: 2rem;  /* Add space at bottom */
+    }
+
+    /* Adjust card padding */
+    .analytics-card.chart-card {
+        padding: 20px 20px 35px 20px;  /* More padding at bottom */
+    }
+
+    .summary-content {
+        padding: 1rem;
+    }
+    
+    .summary-stat {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .summary-label {
+        display: block;
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .summary-value {
+        display: block;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #2D2D2D;
+    }
+
+    .tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .tooltip:hover::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 5px 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        border-radius: 4px;
+        font-size: 14px;
+        white-space: nowrap;
+        z-index: 1000;
     }
 </style>
 {% endblock %}

@@ -9,6 +9,7 @@ from users.models import Profile
 from projects.services.analytics_service import AnalyticsService
 from .cache_service import ProfileCache
 from django.db.models import Q
+from users.services.user_analytics_service import UserAnalyticsService
 
 class ProfileService:
     def __init__(self):
@@ -185,10 +186,37 @@ class ProfileService:
 
     def get_analytics_data(self, profile_id, profile_model):
         profile = self.get_profile(profile_id, profile_model)
-        # Filter videos to only get the current user's videos
+        
+        # Get video analytics
         videos = profile.user.uploaded_videos.filter(uploader=profile.user)
         analytics_data = VideoService.get_creator_studio_analytics(videos)
         
+        # Get user activity analytics
+        user_analytics = UserAnalyticsService().get_user_analytics(profile.user)
+        
+        # Get profile visits count
+        profile_visits = UserAnalyticsService.get_profile_visits_count(profile.user)
+        
+        # Get platform average total time
+        platform_avg_total_time = UserAnalyticsService.get_platform_average_total_time()
+        
+        # Calculate ratio using total time (not session time)
+        activity_ratio = round((user_analytics['time_stats']['total_time'] / platform_avg_total_time) * 100) if platform_avg_total_time else 0
+        
+        # Calculate ratio and comparison text
+        user_total = user_analytics['time_stats']['total_time']
+        platform_avg = UserAnalyticsService.get_platform_average_total_time()
+        
+        if platform_avg > 0:
+            if user_total > platform_avg:
+                activity_ratio = round((user_total / platform_avg * 100) - 100)
+                comparison_text = f"You have been {activity_ratio}% more active than the average user"
+            else:
+                activity_ratio = round(100 - (user_total / platform_avg * 100))
+                comparison_text = f"You have been {activity_ratio}% less active than the average user"
+        else:
+            comparison_text = "No average activity data available"
+            
         return {
             'profile': profile,
             'video_analytics': analytics_data['video_analytics'],
@@ -197,5 +225,11 @@ class ProfileService:
             'daily_views_data': json.dumps(analytics_data['daily_views_data']),
             'hourly_views_data': json.dumps(analytics_data['hourly_views_data']),
             'likes_data': json.dumps(analytics_data['likes_data']),
-            'comments_data': json.dumps(analytics_data['comments_data'])
+            'comments_data': json.dumps(analytics_data['comments_data']),
+            'activity_heatmap': json.dumps(user_analytics['heatmap_data']),
+            'activity_stats': user_analytics['time_stats'],
+            'profile_visits': profile_visits,
+            'platform_avg_total_time': platform_avg_total_time,
+            'activity_ratio': activity_ratio,
+            'activity_comparison': comparison_text
         }

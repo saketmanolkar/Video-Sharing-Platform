@@ -2,7 +2,7 @@
 //Connect it to the main.html
 
 class InactivityMonitor {
-    constructor(timeoutMinutes = 2) {
+    constructor(timeoutMinutes = 30) {
         this.timeoutMinutes = timeoutMinutes;
         this.timeoutId = null;
         this.events = [

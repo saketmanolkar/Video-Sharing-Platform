@@ -30,6 +30,8 @@ from django.contrib.auth import logout
 from .tasks import save_session_activity
 from users.tasks import save_session_activity 
 import logging
+import json
+from pprint import pprint
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,7 @@ def analytics(request, pk):
         return redirect('profile', pk=pk)
     
     context = profile_service.get_analytics_data(pk, Profile)
+    
     return render(request, 'users/analytics.html', context)
 
 def profile(request, pk):

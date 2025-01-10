@@ -1,6 +1,7 @@
 let currentChart = null;
 let likesChart = null;
 let commentsChart = null;
+let heatmapChart = null;
 
 // Move commonOptions outside so all functions can access it
 const commonOptions = {
@@ -287,10 +288,118 @@ function initializeCommentsChart(chartData) {
     });
 }
 
+function initializeHeatmapChart(chartData) {
+    const heatmapCanvas = document.getElementById('heatmapChart');
+    
+    if (heatmapChart) {
+        heatmapChart.destroy();
+    }
+
+    const activityData = chartData.activity_data;
+    
+    const hours = [
+        '12AM', '1AM', '2AM', '3AM', '4AM', '5AM', '6AM', '7AM', '8AM', '9AM', '10AM', '11AM',
+        '12PM', '1PM', '2PM', '3PM', '4PM', '5PM', '6PM', '7PM', '8PM', '9PM', '10PM', '11PM'
+    ];
+    
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    heatmapChart = new Chart(heatmapCanvas, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                data: Object.entries(activityData).flatMap(([day, hours]) => 
+                    Object.entries(hours).map(([hour, value]) => ({
+                        x: hour,
+                        y: day,
+                        v: value
+                    }))
+                ),
+                pointStyle: 'rect',
+                pointRadius: 8,  // Increased point size
+                backgroundColor: context => {
+                    const value = context.raw.v;
+                    return value > 30 ? 'rgba(33, 150, 243, 0.9)' : 'rgba(33, 150, 243, 0.4)';
+                },
+                borderColor: 'transparent'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    left: -10,
+                    right: 15,
+                    top: 0,
+                    bottom: 25
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                title: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const point = context.raw;
+                            return `${point.v.toFixed(1)} mins`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'category',
+                    labels: days,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)',
+                        lineWidth: 1,
+                        drawTicks: false,
+                        offset: false,    // Ensure no grid offset
+                        drawBorder: false // Remove border which might add space
+                    },
+                    ticks: {
+                        font: { size: 11 },
+                        padding: 10,
+                        crossAlign: 'center',
+                        textBaseline: 'middle'
+                    },
+                    offset: false,
+                    position: 'left',
+                    border: {
+                        display: false    // Remove axis border
+                    }
+                },
+                x: {
+                    type: 'category',
+                    labels: hours,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)',
+                        lineWidth: 1
+                    },
+                    ticks: {
+                        font: { size: 10 },
+                        maxRotation: 0,
+                        autoSkip: false,
+                        padding: 8  // Increased padding between ticks and axis
+                    },
+                    afterFit: (scale) => {
+                        scale.height = 35;  // Increased height for x-axis to prevent cutoff
+                    },
+                    border: {
+                        display: false    // Remove axis border
+                    }
+                }
+            }
+        }
+    });
+}
+
 // Extend the initialization
 const originalInitializeCharts = initializeCharts;
 initializeCharts = function(chartData) {
     originalInitializeCharts(chartData);
     initializeLikesChart(chartData);
     initializeCommentsChart(chartData);
+    initializeHeatmapChart(chartData);
 };

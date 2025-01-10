@@ -3,7 +3,9 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.contrib.staticfiles.storage import staticfiles_storage
 import uuid
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
 
 class Profile(models.Model):
     id = models.UUIDField(
@@ -137,5 +139,41 @@ class UserSession(models.Model):
     # Activity log - empty to start
     activity_log = models.JSONField(default=dict)
 
+    class Meta:
+        ordering = ['-start_time']  # Newest sessions first
+        indexes = [
+            models.Index(fields=['-start_time']),  # Index for faster sorting
+        ]
+
     def __str__(self):
         return f"Session for {self.user.username} at {self.start_time}"
+
+class UserActivitySummary(models.Model):
+
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    
+    user = models.OneToOneField(
+        User, 
+        on_delete=models.CASCADE,
+        related_name='activity_summary'
+    )
+
+    # Session totals
+    total_sessions = models.IntegerField(default=0)
+    total_profile_visits = models.IntegerField(default=0)
+    total_time_spent = models.FloatField(default=0)  # in minutes
+    avg_session_length = models.FloatField(default=0)  # in minutes
+    
+    # Last activity tracking
+    last_session_date = models.DateTimeField(null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_activity_summary'
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['last_session_date'])
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}'s Activity Summary"
