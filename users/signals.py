@@ -5,6 +5,10 @@ from django.apps import apps
 from django.core.mail import send_mail
 from django.conf import settings
 import os
+from users.models import UserSession, UserActivitySummary
+from users.services.user_analytics_service import UserAnalyticsService
+import traceback
+from django.utils import timezone
 
 
 @receiver(post_save, sender=User)
@@ -89,3 +93,86 @@ def delete_user(sender, instance, **kwargs):
             print(f'👤 User deleted: {username}')
     except Exception as e:
         print(f'❌ Error deleting user: {str(e)}')
+
+
+@receiver(post_save, sender=UserSession)
+def update_user_activity_summary(sender, instance, **kwargs):
+    """
+    Updates UserActivitySummary using current session data
+    """
+    try:
+        if instance.activity_log and 'pages_visited' in instance.activity_log:
+            print(f"\n📊 Processing session for {instance.user.username}")
+            
+            # Get current session stats
+            session_duration = 0
+            if instance.end_time and instance.start_time:
+                session_duration = (instance.end_time - instance.start_time).total_seconds() / 60
+            
+            # Update session owner's summary first
+            owner_summary, created = UserActivitySummary.objects.get_or_create(
+                user=instance.user,
+                defaults={
+                    'total_sessions': 1,
+                    'total_time_spent': session_duration,
+                    'avg_session_length': session_duration,
+                    'last_session_date': timezone.now()
+                }
+            )
+            
+            if not created:
+                owner_summary.total_sessions += 1
+                owner_summary.total_time_spent += session_duration
+                owner_summary.avg_session_length = owner_summary.total_time_spent / owner_summary.total_sessions
+                owner_summary.last_session_date = timezone.now()
+                owner_summary.save()
+            
+            print("🔍 Checking profile visits...")
+            # Now update profile visit counts for OTHER users this person visited
+            for page in instance.activity_log.get('pages_visited', []):
+                path = page['path']
+                
+                # Use exact path matching like in get_profile_visits_count
+                if '/users/profile/' in path:
+                    try:
+                        profile_id = path.split('/users/profile/')[1].strip('/')
+                        exact_profile_path = f'/users/profile/{profile_id}/'
+                        
+                        # Only process if it's an exact profile path match
+                        if path == exact_profile_path and profile_id != str(instance.user.profile.id):
+                            from django.contrib.auth import get_user_model
+                            User = get_user_model()
+                            
+                            visited_user = User.objects.filter(profile__id=profile_id).first()
+                            if visited_user:
+                                print(f"👤 Found visited user: {visited_user.username}")
+                                
+                                visited_summary, created = UserActivitySummary.objects.get_or_create(
+                                    user=visited_user,
+                                    defaults={
+                                        'total_sessions': 0,
+                                        'total_time_spent': 0,
+                                        'avg_session_length': 0,
+                                        'total_profile_visits': 1,
+                                        'last_session_date': timezone.now()
+                                    }
+                                )
+                                if not created:
+                                    visited_summary.total_profile_visits += 1
+                                    visited_summary.save(update_fields=['total_profile_visits'])
+                                print(f"👀 Added visit to {visited_user.username}'s profile (total: {visited_summary.total_profile_visits})")
+                            else:
+                                print(f"⚠️ Could not find user with profile ID: {profile_id}")
+                    except Exception as e:
+                        print(f"⚠️ Error processing profile visit: {str(e)}")
+            
+            print(f"""
+            ✅ Summary Updated for {instance.user.username}:
+            - Session Length: {session_duration:.1f} mins
+            - Total Sessions: {owner_summary.total_sessions}
+            - Total Time: {owner_summary.total_time_spent:.1f} mins
+            - Avg Session: {owner_summary.avg_session_length:.1f} mins
+            """)
+            
+    except Exception as e:
+        print(f"❌ Error updating summary: {str(e)}")

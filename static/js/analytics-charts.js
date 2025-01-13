@@ -27,6 +27,46 @@ const commonOptions = {
     }
 };
 
+function initializeGrowthMiniChart(growthData) {
+    const miniChartCanvas = document.getElementById('followerGrowthMiniChart');
+    if (!miniChartCanvas) return;
+
+    new Chart(miniChartCanvas, {
+        type: 'line',
+        data: {
+            labels: growthData.dates,
+            datasets: [{
+                label: 'New Followers',
+                data: growthData.values,
+                borderColor: '#4285f4',
+                backgroundColor: 'rgba(66, 133, 244, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: 3,
+                pointBackgroundColor: 'rgba(66, 133, 244, 0.1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    display: false,
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
 function initializeCharts(chartData) {
     // Views chart initialization
     const chartCanvas = document.getElementById('analyticsChart');
@@ -395,11 +435,140 @@ function initializeHeatmapChart(chartData) {
     });
 }
 
-// Extend the initialization
+// Move this outside as a separate function
+function initializeFollowerCharts(followerData) {
+    const pieChartOptions = {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1.5,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    boxWidth: 12,
+                    font: { size: 10 },
+                    padding: 0
+                },
+                title: {
+                    display: true,
+                    font: { size: 12 }
+                }
+            }
+        }
+    };
+
+    // Comments Distribution
+    new Chart(document.getElementById('commentsPie'), {
+        type: 'pie',
+        data: {
+            labels: ['Follower Comments', 'Non-Follower Comments'],
+            datasets: [{
+                data: [
+                    followerData.engagement_breakdown.comments.follower_count,
+                    followerData.engagement_breakdown.comments.non_follower_count
+                ],
+                backgroundColor: ['#4285f4', '#34A853']
+            }]
+        },
+        options: {
+            ...pieChartOptions,
+            plugins: {
+                ...pieChartOptions.plugins,
+                title: {
+                    ...pieChartOptions.plugins.title,
+                    text: 'Comments Distribution'
+                }
+            }
+        }
+    });
+
+    // Dislikes Distribution
+    new Chart(document.getElementById('dislikesPie'), {
+        type: 'pie',
+        data: {
+            labels: ['Follower Dislikes', 'Non-Follower Dislikes'],
+            datasets: [{
+                data: [
+                    followerData.engagement_breakdown.dislikes.follower_count,
+                    followerData.engagement_breakdown.dislikes.non_follower_count
+                ],
+                backgroundColor: ['#4285f4', '#34A853']
+            }]
+        },
+        options: {
+            ...pieChartOptions,
+            plugins: {
+                ...pieChartOptions.plugins,
+                title: {
+                    ...pieChartOptions.plugins.title,
+                    text: 'Dislikes Distribution'
+                }
+            }
+        }
+    });
+
+    // Likes Distribution
+    new Chart(document.getElementById('likesPie'), {
+        type: 'pie',
+        data: {
+            labels: ['Follower Likes', 'Non-Follower Likes'],
+            datasets: [{
+                data: [
+                    followerData.engagement_breakdown.likes.follower_count,
+                    followerData.engagement_breakdown.likes.non_follower_count
+                ],
+                backgroundColor: ['#4285f4', '#34A853']
+            }]
+        },
+        options: {
+            ...pieChartOptions,
+            plugins: {
+                ...pieChartOptions.plugins,
+                title: {
+                    ...pieChartOptions.plugins.title,
+                    text: 'Likes Distribution'
+                }
+            }
+        }
+    });
+
+    // Views Distribution
+    new Chart(document.getElementById('viewsPie'), {
+        type: 'pie',
+        data: {
+            labels: ['Follower Views', 'Non-Follower Views'],
+            datasets: [{
+                data: [
+                    followerData.engagement_breakdown.views.follower_count,
+                    followerData.engagement_breakdown.views.non_follower_count
+                ],
+                backgroundColor: ['#4285f4', '#34A853']
+            }]
+        },
+        options: {
+            ...pieChartOptions,
+            plugins: {
+                ...pieChartOptions.plugins,
+                title: {
+                    ...pieChartOptions.plugins.title,
+                    text: 'Views Distribution'
+                }
+            }
+        }
+    });
+}
+
+// Keep the original initialization method
 const originalInitializeCharts = initializeCharts;
 initializeCharts = function(chartData) {
     originalInitializeCharts(chartData);
     initializeLikesChart(chartData);
     initializeCommentsChart(chartData);
     initializeHeatmapChart(chartData);
+    if (chartData.mini_chart_data) {
+        initializeGrowthMiniChart(JSON.parse(chartData.mini_chart_data));
+    }
+    if (chartData.follower_analytics) {
+        initializeFollowerCharts(chartData.follower_analytics);
+    }
 };

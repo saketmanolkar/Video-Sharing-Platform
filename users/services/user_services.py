@@ -10,6 +10,8 @@ from projects.services.analytics_service import AnalyticsService
 from .cache_service import ProfileCache
 from django.db.models import Q
 from users.services.user_analytics_service import UserAnalyticsService
+from users.models import UserActivitySummary
+from users.services.follower_analytics_service import FollowerAnalyticsService
 
 class ProfileService:
     def __init__(self):
@@ -191,32 +193,66 @@ class ProfileService:
         videos = profile.user.uploaded_videos.filter(uploader=profile.user)
         analytics_data = VideoService.get_creator_studio_analytics(videos)
         
-        # Get user activity analytics
+        # Get user activity analytics (for heatmap)
         user_analytics = UserAnalyticsService().get_user_analytics(profile.user)
-        
-        # Get profile visits count
-        profile_visits = UserAnalyticsService.get_profile_visits_count(profile.user)
         
         # Get platform average total time
         platform_avg_total_time = UserAnalyticsService.get_platform_average_total_time()
-        
-        # Calculate ratio using total time (not session time)
-        activity_ratio = round((user_analytics['time_stats']['total_time'] / platform_avg_total_time) * 100) if platform_avg_total_time else 0
-        
-        # Calculate ratio and comparison text
-        user_total = user_analytics['time_stats']['total_time']
-        platform_avg = UserAnalyticsService.get_platform_average_total_time()
-        
-        if platform_avg > 0:
-            if user_total > platform_avg:
-                activity_ratio = round((user_total / platform_avg * 100) - 100)
-                comparison_text = f"You have been {activity_ratio}% more active than the average user"
-            else:
-                activity_ratio = round(100 - (user_total / platform_avg * 100))
-                comparison_text = f"You have been {activity_ratio}% less active than the average user"
-        else:
-            comparison_text = "No average activity data available"
             
+        # Get UserActivitySummary data
+        try:
+            activity_summary = UserActivitySummary.objects.get(user=profile.user)
+            summary_stats = {
+                'total_sessions': activity_summary.total_sessions,
+                'total_time_spent': activity_summary.total_time_spent,
+                'avg_session_length': activity_summary.avg_session_length,
+                'total_profile_visits': activity_summary.total_profile_visits
+            }
+            
+            # Calculate ratio using summary data
+            if platform_avg_total_time > 0:
+                if activity_summary.total_time_spent > platform_avg_total_time:
+                    activity_ratio = round((activity_summary.total_time_spent / platform_avg_total_time * 100) - 100)
+                    comparison_text = f"You have been {activity_ratio}% more active than the average user"
+                else:
+                    activity_ratio = round(100 - (activity_summary.total_time_spent / platform_avg_total_time * 100))
+                    comparison_text = f"You have been {activity_ratio}% less active than the average user"
+            else:
+                activity_ratio = 0
+                comparison_text = "No average activity data available"
+                
+        except UserActivitySummary.DoesNotExist:
+            summary_stats = {
+                'total_sessions': 0,
+                'total_time_spent': 0,
+                'avg_session_length': 0,
+                'total_profile_visits': 0
+            }
+            activity_ratio = 0
+            comparison_text = "No activity data available"
+            
+        # Add follower analytics service
+        follower_service = FollowerAnalyticsService()
+        follower_analytics = follower_service.get_follower_analytics(profile.user)
+        
+        # Extract follower metrics
+        follower_metrics = {
+            'following_count': follower_analytics['following_count'],
+            'new_followers_30d': follower_analytics['new_followers_30d'],
+            'total_followers': follower_analytics['total_followers']
+        }
+        
+        # Extract just the engagement breakdown for pie charts
+        pie_charts_data = {
+            'engagement_breakdown': follower_analytics['engagement_breakdown']
+        }
+        
+        # Format growth data for mini chart
+        growth_mini_data = {
+            'dates': [entry['created__date'].strftime('%b %d') for entry in follower_analytics['growth_data']],
+            'values': [entry['new_followers'] for entry in follower_analytics['growth_data']]
+        }
+        
         return {
             'profile': profile,
             'video_analytics': analytics_data['video_analytics'],
@@ -227,9 +263,11 @@ class ProfileService:
             'likes_data': json.dumps(analytics_data['likes_data']),
             'comments_data': json.dumps(analytics_data['comments_data']),
             'activity_heatmap': json.dumps(user_analytics['heatmap_data']),
-            'activity_stats': user_analytics['time_stats'],
-            'profile_visits': profile_visits,
             'platform_avg_total_time': platform_avg_total_time,
             'activity_ratio': activity_ratio,
-            'activity_comparison': comparison_text
+            'activity_comparison': comparison_text,
+            'summary_stats': summary_stats,
+            'pie_charts_data': json.dumps(pie_charts_data),
+            'follower_metrics': follower_metrics,
+            'growth_mini_data': json.dumps(growth_mini_data)
         }
