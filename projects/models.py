@@ -282,6 +282,11 @@ class ViewHistory(models.Model):
         unique=True, 
         editable=False
     )
+    window_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False
+    )
     user = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -297,11 +302,15 @@ class ViewHistory(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     viewed_at = models.DateTimeField(auto_now_add=True)
 
+    duration_watched = models.DurationField(null=True, blank=True)  
+    completed = models.BooleanField(default=False)             
+
     class Meta:
         ordering = ['-viewed_at']
         indexes = [
             models.Index(fields=['video', 'viewed_at']),
             models.Index(fields=['user', 'viewed_at']),
+            models.Index(fields=['window_id']),
         ]
 
     def __str__(self):

@@ -67,6 +67,7 @@ INSTALLED_APPS = [
 
     "rest_framework",
     "corsheaders",
+    "debug_toolbar",
 ]
 
 
@@ -129,6 +130,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 
     'users.middleware.UserSessionMiddleware', #Custom Middleware
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = "testrun.urls"
@@ -313,3 +315,7 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 
 CELERY_WORKER_POOL_RESTARTS = True
 CELERY_WORKER_MAX_MEMORY_PER_CHILD = 50000  # 50MB
+
+INTERNAL_IPS = [
+    '127.0.0.1',  # Add your local IP address if needed
+]

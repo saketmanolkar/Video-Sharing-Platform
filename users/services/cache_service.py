@@ -3,6 +3,7 @@ from django_redis import get_redis_connection
 from logging import getLogger
 from django.utils import timezone
 from django.contrib.auth.models import User
+import json
 
 logger = getLogger(__name__)
 
@@ -111,4 +112,46 @@ class SessionActivityCache:
     def clear_activity_cache(self, user_id, session_id):
         """Clear the activity cache for a session"""
         cache_key = self.get_cache_key(user_id, session_id)
+        self.redis.delete(cache_key)
+
+class VideoStatsCache:
+    FOLDER = ":1:video_stats"  # Single folder for user stats
+    TTL = 60 * 60  # 1 hour
+    
+    def __init__(self):
+        self.redis = get_redis_connection("default")
+    
+    @staticmethod
+    def get_cache_key(user_id):
+        return f"{VideoStatsCache.FOLDER}:{user_id}"  # Single key for user stats
+    
+    def set_video_stats(self, user_id, video_id, window_id, stats):
+        """Add video stats to cache under a single user key as a hash"""
+        cache_key = self.get_cache_key(user_id)
+        
+        # Create a unique field for the hash using window_id and video_id
+        field_key = f"{video_id}:{window_id}"
+
+        # Store the stats in a hash
+        self.redis.hset(cache_key, field_key, json.dumps({
+            'total_watched': str(stats['total_watched']),
+            'is_completed': str(stats['is_completed'])
+        }))
+        self.redis.expire(cache_key, self.TTL)  # Set TTL for the hash
+
+        logger.info(f"📊 Added video stats for user ID {user_id}: {field_key}.")
+
+    def get_video_stats(self, user_id):
+        """Get all video stats for a user"""
+        cache_key = self.get_cache_key(user_id)
+        try:
+            stats = self.redis.hgetall(cache_key)  # Get all entries in the hash
+            return {key.decode(): json.loads(value) for key, value in stats.items()}  # Decode each entry
+        except Exception as e:
+            logger.error(f"Failed to get video stats: {str(e)}")
+        return None
+    
+    def invalidate(self, user_id):
+        """Invalidate all video stats for a user"""
+        cache_key = self.get_cache_key(user_id)
         self.redis.delete(cache_key)

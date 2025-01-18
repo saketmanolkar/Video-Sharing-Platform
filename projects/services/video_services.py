@@ -27,15 +27,16 @@ class VideoService:
     def record_view(self, video, user, ip_address, view_history_model):
         """Handle view recording with time-based cache tracking"""
         
-        # Check if we can record the view in this time window
+        view_history = None  # Initialize return value
+        
         if self.view_cache.can_record_view(
             video_id=video.id,
             user_id=user.id if user else None,
             ip_address=ip_address
         ):
             try:
-                # 1. Create view history record
-                view_history_model.objects.create(
+                # 1. Create view history record and store reference
+                view_history = view_history_model.objects.create(
                     video=video,
                     user=user,
                     ip_address=ip_address
@@ -65,6 +66,8 @@ class VideoService:
                     
             except Exception as e:
                 logger.error(f"❌ Error recording view: {str(e)}")
+        
+        return view_history  # Return the created record
     
     @staticmethod
     def get_user_like_status(video, user):

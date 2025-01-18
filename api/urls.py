@@ -35,4 +35,7 @@ urlpatterns = [
 
     # Debug
     path('debug-videos/', views.api_debug_videos, name='api-debug-videos'),
+
+    # Video Stats
+    path('video-stats/', views.update_video_stats, name='api-video-stats'),
 ]

@@ -1,5 +1,8 @@
 from celery import shared_task
 from .models import UserSession
+from projects.models import ViewHistory
+from .services.cache_service import SessionActivityCache, VideoStatsCache
+from datetime import timedelta
 import logging
 from django.utils import timezone
 
@@ -168,3 +171,33 @@ def save_activity_overflow(self, session_id, user_id):
         logger.error(f"❌ Activity overflow append failed: {str(e)}")
         retry_countdown = 2 ** self.request.retries
         self.retry(countdown=retry_countdown, exc=e)
+
+@shared_task
+def process_video_stats(user_id):
+    video_stats_cache = VideoStatsCache()
+    user_cache_key = f"user_{user_id}"  # Ensure consistent format
+
+    # Retrieve video stats from cache
+    video_stats = video_stats_cache.get_video_stats(user_cache_key)
+
+    if video_stats:
+        print("📊 Retrieved video stats from cache:")
+        for key, value in video_stats.items():
+            print(f"Key: {key}, Value: {value}")  # Log each retrieved stat
+            video_id, window_id = key.split(':')  # Assuming key format is "video_id:window_id"
+            
+            # Retrieve the existing ViewHistory entry
+            view_history_entry = ViewHistory.objects.filter(video_id=video_id, window_id=window_id, user_id=user_id).first()
+
+            if view_history_entry:
+                # Update the fields directly
+                view_history_entry.duration_watched = timedelta(seconds=float(value['total_watched']))  # Convert to timedelta
+                view_history_entry.completed = value['is_completed'] == 'True'  # Convert to boolean
+                view_history_entry.save()  # Save the updated entry
+                print(f"🔄 Updated ViewHistory entry for Video ID: {video_id}, Window ID: {window_id}")
+            else:
+                print(f"No ViewHistory entry found for Video ID: {video_id}, Window ID: {window_id}")
+
+    # Invalidate the cached stats
+    video_stats_cache.invalidate(user_cache_key)
+    print(f"🗑️ Invalidated cached video stats for user ID: {user_id}")

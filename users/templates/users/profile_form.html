@@ -141,38 +141,43 @@
 </main>
 
 <script>
-document.getElementById('id_profile_pics').onchange = function(e) {
-    const preview = document.getElementById('profileEditPreview');
-    const file = e.target.files[0];
-    
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            preview.src = e.target.result;
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('id_profile_pics').onchange = function(e) {
+        const preview = document.getElementById('profileEditPreview');
+        const file = e.target.files[0];
+        
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+            }
+            reader.readAsDataURL(file);
         }
-        reader.readAsDataURL(file);
     }
-}
 
-// Bio character counter
-const bioTextarea = document.getElementById('id_bio');
-const bioCount = document.getElementById('bioCount');
+    // Bio character counter
+    const bioTextarea = document.getElementById('id_bio');
+    const bioCount = document.getElementById('bioCount');
 
-function updateBioCount() {
-    const currentLength = bioTextarea.value.length;
-    bioCount.textContent = `${currentLength}/300 characters`;
-}
+    function updateBioCount() {
+        const currentLength = bioTextarea.value.length;
+        bioCount.textContent = `${currentLength}/300 characters`;
+    }
 
-bioTextarea.addEventListener('input', updateBioCount);
-// Initial count
-updateBioCount();
+    bioTextarea.addEventListener('input', updateBioCount);
+    // Initial count
+    updateBioCount();
 
-document.getElementById('clear_profile_pic').addEventListener('change', function(e) {
-    const preview = document.getElementById('profileEditPreview');
-    if (this.checked) {
-        preview.src = '/static/images/user-default.png';  // Replace with your default image path
-    } else {
-        preview.src = "{{ profile.get_profile_pic_url }}";
+    const clearProfilePicCheckbox = document.getElementById('clear_profile_pic');
+    if (clearProfilePicCheckbox) {
+        clearProfilePicCheckbox.addEventListener('change', function(e) {
+            const preview = document.getElementById('profileEditPreview');
+            if (this.checked) {
+                preview.src = '/static/images/user-default.png';  // Replace with your default image path
+            } else {
+                preview.src = "{{ profile.get_profile_pic_url }}";
+            }
+        });
     }
 });
 </script>

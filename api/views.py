@@ -9,7 +9,7 @@ from projects.services.video_services import VideoService
 from rest_framework.authentication import SessionAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.shortcuts import get_object_or_404
 from django.core.cache import cache
 import json, uuid
@@ -26,6 +26,9 @@ from users.models import Profile
 import os
 import re
 from django.conf import settings
+from users.services.cache_service import SessionActivityCache
+from django.views.decorators.http import require_http_methods
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -404,3 +407,63 @@ def api_debug_videos(request):
         debug_info.append(video_info)
     
     return Response({'videos': debug_info})
+
+@csrf_exempt  # Allow all requests
+@require_http_methods(["POST"])  # Only allow POST
+def update_video_stats(request):
+    from projects.models import ViewHistory
+    from datetime import timedelta
+    from django.contrib.auth.models import User
+
+    try:
+        # Load the stats from the request body
+        stats = json.loads(request.body)
+
+        # Print the received stats for debugging
+        print("🎥 Video Watch Stats Received via API:", stats)
+
+        # Extract stats
+        window_id = stats.get('window_id')
+        video_id = stats.get('video_id')
+        total_watched = stats.get('total_watched')
+        user_id = stats.get('user_id')
+        is_completed = stats.get('is_completed', False)  # Default to False if not provided
+
+        # Check for required fields
+        if not all([window_id, video_id, total_watched, user_id]):
+            return JsonResponse({'error': 'Missing required fields'}, status=400)
+
+        # Additional check for window_id
+        if not window_id:
+            return JsonResponse({'error': 'window_id is required'}, status=400)
+
+        # Convert total_watched to timedelta
+        try:
+            total_watched_duration = timedelta(seconds=float(total_watched))
+        except ValueError as ve:
+            return JsonResponse({'error': f'Invalid total_watched value: {total_watched}'}, status=400)
+
+        # Get the user object
+        try:
+            user = User.objects.get(id=user_id)  # Assuming user_id is the actual user ID
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+
+        # Save the stats to the database
+        try:
+            view_history = ViewHistory.objects.get(
+                video_id=video_id, 
+                window_id=window_id, 
+                user=user
+            )
+            view_history.duration_watched = total_watched_duration
+            view_history.completed = is_completed
+            view_history.save()
+            print(f"🔄 Updated ViewHistory entry for Video ID via API: {video_id}, Window ID: {window_id}")
+        except ViewHistory.DoesNotExist:
+            return JsonResponse({'error': 'No ViewHistory entry found'}, status=404)
+
+        return JsonResponse({'status': 'success', 'message': 'Video stats updated successfully.'})
+    except Exception as e:
+        print(f"❌ Error processing request: {str(e)}")  # Log the error for debugging
+        return JsonResponse({'error': str(e)}, status=400)

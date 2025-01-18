@@ -21,9 +21,24 @@
           {% if not user.is_authenticated %}
           <li class="header__menuItem"><a href="{% url 'login-page'%}" class="btn btn--sub">Login / Sign Up</a></li>
           {% else %}
-          <li class="header__menuItem"><a href="{% url 'logout-user' %}" class="btn btn--sub">Logout</a></li>
+          <li class="header__menuItem">
+              <a href="{% url 'logout-user' %}" 
+                 onclick="return handleLogout()" 
+                 class="btn btn--sub">Logout</a>
+          </li>
           {% endif %}
         </ul>
       </nav>
     </div>
   </header>
+
+<script>
+function handleLogout() {
+    if (typeof logoutUser === 'function') {
+        logoutUser();
+    } else {
+        window.location.href = "{% url 'logout-user' %}";
+    }
+    return false;
+}
+</script>

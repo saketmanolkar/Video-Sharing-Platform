@@ -28,10 +28,13 @@ from .services.cache_service import SessionActivityCache
 from django.contrib.auth.models import User
 from django.contrib.auth import logout
 from .tasks import save_session_activity
-from users.tasks import save_session_activity 
+from users.tasks import save_session_activity , process_video_stats
 import logging
-import json
+from datetime import timedelta
 from pprint import pprint
+from projects.models import ViewHistory
+from .services.cache_service import VideoStatsCache
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +298,10 @@ def logout_user(request):
             except Exception as e:
                 logger.error(f"❌ Failed to queue cleanup task: {str(e)}")
         
+        # Call the task to process video stats
+        process_video_stats.delay(request.user.id)  # Use .delay() if using Celery
+
+
         # Handle timeout case
         if request.GET.get('timeout') == 'true':
             response = redirect('login-page')
@@ -308,7 +315,7 @@ def logout_user(request):
         response.set_cookie('logout', 'true', max_age=5)
         logout(request)
         return response
-
+    
     return redirect('login-page')
 
 @csrf_protect

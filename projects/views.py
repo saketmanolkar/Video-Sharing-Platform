@@ -69,7 +69,8 @@ def project(request, pk):
     # Record view if not cached
     if request.user.is_authenticated:
         ip_address = UtilityService.get_client_ip(request)
-        video_service.record_view(video, request.user, ip_address, ViewHistory)
+        view_history = video_service.record_view(video, request.user, ip_address, ViewHistory)
+        context['view_history'] = view_history  # Add to context
         # Add fresh following status for authenticated users
         follow_service = FollowService()
         context['is_following'] = follow_service.check_following_status(request.user, video.uploader)
@@ -80,7 +81,8 @@ def project(request, pk):
         context['user_like'] = user_like
     else:
         ip_address = UtilityService.get_client_ip(request)
-        video_service.record_view(video, None, ip_address, ViewHistory)
+        view_history = video_service.record_view(video, None, ip_address, ViewHistory)
+        context['view_history'] = view_history  # Add to context
         context['is_following'] = False
         context['user_like'] = None
     
