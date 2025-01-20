@@ -113,13 +113,28 @@ function initializeCharts(chartData) {
 
     function createHourlyViewsChart(videoId) {
         const selectedData = chartData.hourly[videoId];
+        
+        // Create arrays only for hours that have data
+        const filteredLabels = [];
+        const filteredData = [];
+        selectedData.labels.forEach((label, index) => {
+            if (selectedData.data[index] > 0) {
+                const hour = parseInt(label);
+                if (hour === 0) filteredLabels.push('12 AM');
+                else if (hour === 12) filteredLabels.push('12 PM');
+                else if (hour < 12) filteredLabels.push(`${hour} AM`);
+                else filteredLabels.push(`${hour-12} PM`);
+                filteredData.push(selectedData.data[index]);
+            }
+        });
+
         return new Chart(chartCanvas, {
             type: 'bar',
             data: {
-                labels: selectedData.labels,
+                labels: filteredLabels,  // These are already formatted (12 AM, 1 AM, etc)
                 datasets: [{
                     label: 'Hourly Views',
-                    data: selectedData.data,
+                    data: filteredData,
                     backgroundColor: 'rgba(75, 192, 192, 0.8)',
                     borderColor: 'rgb(75, 192, 192)',
                     borderWidth: 0,
@@ -558,7 +573,105 @@ function initializeFollowerCharts(followerData) {
     });
 }
 
-// Keep the original initialization method
+// Function to initialize the Average Watch Time chart
+function initializeAverageWatchTimeChart(averageWatchTimes) {
+    const averageWatchTimeCanvas = document.getElementById('averageWatchTimeChart');
+    
+    if (!averageWatchTimeCanvas) return;
+
+    const labels = averageWatchTimes.map(video => video.video_title);
+    const data = averageWatchTimes.map(item => item.avg_watch_time);
+
+    new Chart(averageWatchTimeCanvas, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Average Watch Time (mins)',
+                data: data,
+                backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                borderColor: 'rgb(75, 192, 192)',
+                borderWidth: 1,
+                barPercentage: 0.7,
+                categoryPercentage: 0.8
+            }]
+        },
+        options: {
+            ...commonOptions,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Function to initialize the Completion Rate chart
+function initializeCompletionRateChart(completionRates) {
+    const completionRateCanvas = document.getElementById('completionRateChart');
+    
+    if (!completionRateCanvas) return;
+
+    const labels = completionRates.map(video => video.video_title);
+    const data = completionRates.map(video => video.completion_rate);
+
+    new Chart(completionRateCanvas, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Completion Rate (%)',
+                data: data,
+                backgroundColor: 'rgba(255, 159, 64, 0.8)',  // Changed to orange
+                borderColor: 'rgb(255, 159, 64)',           // Changed to orange
+                borderWidth: 1,
+                barPercentage: 0.7,
+                categoryPercentage: 0.8
+            }]
+        },
+        options: {
+            ...commonOptions,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';  // Add percentage symbol to y-axis
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Completion Rate: ${context.parsed.y.toFixed(1)}%`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Update the original initializeCharts function to include the average watch time chart
 const originalInitializeCharts = initializeCharts;
 initializeCharts = function(chartData) {
     originalInitializeCharts(chartData);
@@ -570,5 +683,11 @@ initializeCharts = function(chartData) {
     }
     if (chartData.follower_analytics) {
         initializeFollowerCharts(chartData.follower_analytics);
+    }
+    if (chartData.watch_time_data) {
+        initializeAverageWatchTimeChart(chartData.watch_time_data);
+    }
+    if (chartData.completion_rates) {
+        initializeCompletionRateChart(chartData.completion_rates);
     }
 };

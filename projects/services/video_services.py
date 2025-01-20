@@ -231,7 +231,7 @@ class VideoService:
                 hourly_views = analytics_service.get_views_by_hour(video)
                 if hourly_views:
                     hourly_views_data[video_id] = {
-                        'labels': [view['hour'].strftime('%H:00') for view in hourly_views],
+                        'labels': [f"{str(view['hour']).zfill(2)}:00" for view in hourly_views],
                         'data': [view['count'] for view in hourly_views]
                     }
 

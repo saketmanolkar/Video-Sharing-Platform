@@ -116,7 +116,7 @@ class SessionActivityCache:
 
 class VideoStatsCache:
     FOLDER = ":1:video_stats"  # Single folder for user stats
-    TTL = 60 * 60  # 1 hour
+    TTL = 60 * 60 * 24  # 24 hours
     
     def __init__(self):
         self.redis = get_redis_connection("default")

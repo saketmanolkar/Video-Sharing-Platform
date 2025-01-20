@@ -402,11 +402,13 @@ window.addEventListener('beforeunload', function() {
         is_completed: percentage >= 90 // Mark as completed if 90% or more watched
     };
 
-    // Set a cookie with the video watch stats only if windowId exists and is not logging out
+    // Set a cookie with the video watch stats only if windowId exists, the user is authenticated, and is not logging out
     if (!windowId) {
-        console.warn('⚠️ Window ID missing. Cannot set video stats cookie.');
+        console.warn('⚠️ Window ID missing. Video Stats Cookie will not be set.');
     } else if (isLoggingOut) {
         console.warn('⚠️ User is logging out. Video Stats Cookie will not be set.');
+    } else if (!isAuthenticated) { // Check if the user is authenticated
+        console.warn('⚠️ User is not authenticated. Video Stats Cookie will not be set.');
     } else {
         try {
             document.cookie = `videoWatchStats=${encodeURIComponent(JSON.stringify(stats))}; path=/; max-age=3600`; // Cookie expires in 1 hour

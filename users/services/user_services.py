@@ -12,6 +12,7 @@ from django.db.models import Q
 from users.services.user_analytics_service import UserAnalyticsService
 from users.models import UserActivitySummary
 from users.services.follower_analytics_service import FollowerAnalyticsService
+from projects.services.video_stat_analytics_service import VideoStatisticsService
 
 class ProfileService:
     def __init__(self):
@@ -193,6 +194,10 @@ class ProfileService:
         videos = profile.user.uploaded_videos.filter(uploader=profile.user)
         analytics_data = VideoService.get_creator_studio_analytics(videos)
         
+        # Get peak viewing times
+        peak_hour = AnalyticsService.get_peak_viewing_hour(videos)
+        peak_day = AnalyticsService.get_peak_viewing_day(videos)
+        
         # Get user activity analytics (for heatmap)
         user_analytics = UserAnalyticsService().get_user_analytics(profile.user)
         
@@ -253,6 +258,25 @@ class ProfileService:
             'values': [entry['new_followers'] for entry in follower_analytics['growth_data']]
         }
         
+        # Get average watch time per video
+        average_watch_times = VideoStatisticsService.get_average_watch_time_per_video(profile.user)
+        
+        # Get completion rate per video
+        completion_rates = VideoStatisticsService.get_completion_rate_per_video(profile.user)
+
+        # Get video statistics
+        video_stats_service = VideoStatisticsService()
+        
+        # Get overall average watch time
+        overall_watch_time = video_stats_service.get_average_watch_time_for_user_videos(profile.user)
+        if overall_watch_time:
+            overall_watch_minutes = overall_watch_time.total_seconds() / 60
+        else:
+            overall_watch_minutes = 0
+        
+        # Get overall completion rate
+        overall_completion_rate = video_stats_service.get_completion_rate_for_user_videos(profile.user)
+
         return {
             'profile': profile,
             'video_analytics': analytics_data['video_analytics'],
@@ -269,5 +293,11 @@ class ProfileService:
             'summary_stats': summary_stats,
             'pie_charts_data': json.dumps(pie_charts_data),
             'follower_metrics': follower_metrics,
-            'growth_mini_data': json.dumps(growth_mini_data)
+            'growth_mini_data': json.dumps(growth_mini_data),
+            'average_watch_times': json.dumps(average_watch_times),
+            'completion_rates': json.dumps(completion_rates),
+            'overall_watch_time': round(overall_watch_minutes, 2),
+            'overall_completion_rate': round(overall_completion_rate, 2),
+            'peak_viewing_hour': peak_hour,
+            'peak_viewing_day': peak_day
         }

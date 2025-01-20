@@ -1996,14 +1996,14 @@ a.project:active {
 }
 
 .video-select {
-  width: auto;
-  min-width: 200px;
-  padding: 0.8rem 1.6rem;
-  font-size: 1.4rem;
+  width: 125px !important;  /* Changed from auto */
+  min-width: 125px !important;  /* Changed from 200px */
+  padding: 8px 12px !important;
+  font-size: 13px !important;
   border: 1px solid var(--color-light);
   border-radius: 6px;
   background: white;
-  height: 42px;
+  height: 35px !important;  /* Made smaller */
 }
 .interaction-header {
     display: flex;
