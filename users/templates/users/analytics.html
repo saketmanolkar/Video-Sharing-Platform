@@ -515,6 +515,11 @@ function generateNewReport(reportType) {
     });
 }
 
+// New function to refresh the report modal
+function refreshReportModal(reportType) {
+    openReportModal(reportType); // Reopen the modal to fetch the latest report
+}
+
 // Close dropdown when clicking outside
 window.onclick = function(event) {
     const modal = document.getElementById('reportModal');

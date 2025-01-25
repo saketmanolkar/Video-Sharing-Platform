@@ -266,6 +266,11 @@ class ProfileService:
                 Q(description__icontains=search_query)
             ).distinct()
 
+        # Add like and dislike counts to each video
+        for video in videos:
+            video.likes_count = VideoService.get_likes_count(video)
+            video.dislikes_count = VideoService.get_dislikes_count(video)
+
         return {
             'profile': profile,
             'videos': videos,
