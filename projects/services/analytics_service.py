@@ -3,7 +3,8 @@ from django.db.models import Count, F
 from django.utils import timezone
 from datetime import timedelta
 
-class ViewAnalyticsService:
+class AnalyticsService:
+    # Existing view methods
     @staticmethod
     def get_views_over_time(video, days=30):
         """Get daily view counts for the specified period"""
@@ -56,3 +57,31 @@ class ViewAnalyticsService:
             })
         
         return cumulative_views
+
+    # Moving existing likes/comments chart functionality here
+    @staticmethod
+    def get_likes_dislikes_data(videos):
+        """Get likes and dislikes data for chart"""
+        return {
+            'labels': [video.title for video in videos],
+            'data': {
+                'likes': [video.analytics.total_likes if hasattr(video, 'analytics') else 0 for video in videos],
+                'dislikes': [video.analytics.total_dislikes if hasattr(video, 'analytics') else 0 for video in videos]
+            }
+        }
+
+    @staticmethod
+    def get_comments_data(videos):
+        """Get comments data for chart"""
+        return {
+            'labels': [video.title for video in videos],
+            'data': [video.analytics.total_comments if hasattr(video, 'analytics') else 0 for video in videos]
+        }
+
+    @staticmethod
+    def get_total_views_data(videos):
+        """Get total views data for chart"""
+        return {
+            'labels': [video.title for video in videos],
+            'data': [video.analytics.total_views if hasattr(video, 'analytics') else 0 for video in videos]
+        }

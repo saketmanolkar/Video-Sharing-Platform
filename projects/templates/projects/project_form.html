@@ -1,6 +1,9 @@
 {% extends 'main.html' %}
 {% block content %}
 <main class="formPage my-xl">
+    {% if page_type != 'update' %}
+        {% include 'components/vid_processing_overlay.html' %}
+    {% endif %}
     <div class="content-box">
         <div class="formWrapper">
             <div class="backButton-container">
@@ -70,9 +73,29 @@
                     </div>
                 </div>
                 
+                <!-- After the file upload grid and before the rest of the fields -->
+                <div class="form__field" style="margin-bottom: 2rem;">
+                    <label for="{{ form.privacy_status.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
+                        Video Listing Status {% if form.privacy_status.field.required %}<span style="color: red;">*</span>{% endif %}
+                    </label>
+                    <div class="privacy-selector">
+                        {{ form.privacy_status }}
+                    </div>
+                    {% if form.privacy_status.help_text %}
+                        <small>{{ form.privacy_status.help_text }}</small>
+                    {% endif %}
+                    {% if form.privacy_status.errors %}
+                        <div class="field-errors">
+                            {% for error in form.privacy_status.errors %}
+                                <p style="color: red;">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                
                 <!-- Rest of the fields -->
                 {% for field in form %}
-                    {% if field.name != 'file' and field.name != 'thumbnail' %}
+                    {% if field.name != 'file' and field.name != 'thumbnail' and field.name != 'privacy_status' %}
                     <div class="form__field">
                         <label for="{{ field.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
                             {{ field.label }}
@@ -138,5 +161,53 @@
             }
         });
     });
+
+    (function() {
+        if ("{{ page_type }}" !== 'update') {
+            document.querySelector('.form').addEventListener('submit', function(e) {
+                const fileInput = document.querySelector('input[name="file"]');
+                if (fileInput.files.length > 0) {
+                    document.getElementById('processingOverlay').style.display = 'flex';
+                }
+            });
+        }
+    })();
 </script>
+
+<style>
+    select[name="privacy_status"] {
+        width: 100%;
+        padding: 1.2rem;
+        border-radius: 5px;
+        border: 1px solid var(--color-light);
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        font-size: 1.5rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    select[name="privacy_status"]:focus {
+        outline: none;
+        border-color: var(--color-main);
+        box-shadow: 0 0 0 2px rgba(var(--color-main-rgb), 0.1);
+    }
+
+    select[name="privacy_status"] option {
+        padding: 1.2rem;
+        font-size: 1.5rem;
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        line-height: 1.6;
+    }
+
+    select[name="privacy_status"] {
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 1.2rem center;
+        background-size: 1.8em;
+        padding-right: 3.5rem;
+    }
+</style>
 {% endblock %}

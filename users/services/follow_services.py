@@ -1,9 +1,12 @@
 import logging
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
 class FollowService:
+    @transaction.atomic
     def follow_user(self, user, user_to_follow):
         try:
             if not user_to_follow:
@@ -11,34 +14,40 @@ class FollowService:
                 
             if user == user_to_follow:
                 raise ValidationError("You cannot follow yourself.")
-                
+            
+            # Immediate database update with transaction
             _, created = user.following_set.get_or_create(following=user_to_follow)
-            if not created:
-                raise ValidationError("Already following this user.")
-                
+            
+            # Clear any cached data
+            cache.delete(f'follow_{user.id}_{user_to_follow.id}')
+            cache.delete(f'followers_count_{user_to_follow.id}')
+            cache.delete(f'following_count_{user.id}')
+            
             return True, "Successfully followed user."
             
-        except ValidationError as e:
-            return False, str(e)
         except Exception as e:
-            return False, f"An error occurred: {str(e)}"
+            logger.error(f"Follow error: {str(e)}")
+            return False, str(e)
     
+    @transaction.atomic
     def unfollow_user(self, user, user_to_unfollow):
         try:
             if not user_to_unfollow:
                 raise ValidationError("User to unfollow does not exist.")
-                
-            follow = user.following_set.filter(following=user_to_unfollow)
-            if not follow.exists():
-                raise ValidationError("Not following this user.")
-                
-            follow.delete()
+            
+            # Immediate database update with transaction
+            user.following_set.filter(following=user_to_unfollow).delete()
+            
+            # Clear any cached data
+            cache.delete(f'follow_{user.id}_{user_to_unfollow.id}')
+            cache.delete(f'followers_count_{user_to_unfollow.id}')
+            cache.delete(f'following_count_{user.id}')
+            
             return True, "Successfully unfollowed user."
             
-        except ValidationError as e:
-            return False, str(e)
         except Exception as e:
-            return False, f"An error occurred: {str(e)}"
+            logger.error(f"Unfollow error: {str(e)}")
+            return False, str(e)
     
     def check_following_status(self, user, target_user):
         try:

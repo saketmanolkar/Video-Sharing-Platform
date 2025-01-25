@@ -91,6 +91,34 @@ function showDeleteConfirmation(id, title, type = 'video') {
             handleDeleteComment(e);
             return false;
         };
+    } else if (type === 'playlist') {
+        form.action = `/delete-playlist/${id}/`;
+        popup.dataset.itemId = id;
+        form.onsubmit = function(e) {
+            e.preventDefault();
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    hideDeleteConfirmation();
+                    window.location.reload();
+                    return response.json();
+                }
+                throw new Error('Network response was not ok');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error deleting playlist', 'error');
+            });
+            return false;
+        };
     } else {
         form.action = `/delete-project/${id}/`;
         popup.dataset.itemId = id;

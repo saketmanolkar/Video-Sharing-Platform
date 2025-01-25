@@ -1,0 +1,38 @@
+<!----------------form template(not connected to any view)---------------->
+{% extends 'main.html' %}
+{% block content %}
+    <!-- Main Section -->
+    <main class="formPage my-xl">
+        <div class="content-box">
+            <div class="formWrapper">
+                <a class="backButton" href="#">&lt;</a>
+                <h3 class="formWrapper__subject" style="text-align: center; flex: 1;margin-top: -3rem;">Send a Message</h3>
+
+                <form class="form" method="POST">
+
+                    <!-- Input:Text -->
+                    <div class="form__field">
+                        <label for="formInput#text">Text Field: </label>
+                        <input class="input input--text" id="formInput#text" type="text" name="text"
+                            placeholder="Enter text" />
+                    </div>
+
+                    <!-- Input:Text -->
+                    <div class="form__field">
+                        <label for="formInput#text">Text Field: </label>
+                        <input class="input input--text" id="formInput#text" type="text" name="text"
+                            placeholder="Enter text" />
+                    </div>
+
+                    <!-- Input:Text -->
+                    <div class="form__field">
+                        <label for="formInput#text">Text Field: </label>
+                        <input class="input input--text" id="formInput#text" type="text" name="text"
+                            placeholder="Enter text" />
+                    </div>
+                    <input class="btn btn--sub btn--lg  my-md" type="submit" value="Submit" />
+                </form>
+            </div>
+        </div>
+    </main>
+{% endblock content %}

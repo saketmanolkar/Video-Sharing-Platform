@@ -1,0 +1,25 @@
+{% extends 'main.html' %}
+
+{% block content %}
+  <!-- Main Section -->
+  <main class="messagePage my-xl checkered-background" style="min-height: 100vh;">
+    <br>
+    <br>
+    <br>
+    <div class="content-box">
+      <div class="message">
+        <div class="backButton-container">
+            <a class="backButton" href="{% url 'inbox' %}">&lt;</a>
+            <h3 class="formWrapper__subject" style="text-align: center; flex: 1;">
+                {{ message.subject }}
+            </h3>
+        </div>
+          <a href="profile.html" class="message__author">{{ message.name }}</a>
+          <p class="message__date">{{ message.created|date:"M d, Y, H:i" }}</p>
+          <div class="message__body">
+            {{ message.body|linebreaksbr }}
+          </div>
+      </div>
+    </div>
+  </main>
+{% endblock content %}

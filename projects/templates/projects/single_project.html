@@ -17,31 +17,21 @@
         <div class="video-content-grid">
             <!-- Main Message Content -->
             <div class="video-message">
-                <!-- Video Info Container -->
+                <!-- New Empty Card -->
                 <div class="video-message__content">
                     <div class="video-header">
                         <h2 class="message__subject">{{ video.title }}</h2>
                         <div class="video-stats">
-                            <div class="stats-item">
-                                <span class="stats-count">{{ likes_count }}</span>
-                                <span class="stats-label">Likes</span>
+                            <div class="interaction-container">
+                                {% include 'components/video_interaction.html' with video=video size="large" likes_count=likes_count dislikes_count=dislikes_count %}
                             </div>
-                            <div class="stats-item">
-                                <span class="stats-count">{{ dislikes_count }}</span>
-                                <span class="stats-label">Dislikes</span>
-                            </div>
-                            <div class="stats-item">
-                                <span class="stats-count">{{ video.views }}</span>
-                                <span class="stats-label">Views</span>
-                            </div>
+                            <div class="view-count">{{ video.view_count }}</div>
                         </div>
                     </div>
-                    <div class="vid-creator">
-                        By <a href="{% url 'profile' video.uploader.profile.id %}">
-                            {{ video.uploader.username }}
-                        </a>
+                    <div class="creator-date-container">
+                        <div class="vid-creator">By <a href="{% url 'profile' video.uploader.profile.id %}">{{ video.uploader.username }}</a></div>
+                        <div class="message__date">Uploaded {{ video.created_at|timesince }} ago</div>
                     </div>
-                    <div class="message__date">Uploaded {{ video.created_at|timesince }} ago</div>
                     
                     <div class="video-tags">
                         {% for tag in video.tags.all %}
@@ -53,6 +43,8 @@
                         <p>{{ video.description }}</p>
                     </div>
                 </div>
+
+                
 
                 <!-- Comments Container -->
                 <div class="video-message__content">
@@ -106,7 +98,6 @@
 >
 
 <script>
-    // Clean initialization without template syntax
     const dataElement = document.getElementById('commentsData');
     const isAuthenticated = dataElement.dataset.auth === 'true';
     const loginUrl = dataElement.dataset.loginUrl;
@@ -117,7 +108,8 @@
     window.username = "{{ request.user.username }}";
 </script>
 <script src="{% static 'js/comments.js' %}"></script>
-
+<script src="{% static 'js/like_dislike.js' %}"></script>
+<script src="{% static 'js/follow.js' %}"></script>
 
 {% include 'delete_object.html' %}
 

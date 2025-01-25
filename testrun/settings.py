@@ -34,10 +34,6 @@ MEDIA_DIRS = [
 for dir_path in MEDIA_DIRS:
     os.makedirs(dir_path, exist_ok=True)
 
-# Remove or comment out this line since we're not using it
-# COMPRESSED_VIDEOS_DIR = os.path.join(MEDIA_ROOT, 'compressed_videos')
-# os.makedirs(COMPRESSED_VIDEOS_DIR, exist_ok=True)
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
@@ -47,7 +43,7 @@ SECRET_KEY = "django-insecure-@9lv6_22a)6puq7=rft1fq*ggd)3_2(7@tdri)1-z4lipsklr*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*']  # During testing only
 
 
 # Application definition
@@ -140,6 +136,14 @@ USE_I18N = True
 
 USE_TZ = True
 
+#Email SMTP Settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'filmsnation99@gmail.com'
+EMAIL_HOST_PASSWORD = 'iipo pjsw mhjv aumx'
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
@@ -168,6 +172,7 @@ VIDEO_ENCODING = {
     }
 }
 
+#Logging Settings
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

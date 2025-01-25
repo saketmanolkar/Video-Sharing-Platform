@@ -1,13 +1,13 @@
 from django.shortcuts import get_object_or_404
-from django.conf import settings
 import os
 import logging
 from django.core.cache import cache
 import time
 from django.utils import timezone
 from datetime import timedelta
-from projects.services.view_analytics import ViewAnalyticsService
-
+from projects.services.analytics_service import AnalyticsService
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from users.services.follow_services import FollowService
 
 logger = logging.getLogger(__name__)
 
@@ -54,24 +54,48 @@ class VideoService:
             cache.set(cache_key, True, timeout=300)
     
     @staticmethod
+    def get_user_like_status(video, user):
+        """Get the like status for a specific user and video"""
+        if user.is_authenticated:
+            return video.likes.filter(user=user).first()
+        return None
+    
+    @staticmethod
     def get_video_context(video, get_recommendations_func):
         """Get common video context data"""
-        from projects.models import Video  # Import here to avoid circular import
+        from projects.models import Video
         
         cache_key = f'video_context_{video.id}'
         context = cache.get(cache_key)
+        
         if not context:
             recommended = get_recommendations_func(video)
             if not recommended.exists():
                 recommended = Video.objects.exclude(id=video.id).order_by('-created_at')[:5]
+            
+            # Add is_following status
+            is_following = False
+            if hasattr(video, 'request_user') and video.request_user.is_authenticated:
+                follow_service = FollowService()
+                is_following = follow_service.check_following_status(video.request_user, video.uploader)
             
             context = {
                 'video': video,
                 'reviews': video.reviews.all().order_by('-created_at'),
                 'tags': video.tags.all(),
                 'recommended_videos': recommended,
+                'likes_count': video.likes.filter(is_like=True).count(),
+                'dislikes_count': video.likes.filter(is_like=False).count(),
+                'user_like': VideoService.get_user_like_status(video, video.request_user),
+                'is_following': is_following
             }
-            cache.set(cache_key, context, timeout=3600)
+        else:
+            # Update user-specific data even if context is cached
+            if hasattr(video, 'request_user') and video.request_user.is_authenticated:
+                follow_service = FollowService()
+                context['is_following'] = follow_service.check_following_status(video.request_user, video.uploader)
+                context['user_like'] = VideoService.get_user_like_status(video, video.request_user)
+        
         return context
     
     @staticmethod
@@ -185,16 +209,22 @@ class VideoService:
     
     @staticmethod
     def get_creator_studio_analytics(videos):
-        """Get all analytics data for creator studio"""
+        analytics_service = AnalyticsService()
+        
+        # Filter for current user's videos only
+        user = videos.first().uploader if videos.exists() else None
+        user_videos = videos.filter(uploader=user)
+        
+        # Use AnalyticsService to get total views data
+        views_data = analytics_service.get_total_views_data(user_videos)
+        chart_labels = views_data['labels']
+        chart_data = views_data['data']
         
         video_analytics = {}
-        chart_labels = []
-        chart_data = []
         daily_views_data = {}
         hourly_views_data = {}
-        analytics_service = ViewAnalyticsService()
 
-        for video in videos:
+        for video in user_videos:
             if hasattr(video, 'analytics'):
                 video_id = str(video.id)
                 
@@ -205,13 +235,9 @@ class VideoService:
                     'total_views': video.analytics.total_views,
                     'total_likes': video.analytics.total_likes,
                     'total_dislikes': video.analytics.total_dislikes,
-                    'total_comments': video.reviews.count(),
+                    'total_comments': video.analytics.total_comments,
                     'created_at': video.analytics.created_at,
                 }
-                
-                # Total views chart data
-                chart_labels.append(video.analytics.title)
-                chart_data.append(video.analytics.total_views)
                 
                 # Daily views data
                 daily_views = analytics_service.get_views_over_time(video)
@@ -226,12 +252,18 @@ class VideoService:
                         'data': [view['count'] for view in hourly_views]
                     }
 
+        # Get likes and comments data for filtered videos
+        likes_data = analytics_service.get_likes_dislikes_data(user_videos)
+        comments_data = analytics_service.get_comments_data(user_videos)
+
         return {
             'video_analytics': video_analytics,
             'chart_labels': chart_labels,
             'chart_data': chart_data,
             'daily_views_data': daily_views_data,
-            'hourly_views_data': hourly_views_data
+            'hourly_views_data': hourly_views_data,
+            'likes_data': likes_data,
+            'comments_data': comments_data
         }
     
     @staticmethod
@@ -254,6 +286,86 @@ class VideoService:
             'labels': daily_labels,
             'data': daily_data
         }
+    
+    @staticmethod
+    def search_videos(search_query):
+        """Handle video search across multiple fields"""
+        from django.db.models import Q
+        from projects.models import Video  # Import here to avoid circular import
+        
+        if not search_query:
+            return Video.objects.all().order_by('-created_at')
+            
+        return Video.objects.filter(
+            Q(title__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(tags__name__icontains=search_query) |
+            Q(uploader__username__icontains=search_query)
+        ).distinct().order_by('-created_at')
+    
+    @staticmethod
+    def get_paginated_videos(videos, page, items_per_page=9):
+        """Handle video pagination and page range calculation"""
+        paginator = Paginator(videos, items_per_page)
+        
+        try:
+            paged_videos = paginator.page(page)
+            page_number = int(page)
+        except PageNotAnInteger:
+            paged_videos = paginator.page(1)
+            page_number = 1
+        except EmptyPage:
+            paged_videos = paginator.page(paginator.num_pages)
+            page_number = paginator.num_pages
+
+        # Calculate custom page range
+        left_index = (page_number - 4) if (page_number - 4) > 0 else 1
+        right_index = (page_number + 5) if (page_number + 5) < paginator.num_pages else paginator.num_pages
+        custom_range = range(left_index, right_index + 1)
+        
+        return paged_videos, custom_range
+    
+    @staticmethod
+    def handle_like_action(video, user, is_like):
+        """Handle like/dislike action"""
+        from projects.models import Like
+        
+        try:
+            # Clear any cached context for this video
+            cache.delete(f'video_context_{video.id}')
+            
+            like = Like.objects.filter(video=video, user=user).first()
+            
+            if like:
+                if like.is_like == is_like:
+                    like.delete()
+                    action = 'removed'
+                else:
+                    like.is_like = is_like
+                    like.save()
+                    action = 'switched'
+            else:
+                Like.objects.create(
+                    video=video,
+                    user=user,
+                    is_like=is_like
+                )
+                action = 'added'
+                
+            # Get fresh counts directly from database
+            likes_count = video.likes.filter(is_like=True).count()
+            dislikes_count = video.likes.filter(is_like=False).count()
+            
+            return {
+                'status': 'success',
+                'action': action,
+                'likes_count': likes_count,
+                'dislikes_count': dislikes_count
+            }
+            
+        except Exception as e:
+            logger.error(f"Error handling like: {str(e)}")
+            return {'status': 'error', 'message': str(e)}
 
 class UtilityService:
     @staticmethod

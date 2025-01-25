@@ -1,0 +1,68 @@
+{% extends 'main.html' %}
+{% load static %}
+
+{% block content %}
+<main class="checkered-background">
+  <section class="creator-studio-header">
+    <div class="container container--narrow">
+      <div class="creator-studio-header__content">
+        <h2>{{ profile.name }}'s <span>Videos</span></h2>
+        <p>All Videos & Playlists by {{ profile.username }}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Playlists Section -->
+  <section class="projectsList" style="margin-top: 2rem;">
+    <div class="container">
+      <div class="grid grid--three">
+          {% for playlist in playlists %}
+              <div class="column">
+                  {% include 'components/playlist_preview.html' with playlist=playlist %}
+              </div>
+          {% empty %}
+              <p>No playlists created yet.</p>
+          {% endfor %}
+      </div>
+    </div>
+  </section>
+  <div class="section-separator" ></div>
+
+  <section class="projectsList" style="margin-top: 0;">
+    <div class="container">
+      {% include 'components/video_grid.html' with videos=videos %}
+    </div>
+  </section>
+</main>
+<style>
+  .section-separator {
+      max-width: 1200px;
+      margin: -5rem auto 3rem;
+      height: 2px;  /* Thinner line */
+      background: linear-gradient(to right, 
+          transparent, 
+          var(--color-main), 
+          transparent
+      );  /* Gradient fade effect */
+      opacity: 0.8;  /* Subtle opacity */
+  }
+
+  /* Add these styles to remove blue highlight */
+  .column {
+      background: transparent;
+      outline: none;
+  }
+
+  .grid--three .column {
+      background: none;
+  }
+
+  .column:focus, 
+  .column:active {
+      outline: none;
+      background: none;
+  }
+</style>
+
+{% include 'delete_object.html' %}
+{% endblock %}

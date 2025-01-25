@@ -1,5 +1,46 @@
 {% load static %}
 
+<style>
+    .project__thumbnail-wrapper {
+        position: relative;
+        width: 100%;
+        height: 200px;
+        overflow: hidden;
+        background: #000;
+        display: block !important;
+    }
+
+    .project__thumbnail {
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        width: auto !important;
+        height: 100% !important;
+        object-fit: contain !important;
+        object-position: center !important;
+    }
+
+    .thumbnail-preview {
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        width: auto !important;
+        height: 100% !important;
+        object-fit: contain !important;
+        object-position: center !important;
+        z-index: 1;
+    }
+
+    /* Card styling */
+    .card.project {
+        background: var(--color-white);
+        border-radius: 0.3rem;
+        overflow: hidden;
+    }
+</style>
+
 <div class="grid grid--three">
     {% for video in videos %}
     <div class="column">

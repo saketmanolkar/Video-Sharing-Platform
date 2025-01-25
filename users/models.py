@@ -83,6 +83,11 @@ class Profile(models.Model):
         super().save(*args, **kwargs)
 
 class Follow(models.Model):
+    id = models.UUIDField(
+        default=uuid.uuid4,
+        primary_key=True,
+        editable=False
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='following_set')
     following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='followers_set')
     created = models.DateTimeField(auto_now_add=True)
@@ -97,3 +102,22 @@ class Follow(models.Model):
     def clean(self):
         if self.user == self.following:
             raise ValidationError("Users cannot follow themselves.")
+
+class Message(models.Model):
+    sender = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True)
+    recipient = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True,related_name='messages')
+    name = models.CharField(max_length=200,null=True,blank=True)
+    email = models.EmailField(null=True,blank=True)
+    subject = models.CharField(max_length=200,null=True,blank=True)
+    body = models.TextField()
+    is_read = models.BooleanField(default=False ,null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+
+    def __str__(self):
+        sender = self.sender.username if self.sender else self.name
+        recipient = self.recipient.username if self.recipient else "Unknown"
+        return f"From {sender} to {recipient} - {self.subject}"
+    
+    class Meta:
+        ordering = ['is_read','-created']

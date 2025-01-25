@@ -2,16 +2,10 @@
 {% load static %}
 
 {% block content %}
-<main class="profile-page-pattern">
-  <section class="hero-section hero-section--profile">
-    <div class="container container--narrow">
-      <div class="hero-section__box">
-        <div class="creator-studio-header__content">
-          <h2>{{ profile.user.first_name }}'s <span>User Profile</span></h2>
-        </div>
-      </div>
-    </div>
-  </section>
+{% csrf_token %}
+<!-- <main class="profile-page-pattern"> -->
+<main class="checkered-background">
+  <br>
 
   <section class="projectsList" style="margin-top: 0;">
     <div class="container">
@@ -21,13 +15,27 @@
           <div class="card project" style="text-align: center; border: none; background: var(--color-sub-lighter); height: 100%; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
             <div class="card__body dev" style="background: var(--color-sub-lighter); height: 100%;">
               <!-- Only show edit button if the profile belongs to the logged-in user -->
-              {% if request.user == profile.user %}
               <div class="edit-button-container">
-                <a class="edit-button" href="{% url 'update-profile' profile.id %}">
-                  Edit Profile
-                </a>
+                {% if request.user == profile.user %}
+                  <a class="edit-button" href="{% url 'update-profile' profile.id %}">
+                    Edit Profile
+                  </a>
+                {% elif request.user.is_authenticated %}
+                  <button 
+                    class="edit-button {% if is_following %}following{% endif %}" 
+                    data-profile-id="{{ profile.id }}"
+                    onclick="handleFollow(this)"
+                  >
+                    <span class="follow-text">
+                      {% if is_following %}
+                        Unfollow
+                      {% else %}
+                        Follow
+                      {% endif %}
+                    </span>
+                  </button>
+                {% endif %}
               </div>
-              {% endif %}
               <img 
                 class="avatar avatar--xl" 
                 style="width: 150px; height: 150px; border-radius: 50%; margin: 0 auto 0.5rem auto; border: 3px solid #80D0C7;"
@@ -36,16 +44,10 @@
               />
               <h3 class="dev__name" style="font-size: 2rem; margin-bottom: 0.2rem; color: #333;">{{ profile.name }}</h3>
               <p style="color: #666; font-size: 1.4rem; margin-bottom: 0.2rem;">(@{{ profile.username }})</p>
-              <p class="dev__location" style="color: #666; font-size: 1.3rem; margin-bottom: 0.2rem;">
-                {{ profile.user.email|default:"None" }}
-              </p>
-              <p class="dev__location" style="color: #666; font-size: 1.3rem; margin-bottom: 0.3rem;">
-                Based in {{ profile.location|default:"None" }}
-              </p>
               
-              <div class="stats" style="display: flex; justify-content: center; gap: 2rem; margin: 1rem 0;">
+              <div class="stats" style="display: flex; justify-content: center; gap: 2rem; margin: 1rem 0; margin-bottom: -2rem;">
                   <div class="stat-item" style="text-align: center;">
-                      <p style="font-size: 1.8rem; font-weight: 600; color: var(--color-sub);">
+                      <p class="followers-count" style="font-size: 1.8rem; font-weight: 600; color: var(--color-sub);">
                           {{ profile.followers_count }}
                       </p>
                       <p style="font-size: 1.3rem; color: #666;">Followers</p>
@@ -58,7 +60,85 @@
                   </div>
               </div>
 
-              <div class="social-links" style="margin: 0.3rem 0;">
+              <!-- Profile Action Buttons Container -->
+              {% if request.user.profile.id == profile.id %}
+                <div class="profile-actions">
+                  <!-- Creator Studio Button -->
+                  
+                  
+                  <!-- Button Separator -->
+                  <div class="profile-btn-separator"></div>
+
+                  <!-- Inbox Button -->
+                  <div class="profile-action-btn">
+                    <a href="{% url 'inbox' %}" class="profile-btn">
+                      <i class="fas fa-inbox"></i>
+                      {% if unread_messages_count > 0 %}
+                        <span>Inbox <span style="color: rgb(253, 143, 133);">({{ unread_messages_count }})</span></span>
+                      {% else %}
+                        <span>Inbox </span>
+                      {% endif %}
+                    </a>
+                  </div>
+
+                  <!-- Button Separator -->
+                  <div class="profile-btn-separator"></div>
+
+                  <!-- Inbox Button -->
+                  <div class="profile-action-btn">
+                    <a href="{% url 'creator-studio' profile.id %}" class="profile-btn">
+                      <i class="fas fa-video"></i>
+                      <span>Creator Studio</span>
+                    </a>
+                  </div>
+
+                  <!-- Button Separator -->
+                  <div class="profile-btn-separator"></div>
+
+                  <!-- Inbox Button -->
+                  <div class="profile-action-btn">
+                    <a href="{% url 'analytics' profile.id %}" class="profile-btn">
+                      <i class="fas fa-chart-line"></i>
+                      <span>Analytics Hub</span>
+                    </a>
+                  </div>
+
+                  <div class="profile-btn-separator"></div>
+                  
+                  <!-- Settings Button -->
+                  <div class="profile-action-btn">
+                    <a href="{% url 'fun-corner' %}" class="profile-btn">
+                      <i class="fas fa-gamepad"></i>
+                      <span>Fun Corner</span>
+                    </a>
+                  </div>
+
+                  <div class="profile-btn-separator"></div>
+                  
+                  <!-- Settings Button -->
+                  <div class="profile-action-btn">
+                    <a href="{% url 'settings' %}" class="profile-btn">
+                      <i class="fas fa-cog"></i>
+                      <span>Settings</span>
+                    </a>
+                  </div>
+                </div>
+
+              {% else %}
+
+                <!-- Message Button -->
+                <div class="profile-actions">
+                  <div class="profile-action-btn">
+                    <a href="{% url 'create-message' profile.id %}" class="profile-btn">
+                      <i class="fas fa-envelope"></i>
+                      <span>Send Message</span>
+                    </a>
+                  </div>
+                </div>
+              {% endif %}
+              
+
+              <div class="social-links" style="margin: 0.3rem 0; margin-top: 2rem;">
                 {% if profile.github %}
                 <a href="{{ profile.github }}" target="_blank" class="social-icon" style="padding: 0.2rem;">
                   <i class="fab fa-github"></i>
@@ -89,28 +169,6 @@
                 </a>
                 {% endif %}
               </div>
-
-              <!-- Profile Action Buttons Container -->
-              <div class="profile-actions">
-                <!-- Creator Studio Button -->
-                <div class="profile-action-btn">
-                  <a href="{% url 'creator-studio' profile.id %}" class="profile-btn">
-                    <i class="fas fa-video"></i>
-                    <span>Manage Your Videos</span>
-                  </a>
-                </div>
-                
-                <!-- Button Separator -->
-                <div class="profile-btn-separator"></div>
-                
-                <!-- Settings Button -->
-                <div class="profile-action-btn">
-                  <a href="#" class="profile-btn">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                  </a>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -119,11 +177,9 @@
         <div class="column" style="margin-left: 20%;">
           <div class="card project" style="min-height: 800px; background: white;">
             <div class="card__body" style="padding: 4rem;">
-              
-
-              <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 2rem;">About Me</h3>
+              <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 2rem;">{{ profile.user.first_name }}'s Profile Page</h3>
               <p class="project--rating" style="min-height: 100px; font-size: 1.3rem; line-height: 1.8; color: #444; margin-bottom: 4rem;">
-                {{ profile.bio|default:"Hi this is Saket Manolkar" }}
+                {{ profile.bio|default:"Type your bio here..." }}
               </p>
 
               <!-- Uploaded Videos Section -->
@@ -136,6 +192,33 @@
                 </span>
               </div>
               {% include 'components/video_preview.html' with videos=videos %}
+
+
+              <!-- Playlists Section -->
+              <div class="playlist-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
+                  <h3 class="project__title" style="font-size: 2.5rem; margin: 0;">Playlists</h3>
+                  <div class="playlist-actions" style="display: flex; gap: 0.5rem;">
+                    {% if request.user.profile.id == profile.id and request.user.is_authenticated %}
+                      <span class="tag tag--pill tag--sub tag--lg">
+                          <a href="{% url 'create-playlist' profile.id %}" style="text-decoration: none; color: inherit;">
+                              +
+                          </a>
+                      </span>
+                    {% endif %}
+                      <span class="tag tag--pill tag--sub tag--lg">
+                          <a href="{% url 'user-videos' profile.id %}" style="text-decoration: none; color: inherit;">
+                              See All Playlists ({{ profile.user.playlists.count }})
+                          </a>
+                      </span>
+                  </div>
+              </div>
+              <div class="playlists-grid">
+                {% for playlist in playlists %}
+                    {% include 'components/playlist_preview.html' with playlist=playlist %}
+                {% empty %}
+                  <p>No playlists created yet.</p>
+                {% endfor %}
+              </div>
 
               <!-- Viewing History Section -->
               {% if user.is_authenticated and user.id == profile.user.id %}
@@ -156,4 +239,18 @@
     </div>
   </section>
 </main>
+
+<script src="{% static 'js/profile_follow.js' %}"></script>
+
+<style>
+    .playlists-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 2rem;
+        padding: 1rem;
+    }
+</style>
+
+{% include 'delete_object.html' %}
+
 {% endblock %}

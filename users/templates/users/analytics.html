@@ -1,0 +1,147 @@
+{% extends 'main.html' %}
+{% load static %}
+
+{% block content %}
+<main class="checkered-background" style="min-height: 100vh; margin: 0; padding: 3rem 0;">
+  <section class="projectsList" style="margin: 0;">
+        <div class="container">
+            <!-- Header -->
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h2 style="font-size: 4.5rem; font-weight: 600; color: #2D2D2D; margin-bottom: -1rem; margin-top: 2rem;">ANALYTICS HUB</h2>
+                <p style="font-size: 1.57rem; color: #666; margin-bottom: 4rem;">Explore your analytics data - insights, trends, and more</p>
+            </div>
+        
+            <!-- Views Analytics Card -->
+            <div class="analytics-card chart-card">
+                <div class="analytics-header">
+                    <h3>Views Based Analytics</h3>
+                    <span class="analytics-count">Total Videos: {{ video_analytics|length }}</span>
+                </div>
+                
+                <div class="chart-navigation">
+                    <button class="chart-nav-btn active" data-chart="total">Total Views</button>
+                    <button class="chart-nav-btn" data-chart="daily">Daily Views</button>
+                    <button class="chart-nav-btn" data-chart="hourly">Hourly Distribution</button>
+                    <div class="chart-selector" style="display: none;">
+                        <select id="videoSelector" class="video-select">
+                        {% for video_id, analytics in video_analytics.items %}
+                            <option value="{{ video_id }}">{{ analytics.title }}</option>
+                        {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="chart-display">
+                    <div class="analytics-chart-wrapper">
+                        <canvas id="analyticsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Engagement Analytics Card -->
+            <div class="analytics-card chart-card" style="margin-top: 2rem;">
+                <div class="analytics-header">
+                    <h3>Engagement Based Analytics</h3>
+                
+                </div>
+                
+                <!-- Engagement Navigation Buttons -->
+                <div class="chart-navigation">
+                    <button class="engagement-nav-btn active" data-type="likes">Likes & Dislikes per Video</button>
+                    <button class="engagement-nav-btn" data-type="comments">Comments per Video</button>
+                </div>
+
+                <!-- Single Chart Container for both likes and comments -->
+                <div class="chart-display">
+                    <div class="analytics-chart-wrapper">
+                        <canvas id="likesChart"></canvas>
+                        <canvas id="commentsChart" style="display: none;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'js/analytics-charts.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartData = {
+        total: {
+            labels: JSON.parse('{{ chart_labels|safe }}'),
+            data: JSON.parse('{{ chart_data|safe }}')
+        },
+        daily: JSON.parse('{{ daily_views_data|safe }}'),
+        hourly: JSON.parse('{{ hourly_views_data|safe }}'),
+        likes_data: JSON.parse('{{ likes_data|safe }}'),
+        comments_data: JSON.parse('{{ comments_data|safe }}')
+    };
+    
+    initializeCharts(chartData);
+
+    // Add engagement button handlers
+    document.querySelectorAll('.engagement-nav-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            // Update active button
+            document.querySelectorAll('.engagement-nav-btn').forEach(btn => 
+                btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            // Toggle charts
+            const likesCanvas = document.getElementById('likesChart');
+            const commentsCanvas = document.getElementById('commentsChart');
+            
+            if (button.dataset.type === 'likes') {
+                likesCanvas.style.display = 'block';
+                commentsCanvas.style.display = 'none';
+            } else {
+                likesCanvas.style.display = 'none';
+                commentsCanvas.style.display = 'block';
+            }
+        });
+    });
+});
+</script>
+
+<style>
+    .engagement-nav-btn {
+        background-color: #f1f3f4;
+        color: #5f6368;
+        border: none;
+        padding: 12px 24px;
+        height: 40px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin: 0 6px;
+        box-shadow: none;
+        display: flex;
+        align-items: center;
+    }
+
+    .engagement-nav-btn.active {
+        background-color: #4285f4;
+        color: white;
+        box-shadow: 0 1px 2px rgba(66, 133, 244, 0.3);
+    }
+
+    .engagement-nav-btn:not(.active) {
+        background-color: #f1f3f4;
+    }
+
+    .engagement-nav-btn:hover:not(.active) {
+        background-color: #e8eaed;
+    }
+
+    .chart-navigation {
+        margin: 16px 0;
+        padding: 8px 0;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+    }
+</style>
+{% endblock %}

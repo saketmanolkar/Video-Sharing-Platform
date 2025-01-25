@@ -4,6 +4,9 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.templatetags.static import static
 import json
 from projects.services.video_services import VideoService
+from users.services.follow_services import FollowService
+from users.models import Profile
+from projects.services.analytics_service import AnalyticsService
 
 class ProfileService:
     def get_profile(self, profile_id, profile_model):
@@ -13,7 +16,8 @@ class ProfileService:
         profile = get_object_or_404(profile_model, id=profile_id)
         return {
             'profile': profile,
-            'videos': profile.user.uploaded_videos.all().order_by('-created_at')
+            'videos': profile.user.uploaded_videos.all().order_by('-created_at'),
+            'playlists': profile.user.playlists.all().order_by('-created_at')
         }
     
     def get_user_history(self, profile_id, profile_model):
@@ -84,21 +88,45 @@ class ProfileService:
         # Add default thumbnail URL to the context
         default_thumbnail = static('images/default.jpg')
         
+        # Get followers and following profiles
+        followers = Profile.objects.filter(user__in=profile.user.followers_set.values('user'))
+        following = Profile.objects.filter(user__in=profile.user.following_set.values('following'))
+        
+        # Get videos with their privacy status
+        videos_with_privacy = videos.values('id', 'title', 'views', 'created_at', 'privacy_status', 'thumbnail')
+        
+        # Merge privacy status into analytics data
+        for video in videos_with_privacy:
+            video_id = str(video['id'])
+            if video_id in analytics_data['video_analytics']:
+                analytics_data['video_analytics'][video_id]['privacy_status'] = video['privacy_status']
+        
         return {
             'profile': profile,
             'default_thumbnail': default_thumbnail,
             'video_analytics': analytics_data['video_analytics'],
-            'chart_labels': json.dumps(analytics_data['chart_labels']),
-            'chart_data': json.dumps(analytics_data['chart_data']),
-            'daily_views_data': json.dumps(analytics_data['daily_views_data']),
-            'hourly_views_data': json.dumps(analytics_data['hourly_views_data']),
+            'followers': followers,
+            'following': following,
         }
 
-    def get_profile_data(self, profile_id, profile_model):
-        """Get complete profile data including videos and history"""
+    def get_profile_data(self, profile_id, profile_model, current_user=None):
+        """Get complete profile data including videos, history, and follow status"""
         profile = self.get_profile(profile_id, profile_model)
-        videos = profile.user.uploaded_videos.all()[:2]
-        view_history = profile.user.view_history.all()[:2]
+        follow_service = FollowService()
+        
+        # Get existing data with limits
+        videos = profile.user.uploaded_videos.all()[:2]  # Already limited to 2
+        view_history = profile.user.view_history.all()[:2]  # Already limited to 2
+        playlists = profile.user.playlists.all()[:2]  # Add this line to limit playlists to 2
+        print(f"DEBUG - Playlists found: {playlists.count()}")
+        for playlist in playlists:
+            print(f"Playlist: {playlist.name}")
+        
+        # Add follow-related data
+        follow_stats = follow_service.get_follower_stats(profile)
+        is_following = False
+        if current_user and current_user.is_authenticated:
+            is_following = follow_service.check_following_status(current_user, profile.user)
         
         # Add engagement metrics
         for video in videos:
@@ -112,5 +140,26 @@ class ProfileService:
         return {
             'profile': profile,
             'videos': videos,
-            'view_history': view_history
+            'view_history': view_history,
+            'playlists': playlists,  # Add this to context
+            'followers_count': follow_stats['followers_count'],
+            'following_count': follow_stats['following_count'],
+            'is_following': is_following
+        }
+
+    def get_analytics_data(self, profile_id, profile_model):
+        profile = self.get_profile(profile_id, profile_model)
+        # Filter videos to only get the current user's videos
+        videos = profile.user.uploaded_videos.filter(uploader=profile.user)
+        analytics_data = VideoService.get_creator_studio_analytics(videos)
+        
+        return {
+            'profile': profile,
+            'video_analytics': analytics_data['video_analytics'],
+            'chart_labels': json.dumps(analytics_data['chart_labels']),
+            'chart_data': json.dumps(analytics_data['chart_data']),
+            'daily_views_data': json.dumps(analytics_data['daily_views_data']),
+            'hourly_views_data': json.dumps(analytics_data['hourly_views_data']),
+            'likes_data': json.dumps(analytics_data['likes_data']),
+            'comments_data': json.dumps(analytics_data['comments_data'])
         }
