@@ -5,6 +5,10 @@ from .services.cache_service import SessionActivityCache, VideoStatsCache
 from datetime import timedelta
 import logging
 from django.utils import timezone
+import os
+from django.conf import settings
+from .services.user_services import SpeechService
+from .models import Report
 
 logger = logging.getLogger(__name__)
 
@@ -201,3 +205,42 @@ def process_video_stats(user_id):
     # Invalidate the cached stats
     video_stats_cache.invalidate(user_cache_key)
     print(f"🗑️ Invalidated cached video stats for user ID: {user_id}")
+
+@shared_task
+def generate_speech_task(username, report_type):
+    try:
+        # Get report first
+        report = Report.objects.get(user__username=username)
+        
+        # Initialize speech service
+        reports_dir = os.path.join(settings.MEDIA_ROOT, 'reports')
+        speech_service = SpeechService(reports_dir=reports_dir)
+        
+        # Generate the audio file
+        audio_file_name = speech_service.generate_speech(username, report_type)
+        
+        if audio_file_name:
+            # Construct the audio file URL
+            audio_file_url = f"/media/reports/{audio_file_name}"
+            now = timezone.now()
+
+            # Simple direct updates with timestamps
+            if report_type == "user":
+                report.user_report_audio_file_url = audio_file_url
+                report.user_report_audio_generated_at = now
+            else:
+                report.video_report_audio_file_url = audio_file_url
+                report.video_report_audio_generated_at = now
+            
+            report.audio_is_generated = True
+            report.save()
+            
+            print(f"Updated report for {username} - {report_type}")
+            print(f"Audio URL: {audio_file_url}")
+            print(f"Generated at: {now}")
+            
+            return audio_file_name
+            
+    except Exception as e:
+        print(f"Error in speech generation task: {str(e)}")
+        return None

@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404,redirect
 from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
 from django.contrib.auth.models import User
-from users.models import Profile, Message
+from users.models import Profile, Message, Report
 from .services.user_services import ProfileService
 from .services.follow_services import FollowService
 from django.contrib import messages
@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_protect
 from .forms import CustomUserCreationForm
 from django.contrib.auth.decorators import login_required
 from .forms import ProfileForm, MessageForm
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, FileResponse
 from django.core.exceptions import ValidationError
 from django.contrib.auth.forms import PasswordChangeForm
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -19,7 +19,6 @@ from .services.cache_service import ProfileCache
 from django.core.cache import cache
 from projects.services.cache_service import VideoContextCache,FormSubmissionCache
 import hashlib
-from django.core.paginator import Paginator
 from projects.services.video_services import VideoService
 from django.utils import timezone
 from .models import UserSession
@@ -35,6 +34,10 @@ from pprint import pprint
 from projects.models import ViewHistory
 from .services.cache_service import VideoStatsCache
 import requests
+from django.conf import settings as django_settings
+import os
+from django.views.decorators.cache import cache_control
+from django.urls import reverse
 
 logger = logging.getLogger(__name__)
 
@@ -482,3 +485,82 @@ def clear_temp_tokens(request):
         del request.session['temp_access_token']
         del request.session['temp_refresh_token']
     return JsonResponse({'status': 'success'})
+
+@cache_control(max_age=3600, public=True)
+def report(request, pk):
+    profile = get_object_or_404(Profile, id=pk)
+    report_type = request.GET.get('report_type')
+
+    # Initialize variables
+    report_url = None
+    file_content = None
+    audio_url = None
+    audio_generated_at = None
+
+    # Check the report type and fetch the corresponding report URL and audio URL
+    if report_type == 'user':
+        report = get_object_or_404(Report, user=profile.user)
+        created_at = report.user_report_generated_at
+        report_url = report.user_report_url
+        audio_url = report.user_report_audio_file_url
+        audio_generated_at = report.user_report_audio_generated_at
+        audio_is_generated = report.audio_is_generated
+
+    elif report_type == 'video':
+        report = get_object_or_404(Report, user=profile.user)
+        print(f"DEBUG: Raw audio URL from DB: {report.video_report_audio_file_url}")
+        print(f"DEBUG: Audio generated at: {report.video_report_audio_generated_at}")
+        created_at = report.video_report_generated_at
+        report_url = report.video_report_url
+        audio_url = report.video_report_audio_file_url
+        audio_generated_at = report.video_report_audio_generated_at
+        audio_is_generated = report.audio_is_generated
+    else:
+        messages.error(request, "Invalid report type")
+
+    # Modify the report URL to be web-accessible
+    if report_url and not report_url.startswith('http'):
+        report_url = f"{django_settings.MEDIA_URL}reports/{report_url.split('/')[-1]}"
+        
+        # Read the file content
+        file_path = os.path.join(django_settings.MEDIA_ROOT, 'reports', report_url.split('/')[-1])
+        try:
+            with open(file_path, 'r') as file:
+                file_content = file.read()
+        except Exception as e:
+            print(f"Error reading file: {e}")
+            file_content = "Error reading file content"
+
+    # Handle audio URL with cache busting
+    if audio_url and not audio_url.startswith('http'):
+        # Clean up the cache buster to be a single integer
+        cache_buster = int(audio_generated_at.timestamp()) if audio_generated_at else ''
+        clean_filename = audio_url.split('/')[-1]
+        # Use the serve_audio URL pattern instead of direct media URL
+        audio_url = reverse('serve_audio', kwargs={
+            'profile_id': pk,
+            'report_type': report_type
+        }) + f'?v={cache_buster}'
+        print(f"🎵 Clean audio URL: {audio_url}")
+
+    context = {
+        'profile': profile,
+        'report_type': report_type,
+        'report_file_url': report_url,
+        'file_content': file_content,
+        'created_at': created_at,
+        'audio_url': audio_url,
+        'audio_generated_at': audio_generated_at,
+        'audio_is_generated': audio_is_generated,
+        'has_audio': bool(audio_url)
+    }
+
+    response = render(request, 'users/report.html', context)
+    
+    # Add strong caching headers for audio files
+    if audio_url:
+        response['Cache-Control'] = 'public, max-age=31536000, immutable'  # Cache for 1 year
+        response['Expires'] = 'Thu, 31 Dec 2037 23:55:55 GMT'
+        print("📦 Added strong caching headers for audio")
+
+    return response

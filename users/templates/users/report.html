@@ -1,0 +1,210 @@
+<!-- users/templates/users/report.html -->
+
+{% load static %}
+
+<!-- Add Font Awesome CDN in the head -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- Add in head -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<main class="report-container" style="padding: 1rem; background-color: #f9f9f9;">
+    <div style="max-width: 800px; margin: 0 auto;">
+        <!-- Title and Download/Play Icons container -->
+        <div style="position: relative; margin-bottom: 0.5rem;">
+            <!-- Audio player on extreme left -->
+            {% if has_audio %}
+                <div class="audio-wrapper" style="position: absolute; left: 0; margin-top: 2rem; transform: translateY(-50%);">
+                    <audio controls preload="auto" controlsList="nodownload">
+                        <source src="{{ audio_url }}?v={{ report.created_at|date:'U' }}" type="audio/wav">
+                    </audio>
+                </div>
+            {% else %}
+                <div style="position: absolute; left: 0; margin-top: 3rem; transform: translateY(-50%);">
+                    <button class="generate-tts-btn" 
+                            onclick="generateSpeech('{{ user.username }}', '{{ report_type }}')"
+                            data-report-type="{{ report_type }}"
+                            data-audio-url="{% if report_type == 'user' %}{{ report.user_report_audio_file_url|default:'' }}{% else %}{{ report.video_report_audio_file_url|default:'' }}{% endif %}"
+                            data-is-completed="{{ report.audio_is_generated|yesno:'true,false' }}">
+                        <i class="fas fa-volume-up" style="margin-right: 5px;"></i>
+                        Generate<br>Text-to-Speech
+                    </button>
+                </div>
+            {% endif %}
+            
+            <!-- Centered title -->
+            <div style="text-align: center;">
+                <h1 style="color: #666; font-size: 2.5rem; font-weight: 400; margin: 0 0 0.3rem 0;">
+                    {{ report_type|title }} Data Analysis Report
+                </h1>
+                <p style="color: #888; font-size: 1.2rem; margin: 0;">
+                    Powered by Google Gemini <i class="fas fa-robot" style="margin: 0 4px;"></i> | Generated on {{ created_at }}
+                </p>
+            </div>
+            
+            <!-- Download button on right -->
+            <div style="position: absolute; right: 0; margin-top: -4rem; margin-right: 1rem; transform: translateY(-50%);">
+                {% if report_file_url %}
+                    <a href="{{ report_file_url }}" download class="icon-button">
+                        <i class="fas fa-download" style="font-size: 1.5rem; color: #4285f4;"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="report-details" style="margin-top: 1.5rem;">
+            {% if report_file_url %}
+                <div class="report-content" style="text-align: left; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div id="markdown-content">{{ file_content }}</div>
+                </div>
+            {% else %}
+                <p style="color: #777;">No report available for this type.</p>
+            {% endif %}
+        </div>
+    </div>
+</main>
+
+<!-- Add this temporarily for debugging -->
+<div style="display: none">
+    Debug Info:
+    has_audio: {{ has_audio }}
+    audio_url: {{ audio_url }}
+</div>
+
+<style>
+.report-container h1 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.icon-button:hover {
+    transform: scale(1.1);
+}
+
+/* Updated audio player styling */
+.audio-wrapper {
+    display: flex;
+    align-items: center;
+    background: transparent;
+    border-radius: 4px;
+    padding: 2px;
+    box-shadow: none;
+}
+
+audio {
+    width: 180px;
+    height: 28px;
+}
+
+audio::-webkit-media-controls-panel {
+    background-color: #f9f9f9 !important;  /* Match main container background */
+    padding: 0 0;
+}
+
+audio::-webkit-media-controls-enclosure {
+    background-color: #f9f9f9 !important;
+}
+
+audio::-webkit-media-controls-timeline {
+    width: 80px;
+    margin: 0 5px;
+}
+
+audio::-webkit-media-controls-current-time-display,
+audio::-webkit-media-controls-time-remaining-display {
+    font-size: 11px;
+    color: #666;
+}
+
+audio::-webkit-media-controls-play-button {
+    margin: 0 0;
+}
+
+.generate-tts-btn {
+    background-color: #f0f0f0;  /* Light gray background */
+    color: #666;  /* Darker gray text - matches your title color */
+    border: 1px solid #ddd;  /* Subtle border */
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10.5px;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.generate-tts-btn:hover {
+    background-color: #e5e5e5;  /* Slightly darker on hover */
+    color: #444;  /* Darker text on hover */
+}
+
+.generate-tts-btn i {
+    margin-right: 5px;
+    color: #888;  /* Subtle icon color */
+}
+
+/* Add this to existing styles */
+.generate-tts-btn.generated-state {
+    background-color: #e8f5e9 !important;  /* Light green background */
+    color: #2e7d32 !important;  /* Darker green text */
+    border-color: #a5d6a7 !important;  /* Light green border */
+    opacity: 1 !important;  /* Keep it visible */
+}
+
+.generate-tts-btn.generated-state:disabled {
+    cursor: default !important;
+}
+
+.report-content {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.8;
+    color: #2d3748;
+    font-size: 1.1rem;
+    padding: 3rem;
+}
+
+.report-content h2 {
+    font-size: 1.8rem;
+    color: #1a202c;
+    margin: 2.5rem 0 1.5rem 0;
+    font-weight: 600;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.5rem;
+}
+
+.report-content h3 {
+    font-size: 1.4rem;
+    color: #2d3748;
+    margin: 2rem 0 1rem 0;
+    font-weight: 600;
+}
+
+.report-content p {
+    margin: 1.5rem 0;
+    line-height: 1.8;
+}
+
+/* Add spacing between sections */
+.report-content > * + * {
+    margin-top: 1.5rem;
+}
+</style>
+
+<script>
+function displayReport(content) {
+    const reportDiv = document.querySelector('.report-content');
+    reportDiv.innerHTML = marked.parse(content);
+}
+</script>

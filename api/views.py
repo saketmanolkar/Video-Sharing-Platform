@@ -1,4 +1,4 @@
-from django.http import JsonResponse, StreamingHttpResponse
+from django.http import JsonResponse, StreamingHttpResponse, HttpResponse, FileResponse
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, renderer_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
@@ -22,15 +22,23 @@ from django.views.decorators.http import require_GET
 from django.contrib.auth import authenticate
 import logging
 from users.services.follow_services import FollowService
-from users.models import Profile
+from users.models import Profile , Report
 import os
 import re
 from django.conf import settings
 from users.services.cache_service import SessionActivityCache
 from django.views.decorators.http import require_http_methods
 from datetime import timedelta
-
+from django.shortcuts import render
+from users.services.user_services import UserReportService, SpeechService
+from users.services.user_analytics_service import UserAnalyticsService
+from projects.services.analytics_service import VideoReportService
+from django.utils import timezone
 logger = logging.getLogger(__name__)
+from django.contrib import messages
+from django.views.decorators.cache import cache_control
+from celery import Celery
+from users.tasks import generate_speech_task
 
 class EventStreamRenderer(BaseRenderer):
     media_type = 'text/event-stream'
@@ -467,3 +475,174 @@ def update_video_stats(request):
     except Exception as e:
         print(f"❌ Error processing request: {str(e)}")  # Log the error for debugging
         return JsonResponse({'error': str(e)}, status=400)
+
+@csrf_exempt
+def generate_report(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            username = data.get("username")
+            report_type = data.get("type", "user")
+
+            # Get user
+            user = User.objects.get(username=username)
+            
+            # Check report type
+            if report_type == "video":
+                videos = Video.objects.filter(uploader=user)
+                prompt = VideoReportService.format_video_data_for_prompt(user, videos)
+                
+                if not prompt:
+                    return JsonResponse({"error": "Could not generate video data prompt"}, status=400)
+            else:
+                analytics_service = UserAnalyticsService()
+                prompt = analytics_service.format_user_data_for_prompt(user)
+                
+                if not prompt:
+                    return JsonResponse({"error": "Could not generate user data prompt"}, status=400)
+            
+            # Generate AI report
+            api_key = "AIzaSyBOB5FpLu0hsHrfZuML-6VfrKVck1W8xP4"
+            report_service = UserReportService(api_key)
+            report_content = report_service.generate_report_content(
+                prompt=prompt,
+                report_type=report_type,
+                username=username
+            )
+            
+            # Return success message along with report content
+            timestamp = int(timezone.now().timestamp())
+            
+            report_url = f"{report_content}?v={timestamp}"
+            
+            return JsonResponse({
+                'success': True,
+                'report_url': report_url,
+                'message': f"New {report_type.title()} Data Report generated for {username}.\n",
+                'is_new_report': True
+            })
+            
+        except User.DoesNotExist:
+            return JsonResponse({"error": "User not found"}, status=404)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e),
+                'message': 'Failed to generate report'
+            }, status=400)
+            
+    return JsonResponse({"error": "Invalid request method"}, status=400)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_speech(request):
+    try:
+        # Handle both JSON and FormData
+        if request.content_type == 'application/json':
+            data = json.loads(request.body)
+            username = data.get('username')
+            report_type = data.get('report_type')
+        else:
+            username = request.POST.get('username')
+            report_type = request.POST.get('report_type')
+            
+        # Validate input parameters
+        if not username or not report_type:
+            return JsonResponse({"error": "Username and report type are required."}, status=400)
+
+        print(f"Username: {username}, Report Type: {report_type}")
+
+        # Get the report for the user
+        try:
+            report = Report.objects.get(user__username=username)
+            print(f"Report found: {report}")
+
+            # Set audio_is_generated to False before starting
+            report.audio_is_generated = False
+            report.save()
+
+            # Queue just the speech generation
+            generate_speech_task.delay(username, report_type)
+
+            # Return immediately
+            return JsonResponse({
+                "status": "processing",
+                "message": "Speech generation started"
+            })
+
+        except Report.DoesNotExist:
+            return JsonResponse({"error": "Report not found"}, status=404)
+        except Exception as e:
+            print(f"Error: {str(e)}")
+            return JsonResponse({"error": "Failed to update report."}, status=500)
+
+    except Exception as e:
+        print(f"Error in generate_speech: {str(e)}")
+        return JsonResponse({"error": "Failed to generate speech."}, status=500)
+
+@cache_control(max_age=31536000, public=True, immutable=True)
+def serve_audio(request, profile_id, report_type):
+    from django.utils.http import http_date
+    """API endpoint to serve audio files with proper caching"""
+    
+    profile = get_object_or_404(Profile, id=profile_id)
+    filename = f"{profile.user.username}_{report_type}_audio.wav"
+    file_path = os.path.join(settings.MEDIA_ROOT, 'reports', filename)
+    
+    print(f"🎵 Serving audio: {filename}")
+    
+    if not os.path.exists(file_path):
+        return HttpResponse(f"Audio file not found: {filename}", status=404)
+        
+    try:
+        # Get file modification time for ETag
+        stat = os.stat(file_path)
+        etag = f'"{stat.st_mtime}"'
+        
+        # Check if client has valid cached version
+        if_none_match = request.META.get('HTTP_IF_NONE_MATCH')
+        if if_none_match and if_none_match == etag:
+            return HttpResponse(status=304)  # Not Modified
+            
+        response = FileResponse(open(file_path, 'rb'))
+        response['Content-Type'] = 'audio/wav'
+        response['Accept-Ranges'] = 'bytes'
+        response['Cache-Control'] = 'public, max-age=31536000, immutable'
+        response['ETag'] = etag
+        response['Last-Modified'] = http_date(stat.st_mtime)
+        
+        # Add CORS headers if needed
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Max-Age'] = '86400'
+        
+        return response
+    except Exception as e:
+        print(f"❌ Error serving audio: {str(e)}")
+        return HttpResponse("Error serving audio file", status=500)
+
+@require_http_methods(["GET"])
+def check_tts_status(request, username):
+    try:
+        report = Report.objects.get(user__username=username)
+        return JsonResponse({
+            "user_report": {
+                "is_completed": report.audio_is_generated,
+                "audio_url": report.user_report_audio_file_url
+            },
+            "video_report": {
+                "is_completed": report.audio_is_generated,
+                "audio_url": report.video_report_audio_file_url
+            }
+        })
+    except Report.DoesNotExist:
+        return JsonResponse({
+            "user_report": {
+                "is_completed": False,
+                "audio_url": None
+            },
+            "video_report": {
+                "is_completed": False,
+                "audio_url": None
+            }
+        })

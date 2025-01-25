@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views # Adjust the import based on your structure
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -38,4 +38,17 @@ urlpatterns = [
 
     # Video Stats
     path('video-stats/', views.update_video_stats, name='api-video-stats'),
+
+    # Generate Report
+    path('generate-report/', views.generate_report, name='generate_report'),
+
+    # Generate Speech
+    path('generate-speech/', views.generate_speech, name='generate_speech'),
+
+    # Serve Audio
+    path('audio/<str:profile_id>/<str:report_type>/', views.serve_audio, name='serve_audio'),
+
+    # Check TTS Status
+    path('check-tts-status/<str:username>/', views.check_tts_status, name='check_tts_status'),
+
 ]

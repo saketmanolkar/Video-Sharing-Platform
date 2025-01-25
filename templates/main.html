@@ -22,6 +22,9 @@
   <link rel="stylesheet" href="{% static 'uikit/app.css' %}">
   <link rel="stylesheet" href="{% static 'styles/app.css' %}" />
 
+  <!-- Markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
   <title>FilmsNation - Movies</title>
 </head>
 
@@ -84,9 +87,14 @@
     </script>
     {% endif %}
 
-    <!-- Add this near the end of your body tag, before other scripts -->
+    <!-- Add this script to set the username as a global variable -->
     <script>
-        // Check for logout cookie and clear tokens
+        // Set the username as a global variable
+        window.username = "{{ request.user.username }}"; // This should be the actual username
+    </script>
+
+    <!-- Check for logout cookie and clear tokens -->
+    <script>
         if (document.cookie.includes('logout=true')) {
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
@@ -94,5 +102,7 @@
             document.cookie = 'logout=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
         }
     </script>
+      
+    <script src="{% static 'js/tts-util.js' %}"></script>
 </body>
 </html>

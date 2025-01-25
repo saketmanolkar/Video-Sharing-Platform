@@ -4,6 +4,7 @@ from datetime import timedelta, datetime
 from users.models import UserSession
 import pytz
 from django.contrib.auth import get_user_model
+from users.services.follower_analytics_service import FollowerAnalyticsService
 
 User = get_user_model()
 
@@ -146,3 +147,82 @@ class UserAnalyticsService:
             return round(sum(active_totals) / len(active_totals), 1)
         
         return 0
+
+    @staticmethod
+    def format_user_data_for_prompt(user):
+        """Formats all user data into a prompt for AI analysis"""
+        try:
+            # Get user's activity summary
+            activity_summary = user.activity_summary
+            
+            # Get last 30 days of sessions for heatmap
+            sessions = UserSession.objects.filter(
+                user=user,
+                start_time__gte=timezone.now() - timedelta(days=30)
+            )
+            
+            # Get heatmap data
+            analytics_service = UserAnalyticsService()
+            heatmap_data = analytics_service._get_heatmap_data(sessions)
+            
+            # Get platform average
+            platform_avg = analytics_service.get_platform_average_total_time()
+            
+            # Get follower analytics
+            follower_service = FollowerAnalyticsService()
+            follower_analytics = follower_service.get_follower_analytics(user)
+            
+            # Extract follower metrics
+            follower_metrics = {
+                'following_count': follower_analytics['following_count'],
+                'new_followers_30d': follower_analytics['new_followers_30d'],
+                'total_followers': follower_analytics['total_followers']
+            }
+            
+            # Format the prompt
+            prompt = f"""Here is the complete user activity data for analysis:
+
+HEATMAP DATA of the last 30 days (Minutes spent per hour):
+"""
+            # Add heatmap data by day
+            for day, hours in heatmap_data.items():
+                prompt += f"\n{day}:\n"
+                for hour, duration in hours.items():
+                    prompt += f"{hour}: {duration} minutes\n"
+            
+            # Add summary stats from UserActivitySummary
+            prompt += f"""
+OVERALL STATISTICS:
+Total Time Spent: {activity_summary.total_time_spent} minutes
+Average Session Duration: {activity_summary.avg_session_length} minutes
+Number of Sessions: {activity_summary.total_sessions}
+Count of Visits to {user.username}'s profile by other users: {activity_summary.total_profile_visits}
+Last Active: {activity_summary.last_session_date.strftime('%Y-%m-%d %H:%M')}
+Platform Average Time: {platform_avg} minutes
+Following Count: {follower_metrics['following_count']}
+New Followers in the Last 30 Days: {follower_metrics['new_followers_30d']}
+Total Followers: {follower_metrics['total_followers']}
+
+In the report, give insights about the following metrics:
+
+- Overall usage patterns
+- Profile engagement
+- Follower Count , Total Followers, New Followers in the Last 30 Days
+- Visits to {user.username}'s profile by other users
+- Peak usage times
+- Session duration patterns ,Total Time Spent, Average Session Duration, Number of Sessions
+- Unusual activity periods
+- Daily and weekly patterns
+
+Make sure to give insights in this order only, no exceptions.
+
+Unusual activity periods, Daily and weekly patterns, Overall usage patterns should be half the report, 
+and the rest of the report should be the other metrics.
+
+"""
+            
+            return prompt
+            
+        except Exception as e:
+            print(f"Error formatting user data: {str(e)}")
+            return None

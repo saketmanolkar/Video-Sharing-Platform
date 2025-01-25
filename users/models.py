@@ -177,3 +177,20 @@ class UserActivitySummary(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s Activity Summary"
+
+class Report(models.Model):
+
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)  # One-to-one relationship with User
+    user_report_url = models.URLField(null=True, blank=True)  # URL for user report
+    video_report_url = models.URLField(null=True, blank=True)  # URL for video report
+    user_report_audio_file_url = models.URLField(null=True, blank=True)  # URL for generated audio file
+    video_report_audio_file_url = models.URLField(null=True, blank=True)  # URL for generated audio file
+    user_report_generated_at = models.DateTimeField(null=True, blank=True)  # Date for user report generation
+    video_report_generated_at = models.DateTimeField(null=True, blank=True)  # Date for video report generation
+    user_report_audio_generated_at = models.DateTimeField(null=True, blank=True)  # Date for audio generation
+    video_report_audio_generated_at = models.DateTimeField(null=True, blank=True)  # Date for audio generation
+    audio_is_generated = models.BooleanField(default=False)  # Checkbox for audio generation status
+
+    def __str__(self):
+        return f"Report for {self.user.username}"

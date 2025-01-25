@@ -63,3 +63,12 @@ class VideoStatisticsService:
 
         return completion_rates
 
+    @staticmethod
+    def get_completion_rate_for_video(video):
+        """Calculate the completion rate for a specific video."""
+        total_views = ViewHistory.objects.filter(video=video).count()
+        completed_views = ViewHistory.objects.filter(video=video, completed=True).count()
+        
+        completion_rate = (completed_views / total_views) * 100 if total_views > 0 else 0
+        return completion_rate
+

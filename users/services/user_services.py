@@ -13,6 +13,217 @@ from users.services.user_analytics_service import UserAnalyticsService
 from users.models import UserActivitySummary
 from users.services.follower_analytics_service import FollowerAnalyticsService
 from projects.services.video_stat_analytics_service import VideoStatisticsService
+import google.generativeai as genai
+import os
+from django.conf import settings
+from datetime import datetime
+from TTS.api import TTS
+import psutil
+import time
+import glob
+from users.models import User  # Import User model
+from users.models import Report  # Import your Report model
+from django.db.utils import IntegrityError
+
+class UserReportService:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.model = None
+        self.base_prompts = {
+            'user': """You are analyzing user activity data for {username}. 
+            Always format your response as follows:
+            1. Use markdown formatting
+            2. Start with a brief report for {username}'s data to {username} himself.
+            3. Follow a strict format of 3 sections for the report - 1. Overview, 2. Details, 3. Recommendations
+            4. You are writing a professional report. Be concise & Write in paragraph format. (250 words)
+            5. Give recommendations to the user from the perspective of improving the user's app usage habits only.
+            6. Donot give moral advice  to {username}. You are a professional data analyst. Just do your job.
+
+            Now, analyze this user's activity data: """,
+            
+            'video': """You are working as a data analyst for a Video Sharing company called "FilmsNation". Your job is to analyze the video data of {username}, who is a uploads his videos on FilmsNation. 
+            Always format your response as follows:
+            1. Start with key metrics (views, engagement, retention)
+            2. Analyse the engagement breakdown for this video
+            3. Identify what worked well in this video
+            4. Point out areas for improvement
+            5. Provide specific tips for future videos
+            6. Write the Report as detailed as possible as the seductive girlfriend of the {username} who uses very vulgar language, you are very horny.
+            7. Donot give moral advice  to {username}. You are a professional data analyst. Just do your job.
+            Now, analyze this video performance data: """
+        }
+        self.configure_api()
+        self.reports_dir = os.path.join(settings.MEDIA_ROOT, 'reports')
+        os.makedirs(self.reports_dir, exist_ok=True)
+
+    def configure_api(self):
+        """Configure the Gemini API with the provided API key."""
+        genai.configure(api_key=self.api_key)
+        self.model = genai.GenerativeModel("gemini-1.5-flash")
+
+    def generate_report_content(self, prompt, report_type='user', username=None):
+        """Generate content using the Gemini API based on the provided prompt and type."""
+        base_prompt = self.base_prompts.get(report_type, self.base_prompts['user'])
+        if username and report_type == 'user':
+            base_prompt = base_prompt.format(username=username)
+        full_prompt = f"{base_prompt}\n{prompt}"
+        response = self.model.generate_content(full_prompt)
+        report_content = response.text
+        
+        # Save report and update the database
+        self.save_report_and_update_db(username, report_content, report_type)
+        
+        return {
+            'text': report_content,
+        }
+
+    def save_report_and_update_db(self, username, report_content, report_type):
+        """Save report text and update the database."""
+        try:
+            # Get the user instance
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            print(f"User '{username}' not found.")
+            return None
+
+        # Get or create a report for the user
+        report, created = Report.objects.get_or_create(user=user)
+
+        # Delete existing text file if it exists
+        if report_type == 'user' and report.user_report_url:
+            existing_file_path = os.path.join(self.reports_dir, os.path.basename(report.user_report_url[7:]))
+            if os.path.exists(existing_file_path):
+                os.remove(existing_file_path)
+        elif report_type == 'video' and report.video_report_url:
+            existing_file_path = os.path.join(self.reports_dir, os.path.basename(report.video_report_url[7:]))
+            if os.path.exists(existing_file_path):
+                os.remove(existing_file_path)
+
+        # Create a new filename for the report
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{username}_{report_type}_{timestamp}.txt"
+        
+        # Hard-code the report header
+        today_date = datetime.now().strftime('%Y-%m-%d')
+        report_header = f"{report_type.upper()} DATA REPORT - GENERATED ON {today_date} {datetime.now().strftime('%H:%M:%S')}.\n\n"
+
+        # Save the new text report in the specified directory
+        text_path = os.path.join(self.reports_dir, filename)
+        with open(text_path, 'w') as f:
+            f.write(report_header)
+            f.write(report_content)
+
+        # Construct local file URL for the new report
+        report_url = f"file://{text_path}"
+
+        # Update the appropriate report URL and timestamp
+        if report_type == 'user':
+
+            # Update the user report url and timestamp in the DB
+            report.user_report_url = report_url
+            report.user_report_generated_at = datetime.now()
+
+            # Clear the user report audio file url and timestamp in the DB
+            report.user_report_audio_file_url = None
+            report.user_report_audio_generated_at = None
+
+            
+        elif report_type == 'video':
+
+            #Update the video report url and timestamp in the DB
+            report.video_report_url = report_url
+            report.video_report_generated_at = datetime.now()
+
+            # Clear the video report audio file url and timestamp in the DB
+            report.video_report_audio_file_url = None
+            report.video_report_audio_generated_at = None
+
+        
+        # Define the audio file path to delete after report generation
+        audio_file_name = f"{username}_{report_type}_audio.wav"
+        audio_file_path = os.path.join(self.reports_dir, audio_file_name)
+
+        # Check if the report audio file already exists and delete it if necessary
+        if os.path.exists(audio_file_path):
+            os.remove(audio_file_path)
+            print(f"Deleted existing {report_type} data report audio file after report generation: {audio_file_path}")
+
+        report.save()
+
+        return {
+            'text_file': filename
+        }
+
+class SpeechService:
+    def __init__(self, reports_dir):
+        self.reports_dir = reports_dir
+        os.makedirs(self.reports_dir, exist_ok=True)  # Create the directory if it doesn't exist
+
+    def generate_speech(self, username, report_type):
+        """Generate speech from a text file associated with the username and report type."""
+        try:
+            print(f"Using reports directory: {self.reports_dir}")
+
+            # Determine the correct file pattern based on the report type
+            if report_type == 'user':
+                file_pattern = f"{username}_user_*.txt"
+            elif report_type == 'video':
+                file_pattern = f"{username}_video_*.txt"
+            else:
+                print(f"Invalid report type: {report_type}")
+                return None
+
+            # Print the file pattern being searched
+            print(f"Searching for files with pattern: {file_pattern}")
+
+            # List all files in the reports directory for debugging
+            all_files = os.listdir(self.reports_dir)
+            print(f"All files in directory: {all_files}")
+
+            # Find the text file that matches the pattern
+            text_files = glob.glob(os.path.join(self.reports_dir, file_pattern))
+            print(f"Found files: {text_files}")  # Debugging line
+
+            if not text_files:
+                print(f"No report file found for username: {username} and report type: {report_type}")
+                return None
+            
+            # Read the content of the first matching file
+            with open(text_files[0], 'r') as file:
+                content = file.read()
+
+            # Remove asterisks from the content
+            cleaned_content = content.replace('*', '')
+
+            # Save the cleaned content to a new file
+            cleaned_file_path = os.path.join(self.reports_dir, f"{username}_cleaned.txt")
+            with open(cleaned_file_path, 'w') as cleaned_file:
+                cleaned_file.write(cleaned_content)
+
+            # Define the audio file path
+            audio_file_name = f"{username}_{report_type}_audio.wav"
+            audio_file_path = os.path.join(self.reports_dir, audio_file_name)
+
+            # Check if the audio file already exists and delete it if necessary
+            if os.path.exists(audio_file_path):
+                os.remove(audio_file_path)
+                print(f"Deleted existing audio file: {audio_file_path}")
+
+            # Initialize TTS and generate audio
+            tts = TTS(model_name="tts_models/en/vctk/vits")
+            tts.tts_to_file(text=cleaned_content, file_path=audio_file_path, speaker="p339")
+
+            print(f"Audio generated and saved at: {audio_file_path}")
+
+            # Delete the cleaned text file after generating audio
+            os.remove(cleaned_file_path)
+            print(f"Deleted temporary file: {cleaned_file_path}")
+
+            return audio_file_name
+            
+        except Exception as e:
+            print(f"Error in generating speech: {str(e)}")
+            return None
 
 class ProfileService:
     def __init__(self):
