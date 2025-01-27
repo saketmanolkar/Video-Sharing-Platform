@@ -39,10 +39,6 @@ def projects(request):
         request.GET.get('page', 1)
     )
     
-    for video in paged_videos:
-        video.likes_count = VideoService.get_likes_count(video)
-        video.dislikes_count = VideoService.get_dislikes_count(video)
-    
     context = {
         'videos': paged_videos, 
         'page': 'Projects',

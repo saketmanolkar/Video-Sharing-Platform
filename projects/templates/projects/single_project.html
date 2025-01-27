@@ -30,7 +30,7 @@
                     </div>
                     <div class="creator-date-container">
                         <div class="vid-creator">
-                            By <a href="{% url 'profile' video.uploader.id %}">{{ video.uploader.username }}</a>
+                            By <a href="{% url 'profile' video.uploader.profile.id %}">{{ video.uploader.profile.username }}</a>
                         </div>
                         <div class="message__date">
                             Uploaded {{ video.created_at|date:"F j, Y" }}

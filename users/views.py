@@ -396,7 +396,7 @@ def create_message(request, pk):
 
     try:
         sender = request.user.profile
-    except Profile.DoesNotExist:
+    except AttributeError:  # For anonymous users who don't have a profile
         sender = None
     
     if request.method == "POST":
@@ -564,3 +564,27 @@ def report(request, pk):
         print("📦 Added strong caching headers for audio")
 
     return response
+
+@login_required(login_url="login-page")
+def delete_message(request, pk):
+    # Get the message and verify ownership
+    profile = request.user.profile
+    message = get_object_or_404(Message, id=pk)
+    
+    # Check if the logged-in user is the message recipient
+    if message.recipient != profile:
+        messages.error(request, "You don't have permission to delete this message.")
+        return redirect('inbox')
+    
+    if request.method == 'POST':
+        try:
+            message.delete()
+            messages.success(request, 'Message deleted successfully!')
+            return redirect('inbox')
+        except Exception as e:
+            messages.error(request, f'Error deleting message: {str(e)}')
+            return redirect('view-message', pk=pk)
+    
+    return render(request, 'delete_object.html', {
+        'object': f"message from {message.name}"
+    })

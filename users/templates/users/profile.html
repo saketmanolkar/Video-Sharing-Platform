@@ -4,7 +4,7 @@
 {% block content %}
 {% csrf_token %}
 <!-- <main class="profile-page-pattern"> -->
-<main class="checkered-background">
+<main class="checkered-background" style="min-height: calc(100vh - 80px); display: flex; flex-direction: column;">
   <br>
 
   <section class="projectsList" style="margin-top: 0;">
@@ -107,6 +107,16 @@
                   
                   <!-- Settings Button -->
                   <div class="profile-action-btn">
+                    <a href="{% url 'user-history' profile.id %}" class="profile-btn">
+                      <i class="fas fa-history"></i>
+                      <span>Your Viewing History</span>
+                    </a>
+                  </div>
+
+                  <div class="profile-btn-separator"></div>
+                  
+                  <!-- Settings Button -->
+                  <div class="profile-action-btn">
                     <a href="{% url 'fun-corner' %}" class="profile-btn">
                       <i class="fas fa-gamepad"></i>
                       <span>Fun Corner</span>
@@ -179,11 +189,11 @@
             <div class="card__body" style="padding: 4rem;">
               <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 2rem;">{{ profile.user.first_name }}'s Profile Page</h3>
               <p class="project--rating" style="min-height: 100px; font-size: 1.3rem; line-height: 1.8; color: #444; margin-bottom: 4rem;">
-                {{ profile.bio|default:"Type your bio here..." }}
+                {{ profile.bio|default:"No bio provided yet....." }}
               </p>
 
               <!-- Uploaded Videos Section -->
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; margin-top: -4rem;">
                 <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Uploaded Videos</h3>
                 <span class="tag tag--pill tag--sub tag--lg">
                   <a href="{% url 'user-videos' profile.id %}" style="text-decoration: none; color: inherit;">
@@ -212,26 +222,13 @@
                       </span>
                   </div>
               </div>
-              <div class="playlists-grid">
+              <div class="playlists-grid" style="margin-bottom: 3rem;">
                 {% for playlist in playlists %}
                     {% include 'components/playlist_preview.html' with playlist=playlist %}
                 {% empty %}
                   <p>No playlists created yet.</p>
                 {% endfor %}
               </div>
-
-              <!-- Viewing History Section -->
-              {% if user.is_authenticated and user.id == profile.user.id %}
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                  <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Viewing History</h3>
-                  <span class="tag tag--pill tag--sub tag--lg">
-                    <a href="{% url 'user-history' profile.id %}" style="text-decoration: none; color: inherit;">
-                      See All History ({{ profile.user.view_history.count }})
-                    </a>
-                  </span>
-                </div>
-                {% include 'components/video_preview.html' with videos=view_history %}
-              {% endif %}
             </div>
           </div>
         </div>

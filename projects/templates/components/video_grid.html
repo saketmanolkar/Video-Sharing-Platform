@@ -39,10 +39,68 @@
         border-radius: 0.3rem;
         overflow: hidden;
     }
+
+    /* Updated styles for the info line */
+    .project__info {
+        position: relative;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 5px 0;
+        font-size: 0.9em;
+    }
+
+    .separator {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        font-weight: 900;
+        font-size: 1.2em;
+    }
+
+    .project__author {
+        width: 45%;
+        text-align: center;
+        padding-right: 10px;
+        margin-right: 25px; /* Add this to center the username */
+    }
+
+    .project--rating {
+        width: 45%;
+        text-align: center;
+        transform: translateX(-4px); /* Move just the views/date left without affecting other elements */
+        font-size: 0.8em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Make the numbers smaller but "Views" bigger */
+    .views-number, .date-number {
+        font-size: 1.4em;
+    }
+
+    .views-label {
+        font-size: 1.3em;
+
+    }
+
+    /* New styles for views and date */
+    .views-date {
+        font-size: 1.3em; /* Smaller font size for views and date */
+    }
+
+    .project__title {
+        margin-bottom: 5px; /* Space between title and info */
+    }
+
+    .project__tags {
+        margin-top: 10px; /* Space above tags */
+    }
 </style>
 
 <div class="grid grid--three">
-    {% for video in videos %}
+  {% for video in videos %}
     <div class="column">
       <div class="card project">
         <a href="{% url 'project' video.id %}" class="project">
@@ -53,12 +111,16 @@
           </div>
           <div class="card__body">
             <h3 class="project__title">{{video.title}}</h3>
-            <a class="project__author" href="{% url 'profile' video.uploader.profile.id %}">By {{video.uploader.username}}</a>
-            <p class="project--rating">
-                <span style="font-weight: bold;">{{ video.likes_count }}</span> Likes • 
-                <span style="font-weight: bold;">{{ video.dislikes_count }}</span> Dislikes
-            </p>
-            <div class="project__tags">
+            <div class="project__info" style="margin-top: -8px;">
+              <a class="project__author" href="{% url 'profile' video.uploader.profile.id %}">{{video.uploader.username}}</a>
+              <span class="separator"></span>
+              <p class="project--rating" style="margin-top: 15px;">
+                  <span class="views-number" style="font-weight: bold;">{{ video.views }}</span> 
+                  <span class="views-label">Views</span> • 
+                  <span class="date-number" style="font-weight: bold;">{{ video.created_at|date:"M Y" }}</span>
+              </p>
+            </div>
+            <div class="project__tags" style="margin-top: -10px;">
               {% for tag in video.tags.all %}
               <span class="tag tag--pill">{{ tag.name }}</span>
               {% endfor %}
@@ -69,5 +131,5 @@
     </div>
     {% empty %}
     <p class="no-videos-message">No videos found</p>
-    {% endfor %}
-  </div>
+  {% endfor %}
+</div>
