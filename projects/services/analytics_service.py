@@ -89,6 +89,10 @@ class AnalyticsService:
     @staticmethod
     def get_peak_viewing_hour(user_videos, days=30):
         """Get peak viewing hour across all user videos by comparing hourly distributions"""
+        # First check if there are any videos
+        if not user_videos.exists():
+            return None
+        
         hourly_totals = {i: 0 for i in range(24)}
         
         # Get hourly distribution for each video and aggregate
@@ -99,12 +103,13 @@ class AnalyticsService:
                 count = view['count']
                 hourly_totals[hour] += count
         
-        
+        # Check if we have any views at all
+        if max(hourly_totals.values()) == 0:
+            return None
         
         # Find all hours with maximum views
         max_views = max(hourly_totals.values())
         peak_hours = [hour for hour, views in hourly_totals.items() if views == max_views]
-        
         
         def format_hour(hour):
             """Helper function to correctly format hour in 12-hour format"""
@@ -159,6 +164,10 @@ class AnalyticsService:
     @staticmethod
     def get_peak_viewing_day(user_videos, days=30):
         """Get peak viewing day(s) across all user videos"""
+        # First check if there are any videos
+        if not user_videos.exists():
+            return None
+        
         weekday_totals = {
             1: 0,  # Monday
             2: 0,  # Tuesday
@@ -177,7 +186,9 @@ class AnalyticsService:
                 count = view['count']
                 weekday_totals[weekday] += count
         
-      
+        # Check if we have any views at all
+        if max(weekday_totals.values()) == 0:
+            return None
         
         # Find all days with maximum views
         max_views = max(weekday_totals.values())

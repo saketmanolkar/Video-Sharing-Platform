@@ -10,57 +10,67 @@
 
 <main class="report-container" style="padding: 1rem; background-color: #f9f9f9;">
     <div style="max-width: 800px; margin: 0 auto;">
-        <!-- Title and Download/Play Icons container -->
-        <div style="position: relative; margin-bottom: 0.5rem;">
-            <!-- Audio player on extreme left -->
-            {% if has_audio %}
-                <div class="audio-wrapper" style="position: absolute; left: 0; margin-top: 2rem; transform: translateY(-50%);">
-                    <audio controls preload="auto" controlsList="nodownload">
-                        <source src="{{ audio_url }}?v={{ report.created_at|date:'U' }}" type="audio/wav">
-                    </audio>
+        {% if report_exists %}
+            <!-- Title and Download/Play Icons container -->
+            <div style="position: relative; margin-bottom: 0.5rem;">
+                <!-- Audio player on extreme left -->
+                {% if has_audio %}
+                    <div class="audio-wrapper" style="position: absolute; left: 0; margin-top: 2rem; transform: translateY(-50%);">
+                        <audio controls preload="auto" controlsList="nodownload">
+                            <source src="{{ audio_url }}?v={{ report.created_at|date:'U' }}" type="audio/wav">
+                        </audio>
+                    </div>
+                {% else %}
+                    <div style="position: absolute; left: 0; margin-top: 3rem; transform: translateY(-50%);">
+                        <button class="generate-tts-btn" 
+                                onclick="generateSpeech('{{ user.username }}', '{{ report_type }}')"
+                                data-report-type="{{ report_type }}"
+                                data-audio-url="{% if report_type == 'user' %}{{ report.user_report_audio_file_url|default:'' }}{% else %}{{ report.video_report_audio_file_url|default:'' }}{% endif %}"
+                                data-is-completed="{{ report.audio_is_generated|yesno:'true,false' }}">
+                            <i class="fas fa-volume-up" style="margin-right: 5px;"></i>
+                            Generate<br>Text-to-Speech
+                        </button>
+                    </div>
+                {% endif %}
+                
+                <!-- Centered title -->
+                <div style="text-align: center;">
+                    <h1 style="color: #666; font-size: 2.5rem; font-weight: 400; margin: 0 0 0.3rem 0;">
+                        {{ report_type|title }} Data Analysis Report
+                    </h1>
+                    <p style="color: #888; font-size: 1.2rem; margin: 0;">
+                        Powered by Google Gemini <i class="fas fa-robot" style="margin: 0 4px;"></i> | Generated on {{ created_at }}
+                    </p>
                 </div>
-            {% else %}
-                <div style="position: absolute; left: 0; margin-top: 3rem; transform: translateY(-50%);">
-                    <button class="generate-tts-btn" 
-                            onclick="generateSpeech('{{ user.username }}', '{{ report_type }}')"
-                            data-report-type="{{ report_type }}"
-                            data-audio-url="{% if report_type == 'user' %}{{ report.user_report_audio_file_url|default:'' }}{% else %}{{ report.video_report_audio_file_url|default:'' }}{% endif %}"
-                            data-is-completed="{{ report.audio_is_generated|yesno:'true,false' }}">
-                        <i class="fas fa-volume-up" style="margin-right: 5px;"></i>
-                        Generate<br>Text-to-Speech
-                    </button>
+                
+                <!-- Download button on right -->
+                <div style="position: absolute; right: 0; margin-top: -4rem; margin-right: 1rem; transform: translateY(-50%);">
+                    {% if report_file_url %}
+                        <a href="{{ report_file_url }}" download class="icon-button">
+                            <i class="fas fa-download" style="font-size: 1.5rem; color: #4285f4;"></i>
+                        </a>
+                    {% endif %}
                 </div>
-            {% endif %}
-            
-            <!-- Centered title -->
-            <div style="text-align: center;">
-                <h1 style="color: #666; font-size: 2.5rem; font-weight: 400; margin: 0 0 0.3rem 0;">
-                    {{ report_type|title }} Data Analysis Report
-                </h1>
-                <p style="color: #888; font-size: 1.2rem; margin: 0;">
-                    Powered by Google Gemini <i class="fas fa-robot" style="margin: 0 4px;"></i> | Generated on {{ created_at }}
-                </p>
             </div>
             
-            <!-- Download button on right -->
-            <div style="position: absolute; right: 0; margin-top: -4rem; margin-right: 1rem; transform: translateY(-50%);">
+            <div class="report-details" style="margin-top: 1.5rem;">
                 {% if report_file_url %}
-                    <a href="{{ report_file_url }}" download class="icon-button">
-                        <i class="fas fa-download" style="font-size: 1.5rem; color: #4285f4;"></i>
-                    </a>
+                    <div class="report-content" style="text-align: left; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div id="markdown-content">{{ file_content }}</div>
+                    </div>
+                {% else %}
+                    <p style="color: #777;">No report available for this type.</p>
                 {% endif %}
             </div>
-        </div>
-        
-        <div class="report-details" style="margin-top: 1.5rem;">
-            {% if report_file_url %}
-                <div class="report-content" style="text-align: left; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <div id="markdown-content">{{ file_content }}</div>
-                </div>
-            {% else %}
-                <p style="color: #777;">No report available for this type.</p>
-            {% endif %}
-        </div>
+        {% else %}
+            <div style="text-align: center; padding: 2rem;">
+                <h2 style="color: #666;">{{ report_type|title }} Data Analysis Report Unavailable</h2>
+                <br>
+                <p style="color: #888;">No {{ report_type|title }} Data Analysis Report Found For {{user.username}}.</p>
+                <br>
+                <p style="color: #888; font-weight: bold;">Please Generate A New Report.</p>
+            </div>
+        {% endif %}
     </div>
 </main>
 

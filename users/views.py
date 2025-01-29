@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_protect
 from .forms import CustomUserCreationForm
 from django.contrib.auth.decorators import login_required
 from .forms import ProfileForm, MessageForm
-from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, FileResponse
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, FileResponse, Http404
 from django.core.exceptions import ValidationError
 from django.contrib.auth.forms import PasswordChangeForm
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -488,82 +488,117 @@ def clear_temp_tokens(request):
 
 @cache_control(max_age=3600, public=True)
 def report(request, pk):
-    profile = get_object_or_404(Profile, id=pk)
-    report_type = request.GET.get('report_type')
+    try:
+        profile = get_object_or_404(Profile, id=pk)
+        report_type = request.GET.get('report_type')
 
-    # Initialize variables
-    report_url = None
-    file_content = None
-    audio_url = None
-    audio_generated_at = None
+        if not report_type:
+            return render(request, 'users/report.html', {
+                'error': 'Report type is required',
+                'profile': profile,
+                'report_exists': False  # Add this flag
+            }, status=400)
 
-    # Check the report type and fetch the corresponding report URL and audio URL
-    if report_type == 'user':
-        report = get_object_or_404(Report, user=profile.user)
-        created_at = report.user_report_generated_at
-        report_url = report.user_report_url
-        audio_url = report.user_report_audio_file_url
-        audio_generated_at = report.user_report_audio_generated_at
-        audio_is_generated = report.audio_is_generated
-
-    elif report_type == 'video':
-        report = get_object_or_404(Report, user=profile.user)
-        print(f"DEBUG: Raw audio URL from DB: {report.video_report_audio_file_url}")
-        print(f"DEBUG: Audio generated at: {report.video_report_audio_generated_at}")
-        created_at = report.video_report_generated_at
-        report_url = report.video_report_url
-        audio_url = report.video_report_audio_file_url
-        audio_generated_at = report.video_report_audio_generated_at
-        audio_is_generated = report.audio_is_generated
-    else:
-        messages.error(request, "Invalid report type")
-
-    # Modify the report URL to be web-accessible
-    if report_url and not report_url.startswith('http'):
-        report_url = f"{django_settings.MEDIA_URL}reports/{report_url.split('/')[-1]}"
-        
-        # Read the file content
-        file_path = os.path.join(django_settings.MEDIA_ROOT, 'reports', report_url.split('/')[-1])
         try:
-            with open(file_path, 'r') as file:
-                file_content = file.read()
-        except Exception as e:
-            print(f"Error reading file: {e}")
-            file_content = "Error reading file content"
+            report = Report.objects.get(user=profile.user)
+            
+            # Check if this specific report type exists
+            if report_type == 'user':
+                if not report.user_report_url:  # If no user report exists
+                    return render(request, 'users/report.html', {
+                        'profile': profile,
+                        'report_type': report_type,
+                        'report_exists': False  # Add this flag
+                    })
+                created_at = report.user_report_generated_at
+                report_url = report.user_report_url
+                audio_url = report.user_report_audio_file_url
+                audio_generated_at = report.user_report_audio_generated_at
+                audio_is_generated = report.audio_is_generated
 
-    # Handle audio URL with cache busting
-    if audio_url and not audio_url.startswith('http'):
-        # Clean up the cache buster to be a single integer
-        cache_buster = int(audio_generated_at.timestamp()) if audio_generated_at else ''
-        clean_filename = audio_url.split('/')[-1]
-        # Use the serve_audio URL pattern instead of direct media URL
-        audio_url = reverse('serve_audio', kwargs={
-            'profile_id': pk,
+            elif report_type == 'video':
+                if not report.video_report_url:  # If no video report exists
+                    return render(request, 'users/report.html', {
+                        'profile': profile,
+                        'report_type': report_type,
+                        'report_exists': False  # Add this flag
+                    })
+                created_at = report.video_report_generated_at
+                report_url = report.video_report_url
+                audio_url = report.video_report_audio_file_url
+                audio_generated_at = report.video_report_audio_generated_at
+                audio_is_generated = report.audio_is_generated
+            else:
+                return render(request, 'users/report.html', {
+                    'profile': profile,
+                    'report_exists': False  # Add this flag
+                }, status=400)
+
+        except Report.DoesNotExist:
+            return render(request, 'users/report.html', {
+                'profile': profile,
+                'report_exists': False,
+            })
+
+        # Modify the report URL to be web-accessible
+        if report_url and not report_url.startswith('http'):
+            report_url = f"{django_settings.MEDIA_URL}reports/{report_url.split('/')[-1]}"
+            
+            # Read the file content
+            file_path = os.path.join(django_settings.MEDIA_ROOT, 'reports', report_url.split('/')[-1])
+            try:
+                with open(file_path, 'r') as file:
+                    file_content = file.read()
+            except Exception as e:
+                print(f"Error reading file: {e}")
+                file_content = "Error reading file content"
+
+        # Handle audio URL with cache busting
+        if audio_url and not audio_url.startswith('http'):
+            # Clean up the cache buster to be a single integer
+            cache_buster = int(audio_generated_at.timestamp()) if audio_generated_at else ''
+            clean_filename = audio_url.split('/')[-1]
+            # Use the serve_audio URL pattern instead of direct media URL
+            audio_url = reverse('serve_audio', kwargs={
+                'profile_id': pk,
+                'report_type': report_type
+            }) + f'?v={cache_buster}'
+            print(f"🎵 Clean audio URL: {audio_url}")
+
+        context = {
+            'profile': profile,
+            'report_type': report_type,
+            'report_file_url': report_url,
+            'file_content': file_content,
+            'created_at': created_at,
+            'audio_url': audio_url,
+            'audio_generated_at': audio_generated_at,
+            'audio_is_generated': audio_is_generated,
+            'has_audio': bool(audio_url),
+            'report_exists': True,
             'report_type': report_type
-        }) + f'?v={cache_buster}'
-        print(f"🎵 Clean audio URL: {audio_url}")
+        }
 
-    context = {
-        'profile': profile,
-        'report_type': report_type,
-        'report_file_url': report_url,
-        'file_content': file_content,
-        'created_at': created_at,
-        'audio_url': audio_url,
-        'audio_generated_at': audio_generated_at,
-        'audio_is_generated': audio_is_generated,
-        'has_audio': bool(audio_url)
-    }
+        response = render(request, 'users/report.html', context)
+        
+        # Add strong caching headers for audio files
+        if audio_url:
+            response['Cache-Control'] = 'public, max-age=31536000, immutable'  # Cache for 1 year
+            response['Expires'] = 'Thu, 31 Dec 2037 23:55:55 GMT'
+            print("📦 Added strong caching headers for audio")
 
-    response = render(request, 'users/report.html', context)
-    
-    # Add strong caching headers for audio files
-    if audio_url:
-        response['Cache-Control'] = 'public, max-age=31536000, immutable'  # Cache for 1 year
-        response['Expires'] = 'Thu, 31 Dec 2037 23:55:55 GMT'
-        print("📦 Added strong caching headers for audio")
+        return response
 
-    return response
+    except Http404:
+        messages.error(request, "Profile not found")
+        return render(request, 'users/report.html', {
+            'error': 'Profile not found'
+        }, status=404)
+    except Exception as e:
+        messages.error(request, f"An error occurred: {str(e)}")
+        return render(request, 'users/report.html', {
+            'error': 'An unexpected error occurred'
+        }, status=500)
 
 @login_required(login_url="login-page")
 def delete_message(request, pk):

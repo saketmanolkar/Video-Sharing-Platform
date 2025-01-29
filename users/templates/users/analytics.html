@@ -421,11 +421,15 @@ function hideTooltip() {
 }
 
 function switchView(view) {
-    // Update button states
+    // Check if trying to view video data with no videos
+    if (view === 'videoData' && parseInt('{{ videos_count}}') === 0) {
+        showMessage('Upload some videos to see your video data analytics', 'error');
+        return;
+    }
+    // Rest of the existing switchView code
     document.getElementById('userDataBtn').classList.toggle('active', view === 'userData');
     document.getElementById('videoDataBtn').classList.toggle('active', view === 'videoData');
     
-    // Show/hide sections
     document.getElementById('userDataSection').style.display = view === 'userData' ? 'block' : 'none';
     document.getElementById('videoDataSection').style.display = view === 'videoData' ? 'block' : 'none';
 }
@@ -502,8 +506,8 @@ function generateNewReport(reportType) {
             showMessage(data.error, 'error');
         } else if (data.message) {
             showMessage(data.message, 'success');
-            // Refresh the modal content after successful generation
-            setTimeout(() => refreshReportModal(reportType), 1000);
+            // Open the modal automatically after successful generation
+            openReportModal(reportType);
         }
     })
     .catch(error => {
@@ -513,11 +517,6 @@ function generateNewReport(reportType) {
     .finally(() => {
         isGeneratingReport = false;
     });
-}
-
-// New function to refresh the report modal
-function refreshReportModal(reportType) {
-    openReportModal(reportType); // Reopen the modal to fetch the latest report
 }
 
 // Close dropdown when clicking outside

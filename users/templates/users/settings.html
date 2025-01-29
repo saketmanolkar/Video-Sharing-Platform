@@ -9,14 +9,29 @@
         </div>
 
         <div class="settings-layout">
-            <!-- Left Column - Just the form, no extra containers -->
+            <!-- Left Column - Password Change -->
             <div class="settings-left">
                 {% include 'password_change.html' with form=password_form %}
             </div>
 
-            <!-- Right Column - for future settings -->
+            <!-- Right Column - Privacy Settings -->
             <div class="settings-right">
-                <!-- Other settings sections can go here -->
+                <div class="privacy-container">
+                    <h3 class="privacy-title" style="text-align: center;">Data Privacy Policy</h3>
+                    <div class="privacy-content">
+                        
+                            <div class="privacy-option">
+                            
+                                <p class="option-description">We collect personal information (including email, phone number, and user-provided details) and analyze user behavior to enhance your platform experience and improve our services.</p>
+                            </div>
+                            <div class="privacy-option" style="margin-top: 1rem;">
+                                
+                                <p class="option-description">We do not sell your data to third parties. Your data is safe with us.</p>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -33,6 +48,54 @@
         grid-template-columns: 2fr 1fr;
         gap: 2rem;
         margin-top: 2rem;
+    }
+
+    .privacy-container {
+        background: white;
+        margin-top: 7rem;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .privacy-title {
+        font-size: 1.8rem;
+        color: #2D2D2D;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+    }
+
+    .privacy-content {
+        color: #666;
+    }
+
+    .privacy-text {
+        margin-bottom: 1.5rem;
+        font-size: 1rem;
+    }
+
+    .privacy-options {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .privacy-option {
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .option-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #2D2D2D;
+    }
+
+    .option-description {
+        font-size: 1.5rem;
+        color: #666;
     }
 
     @media (max-width: 768px) {

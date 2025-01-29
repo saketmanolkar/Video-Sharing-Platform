@@ -203,7 +203,7 @@
             class="video-js vjs-big-play-centered vjs-theme-forest" 
             controls 
             preload="auto" 
-            poster="{{ video.thumbnail.url }}"
+            poster="{% if video.thumbnail %}{{ video.thumbnail.url }}{% else %}{% static 'images/default.jpg' %}{% endif %}"
             width="100%"
             height="auto">
             <!-- Only show video if encoding is complete -->

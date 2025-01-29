@@ -88,16 +88,22 @@ class UserReportService:
 
         # Get or create a report for the user
         report, created = Report.objects.get_or_create(user=user)
-
-        # Delete existing text file if it exists
-        if report_type == 'user' and report.user_report_url:
-            existing_file_path = os.path.join(self.reports_dir, os.path.basename(report.user_report_url[7:]))
-            if os.path.exists(existing_file_path):
-                os.remove(existing_file_path)
-        elif report_type == 'video' and report.video_report_url:
-            existing_file_path = os.path.join(self.reports_dir, os.path.basename(report.video_report_url[7:]))
-            if os.path.exists(existing_file_path):
-                os.remove(existing_file_path)
+        # Delete existing report files
+        try:
+            # Find and delete all existing reports for this user and type
+            report_pattern = f"{username}_{report_type}_*.txt"
+            existing_reports = [f for f in os.listdir(self.reports_dir) 
+                              if f.startswith(f"{username}_{report_type}_") and f.endswith('.txt')]
+            
+            for report_file in existing_reports:
+                try:
+                    report_path = os.path.join(self.reports_dir, report_file)
+                    os.remove(report_path)
+                    print(f"Successfully deleted existing {report_type} report: {report_file}")
+                except OSError as e:
+                    print(f"Error deleting {report_type} report {report_file}: {str(e)}")
+        except Exception as e:
+            print(f"Error handling report deletion: {str(e)}")
 
         # Create a new filename for the report
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -105,7 +111,7 @@ class UserReportService:
         
         # Hard-code the report header
         today_date = datetime.now().strftime('%Y-%m-%d')
-        report_header = f"{report_type.upper()} DATA REPORT - GENERATED ON {today_date} {datetime.now().strftime('%H:%M:%S')}.\n\n"
+        report_header = f"{report_type.upper()} DATA REPORT - GENERATED ON {datetime.now().strftime('%d %b %I:%M %p')}.\n\n"
 
         # Save the new text report in the specified directory
         text_path = os.path.join(self.reports_dir, filename)
@@ -408,6 +414,7 @@ class ProfileService:
         
         # Get video analytics
         videos = profile.user.uploaded_videos.filter(uploader=profile.user)
+        videos_count = videos.count()  # Get the count of videos
         analytics_data = VideoService.get_creator_studio_analytics(videos)
         
         # Get peak viewing times
@@ -495,6 +502,7 @@ class ProfileService:
 
         return {
             'profile': profile,
+            'videos_count': videos_count,
             'video_analytics': analytics_data['video_analytics'],
             'chart_labels': json.dumps(analytics_data['chart_labels']),
             'chart_data': json.dumps(analytics_data['chart_data']),
@@ -514,6 +522,6 @@ class ProfileService:
             'completion_rates': json.dumps(completion_rates),
             'overall_watch_time': round(overall_watch_minutes, 2),
             'overall_completion_rate': round(overall_completion_rate, 2),
-            'peak_viewing_hour': peak_hour,
-            'peak_viewing_day': peak_day
+            'peak_viewing_hour': peak_hour or "N/A",
+            'peak_viewing_day': peak_day or "N/A"
         }
