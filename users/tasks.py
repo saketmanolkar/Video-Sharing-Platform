@@ -101,25 +101,34 @@ def save_session_activity(self, session_id, user_id):
     Async task to save session activity and cleanup
     """
     try:
-        # Get session
+        # Get the current session
         session = UserSession.objects.get(id=session_id)
         activity_cache = SessionActivityCache()
         
         # Get new activity from cache
         new_activity = activity_cache.get_activity_log(user_id, session_id)
         
-        # Merge with existing
+        # Merge with existing activity log
         merged_activity = merge_activity_logs(session.activity_log, new_activity)
         
-        # Save merged data and end session
+        # Save merged data and end the current session
         session.activity_log = merged_activity
         session.end_time = timezone.now()
         session.save()
         
-        # Clear cache
+        # Clear cache for the current session
         activity_cache.clear_activity_cache(user_id, session_id)
-        
+
+        # Close any other active sessions for the user
+        other_sessions = UserSession.objects.filter(user_id=user_id, end_time__isnull=True).exclude(id=session_id)
+        stray_count = 0
+        for other_session in other_sessions:
+            other_session.end_time = timezone.now()  # Just close them
+            other_session.save()
+            stray_count += 1
+
         logger.warning(f"✅ Session activity saved: {session_id}")
+        logger.warning(f"✅ {stray_count} stray sessions closed for user {user_id}")
         return str(session_id)
         
     except Exception as e:

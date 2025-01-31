@@ -78,6 +78,7 @@ class Video(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     encoded_versions = models.JSONField(default=dict, blank=True)
+    processed = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']

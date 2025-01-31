@@ -139,8 +139,9 @@ def process_video_task(self, video_id):
             if encoded_versions:
                 video.encoded_versions = encoded_versions
                 video.file.name = f"videos/{encoded_versions['720p']}"
+                video.processed = True
                 video.save()
-                print(f"✨ Video processing complete")
+                print("✨ Video processing complete")
                 
                 # Only delete original after successful encoding
                 if os.path.exists(input_path):

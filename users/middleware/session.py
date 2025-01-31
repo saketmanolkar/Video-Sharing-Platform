@@ -10,6 +10,7 @@ from ..services.cache_service import SessionActivityCache, VideoStatsCache
 import re
 from urllib.parse import unquote
 from django.core.cache import cache
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +22,12 @@ class UserSessionMiddleware:
         self.video_stats_cache = VideoStatsCache()
 
     def __call__(self, request):
-        # Skip for static, media, api files
+        # Skip for static, media, api files and debug toolbar
         if any([
             request.path.startswith('/static/'),
             request.path.startswith('/media/'),
             request.path.startswith('/api/'),
+            request.path.startswith('/__debug__/'),
             request.path == '/users/logout/'
         ]):
             return self.get_response(request)
@@ -50,36 +52,66 @@ class UserSessionMiddleware:
                 
                 if active_session:
                     print(f"⏩ Using existing session: {active_session.id}")
-                    # Use ONLY cache service
                     self.activity_cache.add_page_visit(
                         request.user.id,
                         active_session.id,
                         request.path
                     )
                 else:
-                    # Create new session only if none exists
-                    session_data = {
-                        'user_id': request.user.id,
-                        'device_info': {
-                            'user_agent': request.META.get('HTTP_USER_AGENT', ''),
-                            'platform': request.META.get('HTTP_SEC_CH_UA_PLATFORM', '')
-                        },
-                        'browser_info': {
-                            'browser': request.META.get('HTTP_SEC_CH_UA', ''),
-                            'language': request.META.get('HTTP_ACCEPT_LANGUAGE', '')
-                        },
-                        'ip_location': request.META.get('REMOTE_ADDR')
-                    }
+                    # Use Redis lock with a longer timeout
+                    lock_key = f"session_creation_lock:{request.user.id}"
+                    lock_timeout = 30  # 30 seconds timeout
                     
-                    try:
-                        print("🎯 Creating new session")
-                        task = create_user_session.delay(**session_data)
-                        print(f"✅ New session task queued: {task.id}")
-                    except Exception as e:
-                        print(f"❌ Failed to create session: {str(e)}")
-                        
+                    # Try to acquire lock
+                    acquired = self.redis.set(
+                        lock_key, 
+                        "1", 
+                        ex=lock_timeout, 
+                        nx=True  # Only set if not exists
+                    )
+                    
+                    if acquired:
+                        try:
+                            # Check again for active session after acquiring lock
+                            active_session = UserSession.objects.filter(
+                                user=request.user,
+                                end_time__isnull=True
+                            ).first()
+                            
+                            if not active_session:
+                                session_data = {
+                                    'user_id': request.user.id,
+                                    'device_info': {
+                                        'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                                        'platform': request.META.get('HTTP_SEC_CH_UA_PLATFORM', '')
+                                    },
+                                    'browser_info': {
+                                        'browser': request.META.get('HTTP_SEC_CH_UA', ''),
+                                        'language': request.META.get('HTTP_ACCEPT_LANGUAGE', '')
+                                    },
+                                    'ip_location': request.META.get('REMOTE_ADDR')
+                                }
+                                
+                                print("🎯 Creating new session")
+                                # Keep it async but store task ID in Redis
+                                task = create_user_session.delay(**session_data)
+                                self.redis.setex(
+                                    f"session_task:{request.user.id}",
+                                    60,  # 60 second timeout
+                                    task.id
+                                )
+                                print(f"✅ New session task queued: {task.id}")
+                                
+                        finally:
+                            # Keep lock for a bit to prevent immediate recreation
+                            pass  # Let the lock expire naturally
+                    else:
+                        print("⏩ Session creation already in progress")
+                        # Wait briefly for existing session
+                        time.sleep(0.5)  # Wait 500ms for session creation
+
             except Exception as e:
-                print(f"❌ Middleware error: {str(e)}")
+                logger.error(f"❌ Middleware error: {str(e)}")
 
         # Check for the videoWatchStats cookie
         video_watch_stats = request.COOKIES.get('videoWatchStats', None)

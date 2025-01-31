@@ -162,11 +162,21 @@ WSGI_APPLICATION = "testrun.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "testrun",
+        "USER": "saketmanolkar",
+        "PASSWORD": "Clarion67@123",
+        "HOST": "localhost",
+        "PORT": "5432",
     }
 }
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
 
 CACHES = {
     "default": {

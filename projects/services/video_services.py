@@ -27,6 +27,10 @@ class VideoService:
     def record_view(self, video, user, ip_address, view_history_model):
         """Handle view recording with time-based cache tracking"""
         
+        if not video.processed:
+            print(f"⏳ Skipping view record creation - video {video.id} still processing")
+            return None
+        
         view_history = None  # Initialize return value
         
         if self.view_cache.can_record_view(

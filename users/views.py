@@ -229,7 +229,6 @@ def user_history(request, pk):
     return render(request, "users/view_history.html", context)
 
 def login_user(request):
-
     
     if request.COOKIES.get('show_timeout') == 'true':
         print("Found timeout cookie, showing message")

@@ -469,108 +469,80 @@ function initializeFollowerCharts(followerData) {
                     font: { size: 12 }
                 }
             }
+        },
+        // Add these options to maintain size when empty
+        layout: {
+            padding: {
+                top: 10,
+                bottom: 10
+            }
+        },
+        // Add this to ensure chart maintains size even with no data
+        datasets: {
+            pie: {
+                animation: {
+                    animateScale: true
+                },
+                // This ensures the pie maintains its size even when empty
+                weight: 1
+            }
         }
     };
 
-    // Comments Distribution
-    new Chart(document.getElementById('commentsPie'), {
-        type: 'pie',
-        data: {
-            labels: ['Follower Comments', 'Non-Follower Comments'],
-            datasets: [{
-                data: [
-                    followerData.engagement_breakdown.comments.follower_count,
-                    followerData.engagement_breakdown.comments.non_follower_count
-                ],
-                backgroundColor: ['#4285f4', '#34A853']
-            }]
-        },
-        options: {
-            ...pieChartOptions,
-            plugins: {
-                ...pieChartOptions.plugins,
-                title: {
-                    ...pieChartOptions.plugins.title,
-                    text: 'Comments Distribution'
-                }
-            }
-        }
-    });
+    // Helper function to create pie chart with placeholder data if empty
+    function createPieChart(elementId, data, title) {
+        // If both values are 0, use placeholder data to maintain size
+        const isEmptyData = data.every(value => value === 0);
+        const displayData = isEmptyData ? [1] : data;
+        const displayColors = isEmptyData ? ['#f0f0f0'] : ['#4285f4', '#34A853'];
+        const displayLabels = isEmptyData ? ['No Data'] : ['Follower', 'Non-Follower'];
 
-    // Dislikes Distribution
-    new Chart(document.getElementById('dislikesPie'), {
-        type: 'pie',
-        data: {
-            labels: ['Follower Dislikes', 'Non-Follower Dislikes'],
-            datasets: [{
-                data: [
-                    followerData.engagement_breakdown.dislikes.follower_count,
-                    followerData.engagement_breakdown.dislikes.non_follower_count
-                ],
-                backgroundColor: ['#4285f4', '#34A853']
-            }]
-        },
-        options: {
-            ...pieChartOptions,
-            plugins: {
-                ...pieChartOptions.plugins,
-                title: {
-                    ...pieChartOptions.plugins.title,
-                    text: 'Dislikes Distribution'
+        new Chart(document.getElementById(elementId), {
+            type: 'pie',
+            data: {
+                labels: displayLabels,
+                datasets: [{
+                    data: displayData,
+                    backgroundColor: displayColors
+                }]
+            },
+            options: {
+                ...pieChartOptions,
+                plugins: {
+                    ...pieChartOptions.plugins,
+                    title: {
+                        ...pieChartOptions.plugins.title,
+                        text: title
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 
-    // Likes Distribution
-    new Chart(document.getElementById('likesPie'), {
-        type: 'pie',
-        data: {
-            labels: ['Follower Likes', 'Non-Follower Likes'],
-            datasets: [{
-                data: [
-                    followerData.engagement_breakdown.likes.follower_count,
-                    followerData.engagement_breakdown.likes.non_follower_count
-                ],
-                backgroundColor: ['#4285f4', '#34A853']
-            }]
-        },
-        options: {
-            ...pieChartOptions,
-            plugins: {
-                ...pieChartOptions.plugins,
-                title: {
-                    ...pieChartOptions.plugins.title,
-                    text: 'Likes Distribution'
-                }
-            }
-        }
-    });
+    // Create each pie chart using the helper function
+    createPieChart('viewsPie', 
+        [followerData.engagement_breakdown.views.follower_count,
+         followerData.engagement_breakdown.views.non_follower_count],
+        'Views Distribution'
+    );
 
-    // Views Distribution
-    new Chart(document.getElementById('viewsPie'), {
-        type: 'pie',
-        data: {
-            labels: ['Follower Views', 'Non-Follower Views'],
-            datasets: [{
-                data: [
-                    followerData.engagement_breakdown.views.follower_count,
-                    followerData.engagement_breakdown.views.non_follower_count
-                ],
-                backgroundColor: ['#4285f4', '#34A853']
-            }]
-        },
-        options: {
-            ...pieChartOptions,
-            plugins: {
-                ...pieChartOptions.plugins,
-                title: {
-                    ...pieChartOptions.plugins.title,
-                    text: 'Views Distribution'
-                }
-            }
-        }
-    });
+    createPieChart('commentsPie',
+        [followerData.engagement_breakdown.comments.follower_count,
+         followerData.engagement_breakdown.comments.non_follower_count],
+        'Comments Distribution'
+    );
+
+    createPieChart('likesPie',
+        [followerData.engagement_breakdown.likes.follower_count,
+         followerData.engagement_breakdown.likes.non_follower_count],
+        'Likes Distribution'
+    );
+
+    createPieChart('dislikesPie',
+        [followerData.engagement_breakdown.dislikes.follower_count,
+         followerData.engagement_breakdown.dislikes.non_follower_count],
+        'Dislikes Distribution'
+    );
 }
 
 // Function to initialize the Average Watch Time chart

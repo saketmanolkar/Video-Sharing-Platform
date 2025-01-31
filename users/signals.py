@@ -14,8 +14,9 @@ from django.utils import timezone
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     """Create Profile when User is created"""
-    print('🟢 Creating Profile Signal: New user profile being created')
+    # Only proceed if this is a new user creation
     if created:
+        print('🟢 Creating Profile Signal: New user profile being created')
         Profile = apps.get_model('users', 'Profile')
         Message = apps.get_model('users', 'Message')
         
@@ -56,6 +57,9 @@ def create_user_profile(sender, instance, created, **kwargs):
             recipient_list=[instance.email],
             fail_silently=False,
         )
+        print(f'✨ Welcome email sent to: {instance.username}')
+    else:
+        print(f'⏩ Skipping profile creation for existing user: {instance.username}')
 
 
 @receiver(pre_save, sender='users.Profile')
