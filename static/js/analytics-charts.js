@@ -350,6 +350,11 @@ function initializeHeatmapChart(chartData) {
         heatmapChart.destroy();
     }
 
+    if (!chartData || !chartData.activity_data) {
+        console.log('No activity data for heatmap');
+        return;
+    }
+
     const activityData = chartData.activity_data;
     
     const hours = [
@@ -371,8 +376,9 @@ function initializeHeatmapChart(chartData) {
                     }))
                 ),
                 pointStyle: 'rect',
-                pointRadius: 8,  // Increased point size
-                backgroundColor: context => {
+                pointRadius: 8,
+                backgroundColor: function(context) {
+                    if (!context.raw) return 'rgba(33, 150, 243, 0.4)';
                     const value = context.raw.v;
                     return value > 30 ? 'rgba(33, 150, 243, 0.9)' : 'rgba(33, 150, 243, 0.4)';
                 },
@@ -453,9 +459,18 @@ function initializeHeatmapChart(chartData) {
 // Move this outside as a separate function
 function initializeFollowerCharts(followerData) {
     const pieChartOptions = {
-        responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 1.5,
+        responsive: false,
+        maintainAspectRatio: false,
+        width: 172,  // Match container width
+        height: 114, // Match container height
+        layout: {
+            padding: {
+                top: 0,
+                right: 0,
+                bottom: 0,  // Exact legend height from debug
+                left: 0
+            }
+        },
         plugins: {
             legend: {
                 position: 'bottom',
@@ -470,79 +485,165 @@ function initializeFollowerCharts(followerData) {
                 }
             }
         },
-        // Add these options to maintain size when empty
-        layout: {
-            padding: {
-                top: 10,
-                bottom: 10
-            }
-        },
-        // Add this to ensure chart maintains size even with no data
-        datasets: {
-            pie: {
-                animation: {
-                    animateScale: true
-                },
-                // This ensures the pie maintains its size even when empty
-                weight: 1
+        animation: {
+            onComplete: function(animation) {
+                const chart = animation.chart;
+                const canvas = chart.canvas;
+                const chartArea = chart.chartArea;
+                const container = canvas.parentNode;
+
+                console.log(`${canvas.id} detailed dimensions:`, {
+                    // Canvas properties
+                    canvas: {
+                        width: canvas.width,
+                        height: canvas.height,
+                        style: {
+                            width: canvas.style.width,
+                            height: canvas.style.height
+                        }
+                    },
+                    // Chart area (where the actual pie is drawn)
+                    chartArea: {
+                        top: chartArea.top,
+                        right: chartArea.right,
+                        bottom: chartArea.bottom,
+                        left: chartArea.left,
+                        width: chartArea.width,
+                        height: chartArea.height
+                    },
+                    // Container dimensions
+                    container: {
+                        width: container.offsetWidth,
+                        height: container.offsetHeight,
+                        clientWidth: container.clientWidth,
+                        clientHeight: container.clientHeight
+                    },
+                    // Computed ratios
+                    ratios: {
+                        aspectRatio: canvas.width / canvas.height,
+                        chartAreaRatio: chartArea.width / chartArea.height,
+                        containerRatio: container.offsetWidth / container.offsetHeight
+                    },
+                    // Legend space
+                    legend: {
+                        position: chart.options.plugins.legend.position,
+                        height: chart.legend.height,
+                        width: chart.legend.width
+                    }
+                });
             }
         }
     };
 
-    // Helper function to create pie chart with placeholder data if empty
-    function createPieChart(elementId, data, title) {
-        // If both values are 0, use placeholder data to maintain size
-        const isEmptyData = data.every(value => value === 0);
-        const displayData = isEmptyData ? [1] : data;
-        const displayColors = isEmptyData ? ['#f0f0f0'] : ['#4285f4', '#34A853'];
-        const displayLabels = isEmptyData ? ['No Data'] : ['Follower', 'Non-Follower'];
+    // Add CSS to force container size
+    const pieCharts = ['commentsPie', 'dislikesPie', 'likesPie', 'viewsPie'];
+    pieCharts.forEach(chartId => {
+        const canvas = document.getElementById(chartId);
+        if (canvas) {
+            canvas.style.width = '172px';
+            canvas.style.height = '114px';
+        }
+    });
 
-        new Chart(document.getElementById(elementId), {
-            type: 'pie',
-            data: {
-                labels: displayLabels,
-                datasets: [{
-                    data: displayData,
-                    backgroundColor: displayColors
-                }]
-            },
-            options: {
-                ...pieChartOptions,
-                plugins: {
-                    ...pieChartOptions.plugins,
-                    title: {
-                        ...pieChartOptions.plugins.title,
-                        text: title
-                    }
+    // Comments Distribution
+    new Chart(document.getElementById('commentsPie'), {
+        type: 'pie',
+        data: {
+            labels: ['Follower Comments', 'Non-Follower Comments'],
+            datasets: [{
+                data: [
+                    followerData.engagement_breakdown.comments.follower_count,
+                    followerData.engagement_breakdown.comments.non_follower_count
+                ],
+                backgroundColor: ['#4285f4', '#34A853']
+            }]
+        },
+        options: {
+            ...pieChartOptions,
+            plugins: {
+                ...pieChartOptions.plugins,
+                title: {
+                    ...pieChartOptions.plugins.title,
+                    text: 'Comments Distribution'
                 }
             }
-        });
-    }
+        }
+    });
 
-    // Create each pie chart using the helper function
-    createPieChart('viewsPie', 
-        [followerData.engagement_breakdown.views.follower_count,
-         followerData.engagement_breakdown.views.non_follower_count],
-        'Views Distribution'
-    );
+    // Dislikes Distribution
+    new Chart(document.getElementById('dislikesPie'), {
+        type: 'pie',
+        data: {
+            labels: ['Follower Dislikes', 'Non-Follower Dislikes'],
+            datasets: [{
+                data: [
+                    followerData.engagement_breakdown.dislikes.follower_count,
+                    followerData.engagement_breakdown.dislikes.non_follower_count
+                ],
+                backgroundColor: ['#4285f4', '#34A853']
+            }]
+        },
+        options: {
+            ...pieChartOptions,
+            plugins: {
+                ...pieChartOptions.plugins,
+                title: {
+                    ...pieChartOptions.plugins.title,
+                    text: 'Dislikes Distribution'
+                }
+            }
+        }
+    });
 
-    createPieChart('commentsPie',
-        [followerData.engagement_breakdown.comments.follower_count,
-         followerData.engagement_breakdown.comments.non_follower_count],
-        'Comments Distribution'
-    );
+    // Likes Distribution
+    new Chart(document.getElementById('likesPie'), {
+        type: 'pie',
+        data: {
+            labels: ['Follower Likes', 'Non-Follower Likes'],
+            datasets: [{
+                data: [
+                    followerData.engagement_breakdown.likes.follower_count,
+                    followerData.engagement_breakdown.likes.non_follower_count
+                ],
+                backgroundColor: ['#4285f4', '#34A853']
+            }]
+        },
+        options: {
+            ...pieChartOptions,
+            plugins: {
+                ...pieChartOptions.plugins,
+                title: {
+                    ...pieChartOptions.plugins.title,
+                    text: 'Likes Distribution'
+                }
+            }
+        }
+    });
 
-    createPieChart('likesPie',
-        [followerData.engagement_breakdown.likes.follower_count,
-         followerData.engagement_breakdown.likes.non_follower_count],
-        'Likes Distribution'
-    );
-
-    createPieChart('dislikesPie',
-        [followerData.engagement_breakdown.dislikes.follower_count,
-         followerData.engagement_breakdown.dislikes.non_follower_count],
-        'Dislikes Distribution'
-    );
+    // Views Distribution
+    new Chart(document.getElementById('viewsPie'), {
+        type: 'pie',
+        data: {
+            labels: ['Follower Views', 'Non-Follower Views'],
+            datasets: [{
+                data: [
+                    followerData.engagement_breakdown.views.follower_count,
+                    followerData.engagement_breakdown.views.non_follower_count
+                ],
+                backgroundColor: ['#4285f4', '#34A853']
+            }]
+        },
+        options: {
+            ...pieChartOptions,
+            plugins: {
+                ...pieChartOptions.plugins,
+                title: {
+                    ...pieChartOptions.plugins.title,
+                    text: 'Views Distribution'
+                }
+            }
+        }
+    });
 }
 
 // Function to initialize the Average Watch Time chart

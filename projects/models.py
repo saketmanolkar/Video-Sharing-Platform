@@ -9,14 +9,6 @@ from django.core.files import File
 import json
 import logging
 from django.utils import timezone
-from PIL import Image
-import io
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from projects.utils import add_black_bars
-from django.utils.text import slugify
-from datetime import datetime
-from django.templatetags.static import static
-from .services.media_servies import ModelService
 from .services.video_services import VideoService
 from django.core.exceptions import ValidationError
 from django_redis import get_redis_connection

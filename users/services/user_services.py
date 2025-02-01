@@ -431,7 +431,7 @@ class ProfileService:
         try:
             activity_summary = UserActivitySummary.objects.get(user=profile.user)
             summary_stats = {
-                'total_sessions': activity_summary.total_sessions,
+                
                 'total_time_spent': activity_summary.total_time_spent,
                 'avg_session_length': activity_summary.avg_session_length,
                 'total_profile_visits': activity_summary.total_profile_visits
