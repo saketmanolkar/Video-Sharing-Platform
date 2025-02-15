@@ -26,12 +26,14 @@ class VideoService:
     
     def record_view(self, video, user, ip_address, view_history_model):
         """Handle view recording with time-based cache tracking"""
+        from django.db import transaction
+        from projects.models import Video
         
         if not video.processed:
             print(f"⏳ Skipping view record creation - video {video.id} still processing")
             return None
         
-        view_history = None  # Initialize return value
+        view_history = None
         
         if self.view_cache.can_record_view(
             video_id=video.id,
@@ -39,39 +41,45 @@ class VideoService:
             ip_address=ip_address
         ):
             try:
-                # 1. Create view history record and store reference
-                view_history = view_history_model.objects.create(
-                    video=video,
-                    user=user,
-                    ip_address=ip_address
-                )
-                
-                # 2. Update video views count
-                video.views += 1
-                video.save()
-                
-                # 3. Update analytics
-                try:
-                    analytics = video.analytics
-                    analytics.total_views = video.views
-                    analytics.last_24h_views = self.get_period_views_count(video, 1)
-                    analytics.last_7d_views = self.get_period_views_count(video, 7)
-                    analytics.last_30d_views = self.get_period_views_count(video, 30)
-                    analytics.save(update_fields=[
-                        'total_views', 
-                        'last_24h_views', 
-                        'last_7d_views', 
-                        'last_30d_views',
-                        'updated_at'
-                    ])
-                    logger.info(f"✅ Updated view metrics for video: {video.title}")
-                except Exception as e:
-                    logger.error(f"❌ Error updating analytics: {str(e)}")
+                # Wrap all operations in a transaction
+                with transaction.atomic():
+                    # Get video with lock to prevent race conditions
+                    video = Video.objects.select_for_update().get(id=video.id)
+                    
+                    # 1. Create view history record
+                    view_history = view_history_model.objects.create(
+                        video=video,
+                        user=user,
+                        ip_address=ip_address
+                    )
+                    
+                    # 2. Update video views count
+                    video.views += 1
+                    video.save()
+                    
+                    # 3. Update analytics
+                    try:
+                        analytics = video.analytics
+                        analytics.total_views = video.views
+                        analytics.last_24h_views = self.get_period_views_count(video, 1)
+                        analytics.last_7d_views = self.get_period_views_count(video, 7)
+                        analytics.last_30d_views = self.get_period_views_count(video, 30)
+                        analytics.save(update_fields=[
+                            'total_views', 
+                            'last_24h_views', 
+                            'last_7d_views', 
+                            'last_30d_views',
+                            'updated_at'
+                        ])
+                        logger.info(f"✅ Updated view metrics for video: {video.title}")
+                    except Exception as e:
+                        logger.error(f"❌ Error updating analytics: {str(e)}")
+                        raise  # Re-raise to rollback transaction
                     
             except Exception as e:
                 logger.error(f"❌ Error recording view: {str(e)}")
         
-        return view_history  # Return the created record
+        return view_history
     
     @staticmethod
     def get_user_like_status(video, user):

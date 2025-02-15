@@ -15,7 +15,7 @@ from django.db import transaction
 from django.db.transaction import on_commit
 from django.db import models
 from django.contrib.auth.models import User
-
+from datetime import timedelta
 logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Video)
@@ -243,3 +243,59 @@ def modify_username_in_view_history_on_delete(sender, instance, **kwargs):
         view.user = None
         view.ip_address = f"IP:{original_ip} | User:{instance.username}*DELETED*"
         view.save()
+
+@receiver(post_save, sender=ViewHistory)
+def update_video_analytics_watch_stats(sender, instance, created, **kwargs):
+    """
+    Debug signal to check when ViewHistory updates happen during logout
+    """
+    print("\n=== ViewHistory Signal Debug ===")
+    print(f"• Event Type: {'Creation' if created else 'Update'}")
+    print(f"• Video: {instance.video.title}")
+    
+    with transaction.atomic():
+        analytics = VideoAnalytics.objects.select_for_update().get(video=instance.video)
+        total_views = instance.video.views 
+            
+        if not created:  # Remove duration_watched check
+            old_avg_watch_time = analytics.watch_time
+            new_minutes = (instance.duration_watched.total_seconds() if instance.duration_watched else 0) / 60
+            new_avg = ((analytics.watch_time * (total_views - 1)) + new_minutes) / total_views
+            
+            old_completion_rate = analytics.completion_rate
+            old_completed = analytics.completed_views
+            if instance.completed is True:
+                analytics.completed_views += 1
+                print(f"🔑 Logged in user - completed video")
+            else:
+                analytics.completed_views += 0
+                print(f"🔑 Logged in user - did not complete video")
+                
+            new_rate = (analytics.completed_views / total_views) * 100
+            
+            analytics.watch_time = new_avg       
+            analytics.completion_rate = new_rate
+            
+            print(f"""
+📊 Watch Update (Logged in user):
+• Total Views: {total_views}
+• Duration: {instance.duration_watched or '0:00:00'}
+• Old watch time: {old_avg_watch_time}
+• New watch time: {analytics.watch_time}
+• Old completed count: {old_completed}
+• New completed count: {analytics.completed_views}
+• Old completion rate: {old_completion_rate}
+• New completion rate: {analytics.completion_rate}
+""")
+        
+        analytics.save(update_fields=[
+            'watch_time',
+            'completion_rate',
+            'completed_views'
+        ])
+        
+        # Verify save
+        analytics.refresh_from_db()
+        print(f"✅ Verified save - completed views: {analytics.completed_views}")
+        
+    print("=== End Signal Debug ===\n")

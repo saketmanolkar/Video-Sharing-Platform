@@ -329,9 +329,15 @@ class VideoAnalytics(models.Model):
     last_24h_views = models.IntegerField(default=0)
     last_7d_views = models.IntegerField(default=0)
     last_30d_views = models.IntegerField(default=0)
-    
+
+    # New Metrics
+    watch_time = models.FloatField(default=0)  # Total watch time in minutes
+    completion_rate = models.FloatField(default=0)  # Completion rate as a percentage
+
     # Meta Information
     updated_at = models.DateTimeField(auto_now=True)
+
+    completed_views = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return f"{self.uploader.username} - {self.title}"

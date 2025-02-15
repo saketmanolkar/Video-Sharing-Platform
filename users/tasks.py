@@ -188,30 +188,39 @@ def save_activity_overflow(self, session_id, user_id):
 @shared_task
 def process_video_stats(user_id):
     video_stats_cache = VideoStatsCache()
-    user_cache_key = f"user_{user_id}"  # Ensure consistent format
+    user_cache_key = f"user_{user_id}"  
 
-    # Retrieve video stats from cache
     video_stats = video_stats_cache.get_video_stats(user_cache_key)
 
     if video_stats:
         print("📊 Retrieved video stats from cache:")
         for key, value in video_stats.items():
-            print(f"Key: {key}, Value: {value}")  # Log each retrieved stat
-            video_id, window_id = key.split(':')  # Assuming key format is "video_id:window_id"
+            print(f"Key: {key}, Value: {value}")
+            video_id, window_id = key.split(':')
             
-            # Retrieve the existing ViewHistory entry
-            view_history_entry = ViewHistory.objects.filter(video_id=video_id, window_id=window_id, user_id=user_id).first()
+            view_history_entry = ViewHistory.objects.filter(
+                video_id=video_id, 
+                window_id=window_id, 
+                user_id=user_id
+            ).first()
 
             if view_history_entry:
-                # Update the fields directly
-                view_history_entry.duration_watched = timedelta(seconds=float(value['total_watched']))  # Convert to timedelta
-                view_history_entry.completed = value['is_completed'] == 'True'  # Convert to boolean
-                view_history_entry.save()  # Save the updated entry
-                print(f"🔄 Updated ViewHistory entry for Video ID: {video_id}, Window ID: {window_id}")
+                # Refresh from DB to ensure we have latest state
+                view_history_entry.refresh_from_db()
+                
+                # Update the fields
+                view_history_entry.duration_watched = timedelta(seconds=float(value['total_watched']))
+                view_history_entry.completed = value['is_completed'] == 'True'
+                
+                # Force update to trigger signal
+                view_history_entry.save(
+                    force_update=True, 
+                    update_fields=['duration_watched', 'completed']
+                )
+                print(f"🔄 Updated ViewHistory entry for Video ID: {video_id}, Window ID: {window_id} : {view_history_entry.duration_watched} : {view_history_entry.completed}")
             else:
                 print(f"No ViewHistory entry found for Video ID: {video_id}, Window ID: {window_id}")
 
-    # Invalidate the cached stats
     video_stats_cache.invalidate(user_cache_key)
     print(f"🗑️ Invalidated cached video stats for user ID: {user_id}")
 

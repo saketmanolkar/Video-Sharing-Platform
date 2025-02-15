@@ -49,6 +49,7 @@ def projects(request):
     
     return render(request, 'projects/projects.html', context)
 
+@login_required(login_url="login-page")
 def project(request, pk):    
     video_service = VideoService()
     video = video_service.get_video(pk, Video)
