@@ -96,9 +96,16 @@
     <!-- Check for logout cookie and clear tokens -->
     <script>
         if (document.cookie.includes('logout=true')) {
+            // Set a flag cookie with 30 second TTL and make it visible to all paths
+            document.cookie = 'logout_pending=true; max-age=30; path=/; domain=127.0.0.1';
+            console.log('🚩 Setting logout_pending cookie:', document.cookie);
+            
+            // Remove tokens
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
             localStorage.removeItem('user');
+            
+            // Clear original logout cookie
             document.cookie = 'logout=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
         }
     </script>

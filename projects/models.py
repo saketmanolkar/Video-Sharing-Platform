@@ -12,6 +12,7 @@ from django.utils import timezone
 from .services.video_services import VideoService
 from django.core.exceptions import ValidationError
 from django_redis import get_redis_connection
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -295,7 +296,7 @@ class ViewHistory(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     viewed_at = models.DateTimeField(auto_now_add=True)
 
-    duration_watched = models.DurationField(null=True, blank=True)  
+    duration_watched = models.DurationField(null=True, blank=True, default=timedelta(seconds=0))  
     completed = models.BooleanField(default=False)             
 
     class Meta:

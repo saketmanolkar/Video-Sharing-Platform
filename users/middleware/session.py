@@ -6,7 +6,7 @@ from projects.services.video_services import UtilityService
 from ..tasks import create_user_session
 from django_redis import get_redis_connection
 from datetime import timedelta
-from ..services.cache_service import SessionActivityCache, VideoStatsCache
+from ..services.cache_service import SessionActivityCache, VideoStatsCache, SessionLockCache
 import re
 from urllib.parse import unquote
 from django.core.cache import cache
@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 class UserSessionMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
-        self.redis = get_redis_connection("default")
         self.activity_cache = SessionActivityCache()
         self.video_stats_cache = VideoStatsCache()
+        self.session_lock = SessionLockCache()
 
     def __call__(self, request):
         # Skip for static, media, api files and debug toolbar
@@ -44,7 +44,6 @@ class UserSessionMiddleware:
         
         if request.user.is_authenticated:
             try:
-                # Find active session
                 active_session = UserSession.objects.filter(
                     user=request.user,
                     end_time__isnull=True
@@ -58,21 +57,10 @@ class UserSessionMiddleware:
                         request.path
                     )
                 else:
-                    # Use Redis lock with a longer timeout
-                    lock_key = f"session_creation_lock:{request.user.id}"
-                    lock_timeout = 30  # 30 seconds timeout
-                    
-                    # Try to acquire lock
-                    acquired = self.redis.set(
-                        lock_key, 
-                        "1", 
-                        ex=lock_timeout, 
-                        nx=True  # Only set if not exists
-                    )
-                    
-                    if acquired:
+                    # Try to acquire lock using cache service
+                    if self.session_lock.acquire_lock(request.user.id):
                         try:
-                            # Check again for active session after acquiring lock
+                            # Double-check active session
                             active_session = UserSession.objects.filter(
                                 user=request.user,
                                 end_time__isnull=True
@@ -93,22 +81,15 @@ class UserSessionMiddleware:
                                 }
                                 
                                 print("🎯 Creating new session")
-                                # Keep it async but store task ID in Redis
                                 task = create_user_session.delay(**session_data)
-                                self.redis.setex(
-                                    f"session_task:{request.user.id}",
-                                    60,  # 60 second timeout
-                                    task.id
-                                )
+                                self.session_lock.store_task_id(request.user.id, task.id)
                                 print(f"✅ New session task queued: {task.id}")
                                 
                         finally:
-                            # Keep lock for a bit to prevent immediate recreation
-                            pass  # Let the lock expire naturally
+                            pass  # Let lock expire naturally
                     else:
                         print("⏩ Session creation already in progress")
-                        # Wait briefly for existing session
-                        time.sleep(0.5)  # Wait 500ms for session creation
+                        time.sleep(0.5)
 
             except Exception as e:
                 logger.error(f"❌ Middleware error: {str(e)}")
@@ -146,11 +127,9 @@ class UserSessionMiddleware:
             except json.JSONDecodeError:
                 print("❌ Failed to decode video watch stats cookie.")
 
-
             # Clear the cookie by setting it to an empty value and expiring it
             response = self.get_response(request)
             response.delete_cookie('videoWatchStats')
             return response
-        
 
         return self.get_response(request)

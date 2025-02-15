@@ -155,3 +155,41 @@ class VideoStatsCache:
         """Invalidate all video stats for a user"""
         cache_key = self.get_cache_key(user_id)
         self.redis.delete(cache_key)
+
+class SessionLockCache:
+    FOLDER = ":1:session"
+    LOCK_TTL = 30  # 30 seconds timeout
+    TASK_TTL = 60  # 60 seconds for task tracking
+    
+    def __init__(self):
+        self.redis = get_redis_connection("default")
+    
+    def get_lock_key(self, user_id):
+        return f"{self.FOLDER}:creation_lock:{user_id}"
+    
+    def get_task_key(self, user_id):
+        return f"{self.FOLDER}:task:{user_id}"
+    
+    def acquire_lock(self, user_id):
+        """Try to acquire session creation lock"""
+        lock_key = self.get_lock_key(user_id)
+        return self.redis.set(
+            lock_key, 
+            "1", 
+            ex=self.LOCK_TTL, 
+            nx=True
+        )
+    
+    def store_task_id(self, user_id, task_id):
+        """Store the session creation task ID"""
+        task_key = self.get_task_key(user_id)
+        self.redis.setex(
+            task_key,
+            self.TASK_TTL,
+            task_id
+        )
+    
+    def get_task_id(self, user_id):
+        """Get stored task ID if exists"""
+        task_key = self.get_task_key(user_id)
+        return self.redis.get(task_key)

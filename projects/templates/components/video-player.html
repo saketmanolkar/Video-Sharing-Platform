@@ -222,6 +222,41 @@
 <script src="https://unpkg.com/videojs-event-tracking/dist/videojs-event-tracking.min.js"></script>
 
 <script>
+// FIRST: Start checking immediately and keep checking until found
+console.log('🔄 Starting cookie check...');
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
+const cookieCheckInterval = setInterval(() => {
+    const cookies = document.cookie;
+    const logoutPending = getCookie('logout_pending');
+    
+    if (logoutPending === 'true') {
+        console.log('🚨 Found logout_pending cookie!');
+        clearInterval(cookieCheckInterval);
+        
+        // Try to call logoutUser if it exists
+        if (window.logoutUser) {
+            console.log('✅ Calling logoutUser directly');
+            window.logoutUser();
+        } else {
+            console.log('⏳ Waiting for logoutUser to be defined...');
+            // Keep checking for logoutUser
+            const waitForLogout = setInterval(() => {
+                if (window.logoutUser) {
+                    clearInterval(waitForLogout);
+                    window.logoutUser();
+                }
+            }, 100);
+        }
+    }
+}, 100);
+
 // Get CSRF token at the start
 const videoPlayerCsrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 

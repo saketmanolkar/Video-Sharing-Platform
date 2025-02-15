@@ -26,7 +26,7 @@ class Command(BaseCommand):
                     video=video, 
                     completed=True
                 ).count()
-                
+
                 # Always show watch time comparison
                 self.stdout.write(f"""
 Watch Time Check:
