@@ -9,31 +9,21 @@ from django.views.decorators.csrf import csrf_protect
 from .forms import CustomUserCreationForm
 from django.contrib.auth.decorators import login_required
 from .forms import ProfileForm, MessageForm
-from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, FileResponse, Http404
-from django.core.exceptions import ValidationError
+from django.http import JsonResponse, Http404
 from django.contrib.auth.forms import PasswordChangeForm
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.middleware.csrf import get_token
 from django.views.decorators.http import require_POST
 from .services.cache_service import ProfileCache
-from django.core.cache import cache
 from projects.services.cache_service import VideoContextCache,FormSubmissionCache
 import hashlib
 from projects.services.video_services import VideoService
-from django.utils import timezone
 from .models import UserSession
-from django_redis import get_redis_connection
-from .services.cache_service import SessionActivityCache
 from django.contrib.auth.models import User
 from django.contrib.auth import logout
 from .tasks import save_session_activity
 from users.tasks import save_session_activity , process_video_stats
 import logging
-from datetime import timedelta
-from pprint import pprint
-from projects.models import ViewHistory
-from .services.cache_service import VideoStatsCache
-import requests
 from django.conf import settings as django_settings
 import os
 from django.views.decorators.cache import cache_control

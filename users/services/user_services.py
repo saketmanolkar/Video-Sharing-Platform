@@ -482,23 +482,23 @@ class ProfileService:
         }
         
         # Get average watch time per video
-        average_watch_times = VideoStatisticsService.get_average_watch_time_per_video(profile.user)
+        average_watch_times = VideoStatisticsService.get_average_watch_time_per_video_denormalized(profile.user)
         
         # Get completion rate per video
-        completion_rates = VideoStatisticsService.get_completion_rate_per_video(profile.user)
+        completion_rates = VideoStatisticsService.get_completion_rate_per_video_denormalized(profile.user)
 
         # Get video statistics
         video_stats_service = VideoStatisticsService()
         
         # Get overall average watch time
-        overall_watch_time = video_stats_service.get_average_watch_time_for_user_videos(profile.user)
+        overall_watch_time = video_stats_service.get_average_watch_time_for_user_videos_denormalized(profile.user)
         if overall_watch_time:
-            overall_watch_minutes = overall_watch_time.total_seconds() / 60
+            overall_watch_minutes = overall_watch_time
         else:
             overall_watch_minutes = 0
         
         # Get overall completion rate
-        overall_completion_rate = video_stats_service.get_completion_rate_for_user_videos(profile.user)
+        overall_completion_rate = video_stats_service.get_completion_rate_for_user_videos_denormalized(profile.user)
 
         return {
             'profile': profile,
