@@ -178,7 +178,8 @@ class UserActivitySummary(models.Model):
             models.Index(fields=['user']),
             models.Index(fields=['last_session_date']),
             models.Index(fields=['total_followers']),  # Optional, if you need to query by these
-            models.Index(fields=['total_following'])   # Optional, if you need to query by these
+            models.Index(fields=['total_following']),
+            models.Index(fields=['total_time_spent'])  # Optional, if you need to query by these
         ]
 
     def __str__(self):

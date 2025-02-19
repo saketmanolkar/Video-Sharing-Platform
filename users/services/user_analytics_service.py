@@ -1,10 +1,11 @@
 from collections import defaultdict, OrderedDict
 from django.utils import timezone
 from datetime import timedelta, datetime
-from users.models import UserSession
+from users.models import UserSession, UserActivitySummary
 import pytz
 from django.contrib.auth import get_user_model
 from users.services.follower_analytics_service import FollowerAnalyticsService
+from django.db import models
 
 User = get_user_model()
 
@@ -147,6 +148,17 @@ class UserAnalyticsService:
             return round(sum(active_totals) / len(active_totals), 1)
         
         return 0
+    
+    @staticmethod
+    def get_platform_average_total_time_denormalized():
+        """Calculate average total time spent per user across the platform using denormalized data"""
+       
+        # Calculate average directly from denormalized data
+        avg_time = UserActivitySummary.objects.aggregate(
+            avg_time=models.Avg('total_time_spent')
+        )['avg_time']
+        
+        return round(avg_time or 0, 1)
 
     @staticmethod
     def format_user_data_for_prompt(user):

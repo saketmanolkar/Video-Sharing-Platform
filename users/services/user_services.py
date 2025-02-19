@@ -425,7 +425,7 @@ class ProfileService:
         user_analytics = UserAnalyticsService().get_user_analytics(profile.user)
         
         # Get platform average total time
-        platform_avg_total_time = UserAnalyticsService.get_platform_average_total_time()
+        platform_avg_total_time = UserAnalyticsService.get_platform_average_total_time_denormalized()
             
         # Get UserActivitySummary data
         try:
