@@ -19,54 +19,16 @@ class Command(BaseCommand):
                 
                 stored = video.analytics
                 calculated = rebuild_command.get_analytics_data(video)
-                
-                # Get actual counts
-                total_views = video.views
-                completed_views = ViewHistory.objects.filter(
-                    video=video, 
-                    completed=True
-                ).count()
 
-                # Always show watch time comparison
-                self.stdout.write(f"""
-Watch Time Check:
-• Stored in analytics: {stored.watch_time:.2f}
-• Fresh calculation: {calculated['watch_time']:.2f}
-• Difference: {abs(stored.watch_time - calculated['watch_time']):.2f}
-• Last Updated: {stored.updated_at}
-""")
-                if abs(stored.watch_time - calculated['watch_time']) > 0.01:
-                    self.stdout.write(self.style.WARNING("⚠️ Watch time mismatch!"))
-                    issues_found += 1
+                # Basic Info Validation
+                self.validate_field("Total Views", stored.total_views, calculated['total_views'])
+                self.validate_field("Total Comments", stored.total_comments, calculated['total_comments'])
+                self.validate_field("Total Likes", stored.total_likes, calculated['total_likes'])
+                self.validate_field("Total Dislikes", stored.total_dislikes, calculated['total_dislikes'])
+                self.validate_field("Watch Time", stored.watch_time, calculated['watch_time'], tolerance=0.01)
+                self.validate_field("Completion Rate", stored.completion_rate, calculated['completion_rate'], tolerance=0.01)
+                self.validate_field("Completed Views", stored.completed_views, calculated['completed_views'])
 
-                # Always show completed views comparison
-                self.stdout.write(f"""
-Completed Views Check:
-• Stored in analytics: {stored.completed_views}
-• Fresh calculation: {calculated['completed_views']}
-• Actual DB count: {completed_views}
-• Last Updated: {stored.updated_at}
-""")
-                if stored.completed_views != calculated['completed_views']:
-                    self.stdout.write(self.style.WARNING("⚠️ Completed views mismatch!"))
-                    issues_found += 1
-
-                # Always show completion rate comparison
-                actual_rate = (completed_views / total_views * 100) if total_views > 0 else 0
-                self.stdout.write(f"""
-Completion Rate Check:
-• Stored in analytics: {stored.completion_rate:.2f}%
-• Fresh calculation: {calculated['completion_rate']:.2f}%
-• Actual rate: {actual_rate:.2f}%
-• Based on:
-  - Completed views: {completed_views}
-  - Total views: {total_views}
-• Last Updated: {stored.updated_at}
-""")
-                if abs(stored.completion_rate - calculated['completion_rate']) > 0.01:
-                    self.stdout.write(self.style.WARNING("⚠️ Completion rate mismatch!"))
-                    issues_found += 1
-                    
             except VideoAnalytics.DoesNotExist:
                 self.stdout.write(self.style.ERROR(
                     f'❌ No analytics record found for video: {video.title}'
@@ -79,3 +41,23 @@ Completion Rate Check:
             self.stdout.write(self.style.ERROR(
                 f'\n❌ Found {issues_found} mismatches in analytics data'
             ))
+
+    def validate_field(self, field_name, stored_value, calculated_value, tolerance=0):
+        """Helper method to validate a field with optional tolerance for floats"""
+        if isinstance(stored_value, float) and isinstance(calculated_value, float):
+            difference = abs(stored_value - calculated_value)
+            matches = difference <= tolerance
+        else:
+            matches = stored_value == calculated_value
+
+        self.stdout.write(f"""
+{field_name}:
+• Stored: {stored_value}
+• Calculated: {calculated_value}
+{f'• Difference: {difference:.2f}' if isinstance(stored_value, float) else ''}
+""")
+
+        if not matches:
+            self.stdout.write(self.style.WARNING(f"⚠️ {field_name} mismatch!"))
+            return False
+        return True

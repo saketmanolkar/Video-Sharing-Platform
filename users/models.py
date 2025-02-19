@@ -168,11 +168,17 @@ class UserActivitySummary(models.Model):
     last_session_date = models.DateTimeField(null=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Follower stats
+    total_followers = models.IntegerField(default=0)
+    total_following = models.IntegerField(default=0)
+    
     class Meta:
         db_table = 'user_activity_summary'
         indexes = [
             models.Index(fields=['user']),
-            models.Index(fields=['last_session_date'])
+            models.Index(fields=['last_session_date']),
+            models.Index(fields=['total_followers']),  # Optional, if you need to query by these
+            models.Index(fields=['total_following'])   # Optional, if you need to query by these
         ]
 
     def __str__(self):
