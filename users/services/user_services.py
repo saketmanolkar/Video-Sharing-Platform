@@ -409,13 +409,14 @@ class ProfileService:
             'is_following': is_following    # User-specific - always fresh
         }
 
-    def get_analytics_data(self, profile_id, profile_model):
-        profile = self.get_profile(profile_id, profile_model)
-        
+    def get_analytics_data(self, profile):
+        """Get analytics data using provided profile"""
         # Get video analytics
         videos = profile.user.uploaded_videos.filter(uploader=profile.user)
-        videos_count = videos.count()  # Get the count of videos
         analytics_data = VideoService.get_creator_studio_analytics(videos)
+        
+        # Get count from video_analytics instead of separate query
+        videos_count = len(analytics_data['video_analytics'])
         
         # Get peak viewing times
         peak_hour = AnalyticsService.get_peak_viewing_hour(videos)
@@ -429,21 +430,30 @@ class ProfileService:
             
         # Get UserActivitySummary data
         try:
-            activity_summary = UserActivitySummary.objects.get(user=profile.user)
+            activity_summary = UserActivitySummary.objects.values(
+                'total_time_spent',
+                'avg_session_length',
+                'total_profile_visits',
+                'total_followers',
+                'total_following'
+            ).get(user=profile.user)
+            
+            # Create summary_stats from values() result
             summary_stats = {
-                
-                'total_time_spent': activity_summary.total_time_spent,
-                'avg_session_length': activity_summary.avg_session_length,
-                'total_profile_visits': activity_summary.total_profile_visits
+                'total_time_spent': activity_summary['total_time_spent'],
+                'avg_session_length': activity_summary['avg_session_length'],
+                'total_profile_visits': activity_summary['total_profile_visits'],
+                'total_followers': activity_summary['total_followers'],
+                'total_following': activity_summary['total_following']
             }
             
             # Calculate ratio using summary data
             if platform_avg_total_time > 0:
-                if activity_summary.total_time_spent > platform_avg_total_time:
-                    activity_ratio = round((activity_summary.total_time_spent / platform_avg_total_time * 100) - 100)
+                if activity_summary['total_time_spent'] > platform_avg_total_time:
+                    activity_ratio = round((activity_summary['total_time_spent'] / platform_avg_total_time * 100) - 100)
                     comparison_text = f"You have been {activity_ratio}% more active than the average user"
                 else:
-                    activity_ratio = round(100 - (activity_summary.total_time_spent / platform_avg_total_time * 100))
+                    activity_ratio = round(100 - (activity_summary['total_time_spent'] / platform_avg_total_time * 100))
                     comparison_text = f"You have been {activity_ratio}% less active than the average user"
             else:
                 activity_ratio = 0
@@ -454,7 +464,7 @@ class ProfileService:
                 'total_sessions': 0,
                 'total_time_spent': 0,
                 'avg_session_length': 0,
-                'total_profile_visits': 0
+                'total_profile_visits': 0,
             }
             activity_ratio = 0
             comparison_text = "No activity data available"
@@ -465,9 +475,9 @@ class ProfileService:
         
         # Extract follower metrics
         follower_metrics = {
-            'following_count': follower_analytics['following_count'],
+            'following_count': summary_stats['total_following'],
             'new_followers_30d': follower_analytics['new_followers_30d'],
-            'total_followers': follower_analytics['total_followers']
+            'total_followers': summary_stats['total_followers']
         }
         
         # Extract just the engagement breakdown for pie charts
@@ -482,23 +492,23 @@ class ProfileService:
         }
         
         # Get average watch time per video
-        average_watch_times = VideoStatisticsService.get_average_watch_time_per_video_denormalized(profile.user)
+        #average_watch_times = VideoStatisticsService.get_average_watch_time_per_video_denormalized(profile.user)
         
         # Get completion rate per video
-        completion_rates = VideoStatisticsService.get_completion_rate_per_video_denormalized(profile.user)
+        #completion_rates = VideoStatisticsService.get_completion_rate_per_video_denormalized(profile.user)
 
         # Get video statistics
-        video_stats_service = VideoStatisticsService()
+        #video_stats_service = VideoStatisticsService()
         
         # Get overall average watch time
-        overall_watch_time = video_stats_service.get_average_watch_time_for_user_videos_denormalized(profile.user)
-        if overall_watch_time:
-            overall_watch_minutes = overall_watch_time
-        else:
-            overall_watch_minutes = 0
+        #overall_watch_time = video_stats_service.get_average_watch_time_for_user_videos_denormalized(profile.user)
+        #if overall_watch_time:
+        #    overall_watch_minutes = overall_watch_time
+        #else:
+        #    overall_watch_minutes = 0
         
         # Get overall completion rate
-        overall_completion_rate = video_stats_service.get_completion_rate_for_user_videos_denormalized(profile.user)
+        #overall_completion_rate = video_stats_service.get_completion_rate_for_user_videos_denormalized(profile.user)
 
         return {
             'profile': profile,
@@ -518,10 +528,14 @@ class ProfileService:
             'pie_charts_data': json.dumps(pie_charts_data),
             'follower_metrics': follower_metrics,
             'growth_mini_data': json.dumps(growth_mini_data),
-            'average_watch_times': json.dumps(average_watch_times),
-            'completion_rates': json.dumps(completion_rates),
-            'overall_watch_time': round(overall_watch_minutes, 2),
-            'overall_completion_rate': round(overall_completion_rate, 2),
+            'average_watch_times': json.dumps(analytics_data['watch_time_data']),
+            #'average_watch_times': json.dumps(average_watch_times),
+            'completion_rates': json.dumps(analytics_data['completion_rate_data']),
+            #'completion_rates': json.dumps(completion_rates),
+            'overall_watch_time': analytics_data['avg_watch_time_data'],
+            #'overall_watch_time': round(overall_watch_minutes, 2),
+            'overall_completion_rate': analytics_data['avg_completion_rate_data'],
+            #'overall_completion_rate': round(overall_completion_rate, 2),
             'peak_viewing_hour': peak_hour or "N/A",
             'peak_viewing_day': peak_day or "N/A"
         }

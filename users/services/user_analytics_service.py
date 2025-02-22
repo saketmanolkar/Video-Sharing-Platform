@@ -13,9 +13,14 @@ class UserAnalyticsService:
     @staticmethod
     def get_user_analytics(user):
         """Get complete user behavior analytics"""
+        # Optimized Query:
         sessions = UserSession.objects.filter(
             user=user,
             start_time__gte=timezone.now() - timedelta(days=30)
+        ).values(
+            'start_time',    # Needed for day/hour
+            'end_time',      # Needed for duration
+            'user_id'        # Needed for filtering
         )
         
         return {
@@ -59,16 +64,15 @@ class UserAnalyticsService:
     @staticmethod
     def _get_heatmap_data(sessions):
         """Transform sessions into day/hour heatmap using local time"""
-        # Step 1: Collect raw data in 24-hour format
         raw_data = defaultdict(lambda: defaultdict(float))
         
         for session in sessions:
-            if session.end_time:
-                local_start = UserAnalyticsService.convert_utc_to_local(session.start_time)
-                local_end = UserAnalyticsService.convert_utc_to_local(session.end_time)
+            if session['end_time']:  # Dictionary access
+                local_start = UserAnalyticsService.convert_utc_to_local(session['start_time'])
+                local_end = UserAnalyticsService.convert_utc_to_local(session['end_time'])
                 
                 day = local_start.strftime('%A')
-                hour_24 = int(local_start.strftime('%H'))  # Keep as 24-hour
+                hour_24 = int(local_start.strftime('%H'))
                 
                 duration = (local_end - local_start).total_seconds() / 60
                 raw_data[day][hour_24] += round(duration, 2)
@@ -94,8 +98,8 @@ class UserAnalyticsService:
         session_count = 0
         
         for session in sessions:
-            if session.end_time:
-                duration = (session.end_time - session.start_time).total_seconds() / 60
+            if session['end_time']:  # Changed from session.end_time
+                duration = (session['end_time'] - session['start_time']).total_seconds() / 60  # Changed access
                 total_time += duration
                 session_count += 1
         

@@ -11,6 +11,8 @@ from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from users.services.follow_services import FollowService
 from django.db import connection
 from django.utils.dateparse import parse_datetime
+from django.db.models import Count
+from django.db.models.functions import TruncDay, ExtractHour
 
 
 logger = logging.getLogger(__name__)
@@ -206,21 +208,24 @@ class VideoService:
     def get_creator_studio_analytics(videos):
         analytics_service = AnalyticsService()
         
-        # Filter for current user's videos only
-        user = videos.first().uploader if videos.exists() else None
-        user_videos = videos.filter(uploader=user)
+        # Get first video in one query instead of two
+        first_video = videos.first()
+        user = first_video.uploader if first_video else None
+        user_videos = videos.filter(uploader=user).select_related('analytics')
         
         # Use AnalyticsService to get total views data
         views_data = analytics_service.get_total_views_data(user_videos)
-        chart_labels = views_data['labels']
-        chart_data = views_data['data']
+        # Extract labels and data from the new format
+        chart_labels = [item['video_title'] for item in views_data]
+        chart_data = [item['total_views'] for item in views_data]
         
         video_analytics = {}
         daily_views_data = {}
         hourly_views_data = {}
+        watch_time_data = {}
 
         for video in user_videos:
-            if hasattr(video, 'analytics'):
+            if video.analytics:
                 video_id = str(video.id)
                 
                 # Basic analytics data
@@ -235,21 +240,20 @@ class VideoService:
                 }
                 
                 # Daily views data
-                daily_views = analytics_service.get_views_over_time(video)
-                if daily_views:
-                    daily_views_data[video_id] = VideoService._process_daily_views(daily_views)
+                daily_views_data[video_id] = VideoService.get_views_over_time(video)
                 
                 # Hourly views data
-                hourly_views = analytics_service.get_views_by_hour(video)
-                if hourly_views:
-                    hourly_views_data[video_id] = {
-                        'labels': [f"{str(view['hour']).zfill(2)}:00" for view in hourly_views],
-                        'data': [view['count'] for view in hourly_views]
-                    }
+                hourly_views_data[video_id] = VideoService.get_views_by_hour(video)
+
+                
 
         # Get likes and comments data for filtered videos
         likes_data = analytics_service.get_likes_dislikes_data(user_videos)
         comments_data = analytics_service.get_comments_data(user_videos)
+        watch_time_data = analytics_service.get_watch_time_data(user_videos)
+        completion_rate_data = analytics_service.get_completion_rate_data(user_videos)
+        avg_watch_time_data = analytics_service.get_avg_watch_time_for_user_data(user_videos)
+        avg_completion_rate_data = analytics_service.get_avg_completion_rate_for_user_data(user_videos)
 
         return {
             'video_analytics': video_analytics,
@@ -257,29 +261,56 @@ class VideoService:
             'chart_data': chart_data,
             'daily_views_data': daily_views_data,
             'hourly_views_data': hourly_views_data,
+            'watch_time_data': watch_time_data,
+            'completion_rate_data': completion_rate_data,
+            'avg_watch_time_data': avg_watch_time_data,
+            'avg_completion_rate_data': avg_completion_rate_data,
             'likes_data': likes_data,
             'comments_data': comments_data
         }
     
     @staticmethod
-    def _process_daily_views(daily_views):
-        """Helper method to process daily views data"""
-        from django.utils import timezone
-        from datetime import timedelta
+    def get_views_over_time(video, days=30):
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=days)
+        date_range = [(end_date - timedelta(days=x)).date() for x in range(days)]
         
-        date_range = [(timezone.now() - timedelta(days=x)).date() for x in range(30)]
-        views_dict = {view['day'].date(): view['count'] for view in daily_views}
-        
-        daily_data = []
-        daily_labels = []
-        
-        for date in reversed(date_range):
-            daily_labels.append(date.strftime('%Y-%m-%d'))
-            daily_data.append(views_dict.get(date, 0))
-        
+        daily_views_rows = list(video.views_history.filter(
+            viewed_at__gte=start_date
+        ).annotate(
+            day=TruncDay('viewed_at')
+        ).values('day').annotate(
+            count=Count('id')
+        ))
+        daily_views_dict = {
+            row['day']: row['count'] 
+            for row in daily_views_rows
+        }
+
         return {
-            'labels': daily_labels,
-            'data': daily_data
+            'labels': [d.strftime('%Y-%m-%d') for d in reversed(date_range)],
+            'data': [daily_views_dict.get(d, 0) for d in reversed(date_range)]
+        }
+    
+    @staticmethod
+    def get_views_by_hour(video, days=30):
+        """Get hourly view distribution"""
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Force single evaluation with list()
+        hourly_views_list = list(video.views_history.filter(
+            viewed_at__gte=start_date
+        ).annotate(
+            hour=ExtractHour('viewed_at')
+        ).values('hour').annotate(
+            count=Count('id')
+        ).order_by('hour'))
+        
+        # Return formatted data directly
+        return {
+            'labels': [f"{str(row['hour']).zfill(2)}:00" for row in hourly_views_list],
+            'data': [row['count'] for row in hourly_views_list]
         }
     
     @staticmethod

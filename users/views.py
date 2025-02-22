@@ -53,7 +53,7 @@ def analytics(request, pk):
         messages.error(request, "You don't have permission to access this analytics")
         return redirect('profile', pk=pk)
     
-    context = profile_service.get_analytics_data(pk, Profile)
+    context = profile_service.get_analytics_data(profile)
     
     return render(request, 'users/analytics.html', context)
 
