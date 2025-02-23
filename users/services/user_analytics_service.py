@@ -171,28 +171,22 @@ class UserAnalyticsService:
             # Get user's activity summary
             activity_summary = user.activity_summary
             
-            # Get last 30 days of sessions for heatmap
-            sessions = UserSession.objects.filter(
-                user=user,
-                start_time__gte=timezone.now() - timedelta(days=30)
-            )
-            
-            # Get heatmap data
-            analytics_service = UserAnalyticsService()
-            heatmap_data = analytics_service._get_heatmap_data(sessions)
+            # Use the optimized get_user_analytics method
+            analytics_data = UserAnalyticsService.get_user_analytics(user)
+            heatmap_data = analytics_data['heatmap_data']
+            time_stats = analytics_data['time_stats']
             
             # Get platform average
-            platform_avg = analytics_service.get_platform_average_total_time()
+            platform_avg = UserAnalyticsService.get_platform_average_total_time_denormalized()
+            follower_analytics_service = FollowerAnalyticsService()
+            follower_metrics = follower_analytics_service.get_follower_analytics(user)
+            new_followers_30d = follower_metrics['new_followers_30d']
             
-            # Get follower analytics
-            follower_service = FollowerAnalyticsService()
-            follower_analytics = follower_service.get_follower_analytics(user)
-            
-            # Extract follower metrics
+            # Get follower metrics directly from activity_summary
             follower_metrics = {
-                'following_count': follower_analytics['following_count'],
-                'new_followers_30d': follower_analytics['new_followers_30d'],
-                'total_followers': follower_analytics['total_followers']
+                'following_count': activity_summary.total_following,
+                'total_followers': activity_summary.total_followers,
+                'new_followers_30d': new_followers_30d
             }
             
             # Format the prompt
@@ -206,12 +200,12 @@ HEATMAP DATA of the last 30 days (Minutes spent per hour):
                 for hour, duration in hours.items():
                     prompt += f"{hour}: {duration} minutes\n"
             
-            # Add summary stats from UserActivitySummary
+            # Add summary stats from UserActivitySummary and time_stats
             prompt += f"""
 OVERALL STATISTICS:
-Total Time Spent: {activity_summary.total_time_spent} minutes
-Average Session Duration: {activity_summary.avg_session_length} minutes
-Number of Sessions: {activity_summary.total_sessions}
+Total Time Spent: {time_stats['total_time']} minutes
+Average Session Duration: {time_stats['avg_session']} minutes
+Number of Sessions: {time_stats['session_count']}
 Count of Visits to {user.username}'s profile by other users: {activity_summary.total_profile_visits}
 Last Active: {activity_summary.last_session_date.strftime('%Y-%m-%d %H:%M')}
 Platform Average Time: {platform_avg} minutes

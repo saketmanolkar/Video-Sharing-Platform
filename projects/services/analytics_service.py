@@ -2,6 +2,7 @@ from django.db.models.functions import TruncDay, TruncHour, ExtractHour, Extract
 from django.db.models import Count, F, Sum
 from django.utils import timezone
 from datetime import timedelta
+from users.services.follower_analytics_service import FollowerAnalyticsService
 
 class AnalyticsService:
     # Existing view methods
@@ -107,7 +108,7 @@ class AnalyticsService:
         completed_views = sum(video.analytics.completed_views for video in videos)
         
         completion_rate = (completed_views / total_views) * 100 if total_views > 0 else 0
-        return completion_rate
+        return round(completion_rate, 2)
     
     @staticmethod
     def get_avg_watch_time_for_user_data(videos):
@@ -285,13 +286,13 @@ class VideoReportService:
             prompt += f"ENGAGEMENT BREAKDOWN FOR ALL OF {user.username}'S VIDEOS:\n"
 
             # Add engagement breakdown to the prompt
-            for metric, data in engagement_breakdown['engagement_breakdown'].items():
+            for metric, data in engagement_breakdown.get('engagement_breakdown', {}).items():
                 prompt += f"\n{metric.capitalize()}:\n"
-                prompt += f"  Total: {data['total']}\n"
-                prompt += f"  Follower Count: {data['follower_count']}\n"
-                prompt += f"  Non-Follower Count: {data['non_follower_count']}\n"
-                prompt += f"  Follower Percentage: {data['follower_percentage']:.2f}%\n"
-                prompt += f"  Non-Follower Percentage: {data['non_follower_percentage']:.2f}%\n"
+                for key, value in data.items():
+                    if isinstance(value, float):
+                        prompt += f"  {key.replace('_', ' ').title()}: {value:.2f}%\n"
+                    else:
+                        prompt += f"  {key.replace('_', ' ').title()}: {value}\n"
 
             # Get average watch time for each video
             avg_watch_times = VideoStatisticsService.get_average_watch_time_per_video(user)
@@ -381,7 +382,21 @@ Views Over Days for '{stats['title']}':
             prompt += "-----------------------------------------\n"
             prompt += "\n"
             # End of the prompt
-            prompt += "Please analyze the data above to derive additional insights and trends."
+            prompt += f"""
+In the report, give insights about the following metrics:
+- Peak Viewing Day 
+- Peak Viewing Hour   
+- Completion Rate 
+- Average Watch Time 
+- Engagement Breakdown 
+- Overall Statistics 
+- Views Over Days 
+- Views Distribution Over Hours 
+- View Distribution Over a Week 
+
+Make sure to give insights in this order only, no exceptions.
+
+"""
 
             return prompt
             
