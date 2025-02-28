@@ -69,7 +69,8 @@
       <div class="column">
         <div class="card project">
           <a href="{% url 'project' item.id %}" class="project">
-            <div class="project__thumbnail-wrapper" data-video-url="{% url 'api-stream-video' item.id %}" data-preview-duration="15">
+            <!-- <div class="project__thumbnail-wrapper" data-video-url="{% url 'api-stream-video' item.id %}" data-preview-duration="15">  for video preview-->
+            <div class="project__thumbnail-wrapper">
               <img class="project__thumbnail" 
                    src="{% if item.thumbnail %}{{ item.thumbnail.url }}{% else %}{% static 'images/default.jpg' %}{% endif %}"
                    alt="{{ item.title }}" />
