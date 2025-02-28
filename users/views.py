@@ -40,7 +40,8 @@ def creator_studio(request, pk):
         messages.error(request, "You don't have permission to access this creator studio")
         return redirect('profile', pk=pk)
 
-    context = profile_service.get_creator_studio_data(pk, Profile)
+    # Use the optimized function instead
+    context = profile_service.get_creator_studio_data_optimized(pk, Profile)
     return render(request, "users/creator_studio.html", context)
 
 @login_required
@@ -192,8 +193,8 @@ def user_videos(request, pk):
 
 @login_required
 def user_history(request, pk):
-    # Get the profile first
-    profile = get_object_or_404(Profile, id=pk)
+    # Get the profile with select_related to avoid separate user query
+    profile = get_object_or_404(Profile.objects.select_related('user'), id=pk)
     
     # Check if the user owns this profile
     if request.user != profile.user:
@@ -202,7 +203,8 @@ def user_history(request, pk):
     
     # If authorized, proceed with getting the history
     profile_service = ProfileService()
-    history_data = profile_service.get_user_history(pk, Profile)
+    # Pass the already fetched profile to the service method
+    history_data = profile_service.get_user_history(profile)
 
     # Add pagination similar to projects view
     paged_history, custom_range = VideoService.get_paginated_videos(
@@ -211,7 +213,7 @@ def user_history(request, pk):
     )
 
     context = {
-        'profile': history_data['profile'],
+        'profile': profile,  # Use the profile we already fetched
         'view_history': paged_history,
         'custom_range': custom_range
     }

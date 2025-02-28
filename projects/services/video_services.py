@@ -11,8 +11,9 @@ from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from users.services.follow_services import FollowService
 from django.db import connection
 from django.utils.dateparse import parse_datetime
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.db.models.functions import TruncDay, ExtractHour
+import uuid
 
 
 logger = logging.getLogger(__name__)
@@ -23,8 +24,33 @@ class VideoService:
         self.context_cache = VideoContextCache()
 
     @staticmethod
-    def get_video(video_id, model):
-        return get_object_or_404(model, id=video_id)
+    def get_video(video_id, model, select_related_fields=None, prefetch_related_fields=None):
+        """
+        Get a video by ID with optional select_related and prefetch_related fields to reduce queries
+        """
+        queryset = model.objects
+        
+        # If select_related fields are provided, use them to fetch related data in one query
+        if select_related_fields:
+            if isinstance(select_related_fields, (list, tuple)):
+                queryset = queryset.select_related(*select_related_fields)
+            else:
+                queryset = queryset.select_related(select_related_fields)
+        
+        # Include analytics in the query
+        queryset = queryset.select_related('analytics')
+        
+        # If prefetch_related fields are provided, use them to fetch related data in one query
+        if prefetch_related_fields:
+            if isinstance(prefetch_related_fields, (list, tuple)):
+                queryset = queryset.prefetch_related(*prefetch_related_fields)
+            else:
+                queryset = queryset.prefetch_related(prefetch_related_fields)
+        
+        # Always prefetch tags to avoid duplicate queries
+        queryset = queryset.prefetch_related('tags')
+        
+        return get_object_or_404(queryset, id=video_id)
     
     def record_view(self, video, user, ip_address, view_history_model):
         """Handle view recording with time-based cache tracking"""
@@ -59,29 +85,38 @@ class VideoService:
                     video.views += 1
                     video.save()
                     
-                    # 3. Update analytics
-                    try:
-                        analytics = video.analytics
-                        analytics.total_views = video.views
-                        analytics.last_24h_views = self.get_period_views_count(video, 1)
-                        analytics.last_7d_views = self.get_period_views_count(video, 7)
-                        analytics.last_30d_views = self.get_period_views_count(video, 30)
-                        analytics.save(update_fields=[
-                            'total_views', 
-                            'last_24h_views', 
-                            'last_7d_views', 
-                            'last_30d_views',
-                            'updated_at'
-                        ])
-                        logger.info(f"✅ Updated view metrics for video: {video.title}")
-                    except Exception as e:
-                        logger.error(f"❌ Error updating analytics: {str(e)}")
-                        raise  # Re-raise to rollback transaction
+                    # Note: Analytics update is now handled by the signal
                     
             except Exception as e:
                 logger.error(f"❌ Error recording view: {str(e)}")
         
         return view_history
+
+    def get_all_period_views_counts_optimized(self, video):
+        """Get views for all time periods in a single query"""
+        from django.db.models import Count, Q
+        
+        # Calculate time thresholds
+        now = timezone.now()
+        day_1 = now - timedelta(days=1)
+        day_7 = now - timedelta(days=7)
+        day_30 = now - timedelta(days=30)
+        
+        # Print debug info
+        print(f"🔍 Running optimized query for video {video.id}")
+        print(f"Time thresholds: 1d={day_1}, 7d={day_7}, 30d={day_30}")
+        
+        # Execute a single query with conditional counts
+        result = video.views_history.aggregate(
+            day_1=Count('id', filter=Q(viewed_at__gte=day_1)),
+            day_7=Count('id', filter=Q(viewed_at__gte=day_7)),
+            day_30=Count('id', filter=Q(viewed_at__gte=day_30)),
+            total=Count('id')  # Add total count
+        )
+        
+        print(f"📊 Query result: {result}")
+        
+        return result
     
     @staticmethod
     def get_user_like_status(video, user):
@@ -113,7 +148,7 @@ class VideoService:
             # Create new context with static data
             context = {
                 'video': video,
-                'tags': video.tags.all()
+                'tags': list(video.tags.all())  # Use list() to ensure we use the prefetched data
             }
             
             # Cache static data
@@ -138,11 +173,21 @@ class VideoService:
     def get_likes_count(video):
         """Get count of likes for video"""
         return video.likes.filter(is_like=True).count()
-    
+
+    @staticmethod
+    def get_likes_count_optimized(video):
+        """Get count of likes for video"""
+        return video.analytics.total_likes
+
     @staticmethod
     def get_dislikes_count(video):
         """Get count of dislikes for video"""
         return video.likes.filter(is_like=False).count()
+    
+    @staticmethod
+    def get_dislikes_count_optimized(video):
+        """Get count of dislikes for video"""
+        return video.analytics.total_dislikes
     
     @staticmethod
     def handle_video_save(video, *args, **kwargs):
@@ -220,13 +265,15 @@ class VideoService:
         chart_data = [item['total_views'] for item in views_data]
         
         video_analytics = {}
+        videos_with_analytics = []
         daily_views_data = {}
         hourly_views_data = {}
-        watch_time_data = {}
 
+        # First pass - collect basic info and build list of videos with analytics
         for video in user_videos:
             if video.analytics:
                 video_id = str(video.id)
+                videos_with_analytics.append(video)
                 
                 # Basic analytics data
                 video_analytics[video_id] = {
@@ -238,15 +285,14 @@ class VideoService:
                     'total_comments': video.analytics.total_comments,
                     'created_at': parse_datetime(video.created_at) if isinstance(video.created_at, str) else video.created_at,
                 }
-                
-                # Daily views data
-                daily_views_data[video_id] = VideoService.get_views_over_time(video)
-                
-                # Hourly views data
-                hourly_views_data[video_id] = VideoService.get_views_by_hour(video)
 
-                
-
+                #daily_views_data[video_id] = VideoService.get_views_over_time(video)
+                #hourly_views_data[video_id] = VideoService.get_views_by_hour(video)
+        
+        # Get views data in bulk for all videos at once
+        daily_views_data = VideoService.get_bulk_views_over_time(videos_with_analytics)
+        hourly_views_data = VideoService.get_bulk_views_by_hour(videos_with_analytics)  # You'll need to implement this too
+        
         # Get likes and comments data for filtered videos
         likes_data = analytics_service.get_likes_dislikes_data(user_videos)
         comments_data = analytics_service.get_comments_data(user_videos)
@@ -268,25 +314,49 @@ class VideoService:
             'likes_data': likes_data,
             'comments_data': comments_data
         }
-    
     @staticmethod
     def get_views_over_time(video, days=30):
+        """Get views over time for a single video with robust error handling"""
+        from django.db.models import Count
+        from django.db.models.functions import TruncDay
+        
+        # Handle case where video is None
+        if not video:
+            # Return empty data structure with correct format
+            return {
+                'labels': [],
+                'data': []
+            }
+        
         end_date = timezone.now()
         start_date = end_date - timedelta(days=days)
         date_range = [(end_date - timedelta(days=x)).date() for x in range(days)]
         
-        daily_views_rows = list(video.views_history.filter(
-            viewed_at__gte=start_date
-        ).annotate(
-            day=TruncDay('viewed_at')
-        ).values('day').annotate(
-            count=Count('id')
-        ))
-        daily_views_dict = {
-            row['day']: row['count'] 
-            for row in daily_views_rows
-        }
-
+        try:
+            # Check if video has views_history attribute
+            if hasattr(video, 'views_history'):
+                daily_views_rows = list(video.views_history.filter(
+                    viewed_at__gte=start_date
+                ).annotate(
+                    day=TruncDay('viewed_at')
+                ).values('day').annotate(
+                    count=Count('id')
+                ))
+                
+                # Create dictionary with date objects as keys (not datetime objects)
+                daily_views_dict = {
+                    row['day'].date(): row['count']  # Convert datetime to date for key matching
+                    for row in daily_views_rows
+                }
+            else:
+                # No views_history available
+                daily_views_dict = {}
+        except Exception as e:
+            # Log the error but continue with empty data
+            print(f"Error getting views for video {video.id}: {str(e)}")
+            daily_views_dict = {}
+        
+        # Always return properly formatted response
         return {
             'labels': [d.strftime('%Y-%m-%d') for d in reversed(date_range)],
             'data': [daily_views_dict.get(d, 0) for d in reversed(date_range)]
@@ -315,14 +385,27 @@ class VideoService:
     
     @staticmethod
     def search_videos(search_query):
-        """Handle video search across multiple fields"""
-        from django.db.models import Q
-        from projects.models import Video  # Import here to avoid circular import
+        """Handle video search across multiple fields with optimized queries"""
+        from django.db.models import Q, Prefetch
+        from projects.models import Video, Tag
+        
+        # Optimize tag prefetch to only get needed fields
+        tags_prefetch = Prefetch(
+            'tags',
+            queryset=Tag.objects.only('name', 'id'),
+        )
+        
+        base_query = Video.objects.select_related(
+            'uploader',          # Get user data
+            'uploader__profile'  # Get profile data
+        ).prefetch_related(
+            'tags'              # Get all tags in one query
+        )
         
         if not search_query:
-            return Video.objects.all().order_by('-created_at')
+            return base_query.order_by('-created_at')
             
-        return Video.objects.filter(
+        return base_query.filter(
             Q(title__icontains=search_query) |
             Q(description__icontains=search_query) |
             Q(tags__name__icontains=search_query) |
@@ -404,6 +487,141 @@ class VideoService:
         except Exception as e:
             logger.error(f"Error handling like: {str(e)}")
             return {'status': 'error', 'message': str(e)}
+
+    @staticmethod
+    def get_videos_with_reactions(videos):
+        """Get likes and dislikes counts for multiple videos in bulk"""
+        from django.db.models import Count, Q
+        from projects.models import Video
+        
+        # Get all video IDs
+        video_ids = [video.id for video in videos]
+        
+        # Get counts in a single query using conditional aggregation
+        reactions = Video.objects.filter(id__in=video_ids).annotate(
+            likes_count=Count('likes', filter=Q(likes__is_like=True)),
+            dislikes_count=Count('likes', filter=Q(likes__is_like=False))
+        ).values('id', 'likes_count', 'dislikes_count')
+        
+        # Create a lookup dictionary
+        reaction_lookup = {
+            str(r['id']): {
+                'likes': r['likes_count'],
+                'dislikes': r['dislikes_count']
+            } for r in reactions
+        }
+        
+        return reaction_lookup
+
+    @staticmethod
+    def get_bulk_views_over_time(videos, days=30):
+        """Get views over time for multiple videos in a single query (truly optimized)"""
+        from django.db.models import Count
+        from django.db.models.functions import TruncDay
+        from projects.models import ViewHistory
+        
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=days)
+        date_range = [(end_date - timedelta(days=x)).date() for x in range(days)]
+        
+        # If no videos, return empty dict
+        if not videos:
+            return {}
+        
+        # Get all video IDs
+        video_ids = [video.id for video in videos]
+        
+        # Make a SINGLE query for ALL videos
+        all_daily_views = list(ViewHistory.objects.filter(
+            video_id__in=video_ids,
+            viewed_at__gte=start_date
+        ).annotate(
+            day=TruncDay('viewed_at')
+        ).values('day', 'video_id').annotate(
+            count=Count('id')
+        ))
+        
+        # Organize by video_id
+        views_by_video = {}
+        for row in all_daily_views:
+            video_id = str(row['video_id'])
+            if video_id not in views_by_video:
+                views_by_video[video_id] = {}
+            
+            # Convert datetime to date for key matching
+            day_date = row['day'].date()
+            views_by_video[video_id][day_date] = row['count']
+        
+        # Format results for each video
+        result_by_video = {}
+        for video in videos:
+            video_id = str(video.id)
+            
+            # Get this video's data (or empty dict if none)
+            video_data = views_by_video.get(video_id, {})
+            
+            # Format exactly as in original function
+            result_by_video[video_id] = {
+                'labels': [d.strftime('%Y-%m-%d') for d in reversed(date_range)],
+                'data': [video_data.get(d, 0) for d in reversed(date_range)]
+            }
+        
+        return result_by_video
+
+    @staticmethod
+    def get_bulk_views_by_hour(videos, days=30):
+        """Get hourly views for multiple videos in a single query (truly optimized)"""
+        from django.db.models import Count
+        from django.db.models.functions import ExtractHour
+        from projects.models import ViewHistory
+        
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # If no videos, return empty dict
+        if not videos:
+            return {}
+        
+        # Get all video IDs
+        video_ids = [video.id for video in videos]
+        
+        # Make a SINGLE query for ALL videos
+        all_hours_data = list(ViewHistory.objects.filter(
+            video_id__in=video_ids,
+            viewed_at__gte=start_date
+        ).annotate(
+            hour=ExtractHour('viewed_at')
+        ).values('hour', 'video_id').annotate(
+            count=Count('id')
+        ).order_by('video_id', 'hour'))
+        
+        # Organize by video_id
+        hours_by_video = {}
+        for row in all_hours_data:
+            video_id = str(row['video_id'])
+            if video_id not in hours_by_video:
+                hours_by_video[video_id] = []
+            
+            hours_by_video[video_id].append({
+                'hour': row['hour'],
+                'count': row['count']
+            })
+        
+        # Format results for each video
+        result_by_video = {}
+        for video in videos:
+            video_id = str(video.id)
+            
+            # Get this video's data (or empty list if none)
+            video_data = hours_by_video.get(video_id, [])
+            
+            # Format in the same way as the original function
+            result_by_video[video_id] = {
+                'labels': [f"{str(item['hour']).zfill(2)}:00" for item in video_data],
+                'data': [item['count'] for item in video_data]
+            }
+        
+        return result_by_video
 
 class UtilityService:
     @staticmethod

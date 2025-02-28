@@ -97,7 +97,7 @@
     <script>
         if (document.cookie.includes('logout=true')) {
             // Set a flag cookie with 30 second TTL and make it visible to all paths
-            document.cookie = 'logout_pending=true; max-age=30; path=/; domain=127.0.0.1';
+            document.cookie = 'logout_pending=true; max-age=5; path=/; domain=127.0.0.1';
             console.log('🚩 Setting logout_pending cookie:', document.cookie);
             
             // Remove tokens

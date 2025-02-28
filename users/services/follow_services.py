@@ -76,9 +76,13 @@ class FollowService:
             return False
     
     def get_follower_stats(self, profile):
-        return {
-            #'followers_count': profile.user.followers_set.count(),
-            #'following_count': profile.user.following_set.count()
-            'followers_count': profile.user.activity_summary.total_followers,
-            'following_count': profile.user.activity_summary.total_following
-        }
+        if hasattr(profile.user, 'activity_summary'):
+            return {
+                'followers_count': profile.user.activity_summary.total_followers,
+                'following_count': profile.user.activity_summary.total_following
+            }
+        else:
+            return {
+                'followers_count': profile.user.followers_set.count(),
+                'following_count': profile.user.following_set.count()
+            }

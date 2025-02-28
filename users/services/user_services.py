@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from django.db import models
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.templatetags.static import static
+from django.utils.dateparse import parse_datetime
 import json
 from projects.services.video_services import VideoService
 from users.services.follow_services import FollowService
@@ -24,6 +25,10 @@ import glob
 from users.models import User  # Import User model
 from users.models import Report  # Import your Report model
 from django.db.utils import IntegrityError
+from django.db.models import Count, Prefetch
+from projects.models import Playlist, Video, Tag
+from projects.models import ViewHistory
+from projects.models import PlaylistItem
 
 class UserReportService:
     def __init__(self, api_key):
@@ -259,9 +264,27 @@ class ProfileService:
         return profile
     
     def get_user_videos(self, profile_id, profile_model, search_query=None):
-        profile = get_object_or_404(profile_model, id=profile_id)
-        videos = profile.user.uploaded_videos.all().order_by('-created_at')
-        playlists = profile.user.playlists.all().order_by('-created_at')
+        # Use select_related to fetch the user in the same query as the profile
+        profile = get_object_or_404(profile_model.objects.select_related('user'), id=profile_id)
+        
+        # Store user reference to avoid repeated lookups
+        user = profile.user
+        
+        # Fetch videos with prefetch_related to optimize queries
+        videos = user.uploaded_videos.all().order_by('-created_at').prefetch_related('tags')
+        
+        # Prefetch playlist items and their related videos
+        playlist_items_prefetch = Prefetch(
+            'items',
+            queryset=PlaylistItem.objects.select_related('video', 'video__uploader')
+        )
+        
+        # Annotate playlists with item count and prefetch related items
+        playlists = user.playlists.annotate(
+            items_count=Count('items')
+        ).prefetch_related(
+            playlist_items_prefetch
+        ).order_by('-created_at')
 
         # Apply search if query exists
         if search_query:
@@ -276,10 +299,18 @@ class ProfileService:
                 Q(description__icontains=search_query)
             ).distinct()
 
-        # Add like and dislike counts to each video
+        # Use the existing method to get reactions in bulk
+        reaction_lookup = VideoService.get_videos_with_reactions(videos)
+        
+        # Attach counts to videos
         for video in videos:
-            video.likes_count = VideoService.get_likes_count(video)
-            video.dislikes_count = VideoService.get_dislikes_count(video)
+            video_id = str(video.id)
+            if video_id in reaction_lookup:
+                video.likes_count = reaction_lookup[video_id]['likes']
+                video.dislikes_count = reaction_lookup[video_id]['dislikes']
+            else:
+                video.likes_count = 0
+                video.dislikes_count = 0
 
         return {
             'profile': profile,
@@ -288,12 +319,25 @@ class ProfileService:
             'search_query': search_query
         }
     
-    def get_user_history(self, profile_id, profile_model):
-        profile = get_object_or_404(profile_model, id=profile_id)
-        history_entries = profile.user.view_history.all().order_by('-viewed_at')
-        history_videos = [entry.video for entry in history_entries]
+    def get_user_history(self, profile):
+        """Get user viewing history with optimized queries"""
+        # Use select_related to fetch video, uploader, and uploader's profile in a single query
+        # Also prefetch tags to avoid N+1 queries when displaying video tags
+        history_entries = profile.user.view_history.select_related(
+            'video', 
+            'video__uploader',
+            'video__uploader__profile'  # Prefetch the uploader's profile
+        ).prefetch_related(
+            'video__tags'  # Prefetch tags to avoid N+1 queries
+        ).order_by('-viewed_at')
+        
+        # Extract videos from history entries
+        history_videos = []
+        for entry in history_entries:
+            video = entry.video
+            history_videos.append(video)
+        
         return {
-            'profile': profile,
             'history_videos': history_videos
         }
     
@@ -377,40 +421,142 @@ class ProfileService:
             'following': following,
         }
 
+    def get_creator_studio_data_optimized(self, profile_id, profile_model):
+        """Get only the essential data needed for creator studio display"""
+        # Get profile with caching - only call this once
+        cached_profile = self.profile_cache.get_profile_cache(profile_id)
+        
+        if cached_profile:
+            # Check if cached_profile is a dictionary or an object
+            if isinstance(cached_profile, dict):
+                # If it's a dict, get the actual profile object from the database
+                # Also fetch the activity_summary in the same query
+                print("\n🎯 CACHE HIT: But need to fetch profile object")
+                profile = profile_model.objects.select_related(
+                    'user', 
+                    'user__activity_summary'  # This fetches UserActivitySummary in the same query
+                ).get(id=profile_id)
+            else:
+                profile = cached_profile
+                print("\n🎯 CACHE HIT: Using cached profile object")
+        else:
+            # Get profile with select_related to avoid separate user query
+            # Also fetch the activity_summary in the same query
+            profile = profile_model.objects.select_related(
+                'user', 
+                'user__activity_summary'  # This fetches UserActivitySummary in the same query
+            ).get(id=profile_id)
+            # Cache it for future use
+            self.profile_cache.set_profile_cache(profile_id, profile)
+            print("\n💾 CACHE MISS: Fetched and cached profile")
+        
+        # Add default thumbnail URL
+        default_thumbnail = static('images/default.jpg')
+        
+        # Store user reference to avoid repeated lookups
+        user = profile.user
+        
+        # Check if activity_summary was fetched with select_related
+        if hasattr(user, 'activity_summary') and user.activity_summary:
+            # Use the already fetched activity_summary (no additional query)
+            followers_count = user.activity_summary.total_followers
+            following_count = user.activity_summary.total_following
+        else:
+            # Fall back to counting followers/following
+            followers_count = user.followers_set.count()
+            following_count = user.following_set.count()
+        
+        # Get followers and following with efficient queries
+        followers = (Profile.objects
+            .filter(user__in=user.followers_set.values('user'))
+            .select_related('user'))
+            
+        following = (Profile.objects
+            .filter(user__in=user.following_set.values('following'))
+            .select_related('user'))
+        
+        # Get videos with necessary related data in a single query
+        videos = (user.uploaded_videos
+            .select_related('uploader', 'analytics'))
+        
+        # Build video analytics dictionary directly
+        video_analytics = {}
+        for video in videos:
+            video_id = str(video.id)
+            video_analytics[video_id] = {
+                'title': video.title,
+                'thumbnail_url': video.thumbnail.url if video.thumbnail else None,
+                'total_views': video.views,  # Direct from video model
+                'total_likes': video.analytics.total_likes if hasattr(video, 'analytics') and video.analytics else 0,
+                'total_dislikes': video.analytics.total_dislikes if hasattr(video, 'analytics') and video.analytics else 0,
+                'total_comments': video.analytics.total_comments if hasattr(video, 'analytics') and video.analytics else 0,
+                'created_at': parse_datetime(video.created_at) if isinstance(video.created_at, str) else video.created_at,
+                'privacy_status': video.privacy_status
+            }
+        
+        return {
+            'profile': profile,
+            'default_thumbnail': default_thumbnail,
+            'video_analytics': video_analytics,
+            'followers': followers,
+            'following': following,
+            'followers_count': followers_count,
+            'following_count': following_count,
+        }
+
     def get_profile_data(self, profile_id, profile_model, current_user=None):
         """Get complete profile data including videos, history, and follow status"""
-        profile = self.get_profile(profile_id, profile_model)  # This should handle caching
         
+        # Get cached profile data
+        profile = self.get_profile(profile_id, profile_model)
+        
+        # Get dynamic data with optimized queries
+        videos = (profile.user.uploaded_videos
+                 .select_related('uploader', 'uploader__profile')
+                 .order_by('-created_at')[:2])
+        
+        # Optimize playlist query with prefetch_related
+        playlists = (profile.user.playlists
+                    .select_related('user')
+                    .prefetch_related(
+                        Prefetch(
+                            'items',
+                            queryset=PlaylistItem.objects.select_related(
+                                'video',
+                                'video__uploader'
+                            )
+                        )
+                    )
+                    .only(
+                        'id', 'name', 'description', 'thumbnail',
+                        'created_at', 'is_private', 'user_id'
+                    )
+                    .order_by('-created_at')[:2])
+        
+        # Get follow data
         follow_service = FollowService()
-        
-        # These are all dynamic data - don't cache
-        videos = profile.user.uploaded_videos.all()[:2]
-        view_history = profile.user.view_history.all()[:2]
-        playlists = profile.user.playlists.all()[:2]
-        
-        # Dynamic follow data
         follow_stats = follow_service.get_follower_stats(profile)
         is_following = False
         if current_user and current_user.is_authenticated:
             is_following = follow_service.check_following_status(current_user, profile.user)
         
-        # Dynamic engagement metrics
-        for video in videos:
-            video.likes_count = VideoService.get_likes_count(video)
-            video.dislikes_count = VideoService.get_dislikes_count(video)
+        # Get video reactions in bulk - now just for uploaded videos
+        videos_list = list(videos)
+        reaction_counts = VideoService.get_videos_with_reactions(videos_list)
         
-        for history in view_history:
-            history.video.likes_count = VideoService.get_likes_count(history.video)
-            history.video.dislikes_count = VideoService.get_dislikes_count(history.video)
+        # Attach counts to videos
+        for video in videos_list:
+            counts = reaction_counts.get(str(video.id), {'likes': 0, 'dislikes': 0})
+            video.likes_count = counts['likes']
+            video.dislikes_count = counts['dislikes']
         
         return {
-            'profile': profile,  # This contains cached static data
-            'videos': videos,    # Dynamic - fresh from DB
-            'view_history': view_history,  # Dynamic - fresh from DB
-            'playlists': playlists,        # Dynamic - fresh from DB
-            'followers_count': follow_stats['followers_count'],  # Dynamic count
-            'following_count': follow_stats['following_count'],  # Dynamic count
-            'is_following': is_following    # User-specific - always fresh
+            'profile': profile,
+            'videos': videos_list,
+            'playlists': playlists,
+            'followers_count': follow_stats['followers_count'],
+            'following_count': follow_stats['following_count'],
+            'is_following': is_following
         }
 
     def get_analytics_data(self, profile):

@@ -31,6 +31,10 @@ from users.services.follow_services import FollowService
 logger = logging.getLogger(__name__)
 
 def projects(request):
+    # If user is authenticated, prefetch their profile
+    if request.user.is_authenticated:
+        request.user = User.objects.select_related('profile').get(id=request.user.id)
+    
     search_query = request.GET.get('search', '')
     videos = VideoService.search_videos(search_query)
     
@@ -52,20 +56,46 @@ def projects(request):
 @login_required(login_url="login-page")
 def project(request, pk):    
     video_service = VideoService()
-    video = video_service.get_video(pk, Video)
     
-    # Add the user to the video object before getting context
-    video.request_user = request.user
+    # Fetch the video with related fields to reduce future queries
+    video = video_service.get_video(
+        pk, 
+        Video, 
+        select_related_fields=['uploader', 'uploader__profile']
+    )
+    
+    # Pre-compute profile-related values to avoid template queries
+    if video and hasattr(video, 'uploader') and hasattr(video.uploader, 'profile'):
+        # Store these values directly to avoid nested lookups in templates
+        context = {
+            'uploader_profile_id': video.uploader.profile.id,
+            'uploader_username': video.uploader.profile.username,
+        }
+    else:
+        context = {
+            'uploader_profile_id': None,
+            'uploader_username': 'Unknown',
+        }
     
     # Get video context (includes cached static data + fresh dynamic data)
-    context = video_service.get_video_context(video, get_video_recommendations)
+    video_context = video_service.get_video_context(video, get_video_recommendations)
+    context.update(video_context)  # Merge with our pre-computed values
     
     # Add video URL to context
     context['video_url'] = ModelService.get_video_url(video)
     
+    # Pre-compute all user-related flags
+    context['is_authenticated'] = request.user.is_authenticated
+    context['user_id'] = request.user.id if request.user.is_authenticated else None
+    context['user_username'] = request.user.username if request.user.is_authenticated else ""
+    
+    # Pre-compute the comparison between request.user and video.uploader
+    context['is_uploader'] = (request.user.id == video.uploader.id) if request.user.is_authenticated else False
+    context['is_not_uploader'] = (request.user.id != video.uploader.id) if request.user.is_authenticated else False
+    
     # Record view if not cached
+    ip_address = UtilityService.get_client_ip(request)
     if request.user.is_authenticated:
-        ip_address = UtilityService.get_client_ip(request)
         view_history = video_service.record_view(video, request.user, ip_address, ViewHistory)
         context['view_history'] = view_history  # Add to context
         # Add fresh following status for authenticated users
@@ -77,15 +107,14 @@ def project(request, pk):
         print(f"Like status: {user_like}")
         context['user_like'] = user_like
     else:
-        ip_address = UtilityService.get_client_ip(request)
         view_history = video_service.record_view(video, None, ip_address, ViewHistory)
         context['view_history'] = view_history  # Add to context
         context['is_following'] = False
         context['user_like'] = None
     
     # Add fresh likes/dislikes counts
-    context['likes_count'] = video_service.get_likes_count(video)
-    context['dislikes_count'] = video_service.get_dislikes_count(video)
+    context['likes_count'] = video_service.get_likes_count_optimized(video)
+    context['dislikes_count'] = video_service.get_dislikes_count_optimized(video)
     
     return render(request, 'projects/single_project.html', context)
 

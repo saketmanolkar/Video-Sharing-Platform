@@ -85,7 +85,7 @@
         <div class="analytics-card">
             <div class="analytics-header">
                 <h3>Followers & Following</h3>
-                <span class="analytics-count">Total Followers: {{ followers|length }}, Total Following: {{ following|length }}</span>
+                <span class="analytics-count">Total Followers: {{ followers_count }}, Total Following: {{ following_count }}</span>
             </div>
             
             {% if followers or following %}
@@ -97,6 +97,7 @@
                                 <th style="width: 50%">Following</th>
                             </tr>
                         </thead>
+                        
                         <tbody>
                             <tr>
                                 <td>

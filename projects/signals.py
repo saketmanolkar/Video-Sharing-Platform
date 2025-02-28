@@ -157,11 +157,22 @@ def handle_view_analytics_update(sender, instance, **kwargs):
     """UPDATE signal - Updates analytics when views change"""
     try:
         analytics = instance.video.analytics
-        # Use VideoService for accurate view counts
-        analytics.total_views = VideoService.get_views_count(instance.video)
-        analytics.last_24h_views = VideoService.get_period_views_count(instance.video, 1)
-        analytics.last_7d_views = VideoService.get_period_views_count(instance.video, 7)
-        analytics.last_30d_views = VideoService.get_period_views_count(instance.video, 30)
+        
+        # Use the optimized method to get all period counts in a single query
+        video_service = VideoService()
+        
+        # Make sure we're using the correct method
+        period_counts = video_service.get_all_period_views_counts_optimized(instance.video)
+        
+        # Debug output to verify we're getting the right data
+        print(f"🔍 Period counts from optimized query: {period_counts}")
+        
+        # Update analytics with the counts - now including total views
+        analytics.total_views = period_counts['total']
+        analytics.last_24h_views = period_counts['day_1']
+        analytics.last_7d_views = period_counts['day_7']
+        analytics.last_30d_views = period_counts['day_30']
+        
         analytics.save(update_fields=[
             'total_views', 
             'last_24h_views', 
@@ -169,9 +180,12 @@ def handle_view_analytics_update(sender, instance, **kwargs):
             'last_30d_views', 
             'updated_at'
         ])
-        logger.info(f"✅ Updated view metrics for video: {instance.video.title}")
+        print(f"✅ Updated view metrics for video: {instance.video.title}")
     except Exception as e:
-        logger.error(f"❌ Error updating view analytics: {str(e)}")
+        print(f"❌ Error updating view analytics: {str(e)}")
+        # Print the full stack trace for debugging
+        import traceback
+        print(traceback.format_exc())
 
 @receiver(pre_delete, sender=Video)
 def handle_video_cleanup(sender, instance, **kwargs):

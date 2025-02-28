@@ -194,19 +194,23 @@
 
               <!-- Uploaded Videos Section -->
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; margin-top: -4rem;">
-                <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Uploaded Videos</h3>
+                <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Videos Preview</h3>
                 <span class="tag tag--pill tag--sub tag--lg">
                   <a href="{% url 'user-videos' profile.id %}" style="text-decoration: none; color: inherit;">
-                    See All Videos ({{ profile.user.uploaded_videos.count }})
+                    See All Videos
                   </a>
                 </span>
               </div>
               {% include 'components/video_preview.html' with videos=videos %}
 
-
+              {% if total_videos == 0 %}
+              <br>
+              <br>
+              <br>
+              {% endif %}
               <!-- Playlists Section -->
               <div class="playlist-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
-                  <h3 class="project__title" style="font-size: 2.5rem; margin: 0;">Playlists</h3>
+                  <h3 class="project__title" style="font-size: 2.5rem; margin: 0;">Playlists Preview</h3>
                   <div class="playlist-actions" style="display: flex; gap: 0.5rem;">
                     {% if request.user.profile.id == profile.id and request.user.is_authenticated %}
                       <span class="tag tag--pill tag--sub tag--lg">
@@ -217,7 +221,7 @@
                     {% endif %}
                       <span class="tag tag--pill tag--sub tag--lg">
                           <a href="{% url 'user-videos' profile.id %}" style="text-decoration: none; color: inherit;">
-                              See All Playlists ({{ profile.user.playlists.count }})
+                              See All Playlists 
                           </a>
                       </span>
                   </div>

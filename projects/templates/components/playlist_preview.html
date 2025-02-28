@@ -9,7 +9,7 @@
                 <img src="{% static 'images/default.jpg' %}" alt="Default Playlist Image">
             {% endif %}
             <div class="playlist-preview__count">
-                <i class="fas fa-list"></i> {{ playlist.items.count }} videos
+                <i class="fas fa-list"></i> {{ playlist.items_count }} videos
             </div>
             {% if request.user == playlist.user %}
             <div class="playlist-preview__actions">

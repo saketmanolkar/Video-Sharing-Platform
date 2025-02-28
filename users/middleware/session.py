@@ -11,6 +11,7 @@ import re
 from urllib.parse import unquote
 from django.core.cache import cache
 import time
+from django.contrib.auth.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,50 @@ class UserSessionMiddleware:
             request.path == '/users/logout/'
         ]):
             return self.get_response(request)
+        
+        # Safely prefetch user profile if authenticated
+        # This reduces duplicate profile queries in templates
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            try:
+                # Only prefetch if this is a real user object with an ID
+                if hasattr(request.user, 'id') and request.user.id is not None:
+                    # Replace the user on the request with one that has profile preloaded
+                    prefetched_user = User.objects.select_related('profile').filter(id=request.user.id).first()
+                    if prefetched_user:
+                        # Store the original user's attributes that might be session-specific
+                        session_attrs = {}
+                        for attr in ['_wrapped', '_auth_user_backend', '_auth_user_hash']:
+                            if hasattr(request.user, attr):
+                                session_attrs[attr] = getattr(request.user, attr)
+                        
+                        # Replace with prefetched user
+                        request.user = prefetched_user
+                        
+                        # Restore session attributes
+                        for attr, value in session_attrs.items():
+                            setattr(request.user, attr, value)
+                        
+                        # Add user-related flags directly to the request object
+                        # These will be available in templates via the request object
+                        request.is_authenticated = True
+                        request.user_id = request.user.id
+                        request.user_username = request.user.username
+                    else:
+                        # Handle case where user might not be found
+                        request.is_authenticated = False
+                        request.user_id = None
+                        request.user_username = ""
+            except Exception as e:
+                # Log but don't break the request flow
+                logger.error(f"❌ Profile prefetch error: {str(e)}")
+                request.is_authenticated = False
+                request.user_id = None
+                request.user_username = ""
+        else:
+            # Set default values for unauthenticated users
+            request.is_authenticated = False
+            request.user_id = None
+            request.user_username = ""
         
         print("\n=== Session Middleware Check ===")
         print(f"Path: {request.path}")

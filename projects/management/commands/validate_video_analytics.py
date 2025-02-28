@@ -20,14 +20,37 @@ class Command(BaseCommand):
                 stored = video.analytics
                 calculated = rebuild_command.get_analytics_data(video)
 
+                # Track if this video has any mismatches
+                video_has_issues = False
+
                 # Basic Info Validation
-                self.validate_field("Total Views", stored.total_views, calculated['total_views'])
-                self.validate_field("Total Comments", stored.total_comments, calculated['total_comments'])
-                self.validate_field("Total Likes", stored.total_likes, calculated['total_likes'])
-                self.validate_field("Total Dislikes", stored.total_dislikes, calculated['total_dislikes'])
-                self.validate_field("Watch Time", stored.watch_time, calculated['watch_time'], tolerance=0.01)
-                self.validate_field("Completion Rate", stored.completion_rate, calculated['completion_rate'], tolerance=0.01)
-                self.validate_field("Completed Views", stored.completed_views, calculated['completed_views'])
+                if not self.validate_field("Total Views", stored.total_views, calculated['total_views']):
+                    video_has_issues = True
+                
+                if not self.validate_field("Total Comments", stored.total_comments, calculated['total_comments']):
+                    video_has_issues = True
+                
+                if not self.validate_field("Total Likes", stored.total_likes, calculated['total_likes']):
+                    video_has_issues = True
+                
+                if not self.validate_field("Total Dislikes", stored.total_dislikes, calculated['total_dislikes']):
+                    video_has_issues = True
+                
+                if not self.validate_field("Watch Time", stored.watch_time, calculated['watch_time'], tolerance=0.01):
+                    video_has_issues = True
+                
+                if not self.validate_field("Completion Rate", stored.completion_rate, calculated['completion_rate'], tolerance=0.01):
+                    video_has_issues = True
+                
+                if not self.validate_field("Completed Views", stored.completed_views, calculated['completed_views']):
+                    video_has_issues = True
+
+                # Increment the counter if any field had a mismatch
+                if video_has_issues:
+                    self.stdout.write(self.style.ERROR(f"❌ Found mismatches in video: {video.title}"))
+                    issues_found += 1
+                else:
+                    self.stdout.write(self.style.SUCCESS(f"✅ All fields match for video: {video.title}"))
 
             except VideoAnalytics.DoesNotExist:
                 self.stdout.write(self.style.ERROR(

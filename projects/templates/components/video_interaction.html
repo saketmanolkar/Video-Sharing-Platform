@@ -1,15 +1,14 @@
 <div class="interaction-buttons">
-    {% if request.user.is_authenticated and request.user != video.uploader %}
+    {% if is_authenticated and is_not_uploader %}
     <div class="interaction-group">
         <button class="interaction-btn follow-btn {% if is_following %}active{% endif %}" 
-                data-profile-id="{{ video.uploader.profile.id }}" 
+                data-profile-id="{{ uploader_profile_id }}" 
                 data-action="follow">
             <i class="fas {% if is_following %}fa-user-minus{% else %}fa-user-plus{% endif %}"></i>
             <span class="follow-text">{% if is_following %}Following{% else %}Follow{% endif %}</span>
         </button>
     </div>
     {% endif %}
-
     <div class="interaction-group">
         <span class="stats-count large">{{ video.views }}</span>
         <span class="view-label">Views</span>

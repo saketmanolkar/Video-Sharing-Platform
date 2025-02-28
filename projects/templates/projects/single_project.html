@@ -23,20 +23,21 @@
                         <h2 class="message__subject">{{ video.title }}</h2>
                         <div class="video-stats">
                             <div class="interaction-container">
-                                {% include 'components/video_interaction.html' with video=video size="large" likes_count=likes_count dislikes_count=dislikes_count %}
+                                {% include 'components/video_interaction.html' with video=video size="large" likes_count=likes_count dislikes_count=dislikes_count is_authenticated=is_authenticated is_uploader=is_uploader %}
                             </div>
                             <div class="view-count">{{ video.view_count }}</div>
                         </div>
                     </div>
                     <div class="creator-date-container">
                         <div class="vid-creator">
-                            By <a href="{% url 'profile' video.uploader.profile.id %}">{{ video.uploader.profile.username }}</a>
+                            By <a href="{% url 'profile' uploader_profile_id %}">{{ uploader_username }}</a>
                         </div>
                         <div class="message__date">
                             Uploaded {{ video.created_at|date:"F j, Y" }}
                         </div>
                     </div>
                     
+            
                     <div class="video-tags">
                         {% for tag in video.tags.all %}
                             <span class="tag">{{ tag.name }}</span>
@@ -89,7 +90,7 @@
 
             <!-- Right Side Content -->
             <div class="video-sidebar">
-                {% include 'components/video_sidebar.html' %}
+                {% include 'components/video_sidebar.html' with is_authenticated=is_authenticated is_uploader=is_uploader user_id=user_id %}
             </div>
         </div>
 
@@ -99,8 +100,8 @@
 <!-- Add this hidden input to store the initial data -->
 <input type="hidden" 
     id="commentsData" 
-    data-comments='[{% for review in reviews %}{% if review.comment %}{"id":"{{ review.id }}","username":"{{ review.user.username|escapejs }}","comment":"{{ review.comment|escapejs }}","is_owner":{% if review.user == request.user %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}]'
-    data-auth="{{ request.user.is_authenticated|lower }}"
+    data-comments='[{% for review in reviews %}{% if review.comment %}{"id":"{{ review.id }}","username":"{{ review.user.username|escapejs }}","comment":"{{ review.comment|escapejs }}","is_owner":{% if review.user.id == user_id %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}]'
+    data-auth="{{ is_authenticated|lower }}"
     data-login-url="{% url 'login-page' %}"
     data-csrf="{{ csrf_token }}"
 >
@@ -113,7 +114,7 @@
     const updateReviewUrl = dataElement.dataset.updateReviewUrl;
     const csrfToken = dataElement.dataset.csrf;
     window.initialComments = JSON.parse(dataElement.dataset.comments);
-    window.username = "{{ request.user.username }}";
+    window.username = "{{ user_username }}";
 </script>
   
 
@@ -123,6 +124,6 @@
     <script src="{% static 'js/api_follow.js' %}"></script>
 
 <!-- Include the delete confirmation popup -->
-{% include 'delete_object.html' %}
+{% include 'delete_object.html' with is_authenticated=is_authenticated user_id=user_id %}
 
 {% endblock %}
