@@ -10,39 +10,59 @@
                 <form class="form" method="POST">
                     {% csrf_token %}
 
-                    {% if request.user.is_authenticated == False %}
-
-                    <!-- Input:Text -->
+                    {% if not request.user.is_authenticated %}
+                    <!-- Name input - Only shown for unauthenticated users -->
                     <div class="form__field">
-                        <label for="formInput#text">{{form.name.label}} </label>
+                        <label for="formInput#name">Name <span class="required">*</span></label>
                         {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="form-error">{{ form.name.errors }}</div>
+                        {% endif %}
                     </div>
 
-                    <!-- Input:Text -->
+                    <!-- Email input - Only shown for unauthenticated users -->
                     <div class="form__field">
-                        <label for="formInput#text">{{form.email.label}} </label>
+                        <label for="formInput#email">Email <span class="required">*</span></label>
                         {{ form.email }}
+                        {% if form.email.errors %}
+                            <div class="form-error">{{ form.email.errors }}</div>
+                        {% endif %}
                     </div>
-
-                        
                     {% endif %}
                     
-                    <!-- Input:Text -->
+                    <!-- Subject input - Shown for all users -->
                     <div class="form__field">
-                        <label for="formInput#text">{{form.subject.label}} </label>
+                        <label for="formInput#subject">Subject <span class="required">*</span></label>
                         {{ form.subject }}
+                        {% if form.subject.errors %}
+                            <div class="form-error">{{ form.subject.errors }}</div>
+                        {% endif %}
                     </div>
 
-                    <!-- Input:Text -->
+                    <!-- Message body input - Shown for all users -->
                     <div class="form__field">
-                        <label for="formInput#text">{{form.body.label}} </label>
+                        <label for="formInput#body">Message <span class="required">*</span></label>
                         {{ form.body }}
+                        {% if form.body.errors %}
+                            <div class="form-error">{{ form.body.errors }}</div>
+                        {% endif %}
                     </div>
 
-                
-                    <input class="btn btn--sub btn--lg  my-md" type="submit" value="Submit" />
+                    <input class="btn btn--sub btn--lg my-md" type="submit" value="Submit" />
                 </form>
             </div>
         </div>
     </main>
+
+    <style>
+        .form-error {
+            color: #e74c3c;
+            font-size: 0.9rem;
+            margin-top: 0.3rem;
+        }
+        
+        .required {
+            color: #e74c3c;
+        }
+    </style>
 {% endblock content %}

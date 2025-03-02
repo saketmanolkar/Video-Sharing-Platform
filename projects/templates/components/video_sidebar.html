@@ -112,7 +112,7 @@
   {% if recommended_videos %}
     {% for video in recommended_videos %}
       <a href="{% url 'project' video.id %}" class="sidebar-video-item">
-        <div class="sidebar-thumbnail" data-video-url="{% url 'api-stream-video' video.id %}" data-preview-duration="15">
+        <div class="sidebar-thumbnail">
           {% if video.thumbnail %}
             <img src="{{ video.thumbnail.url }}" alt="{{ video.title }}">
           {% else %}

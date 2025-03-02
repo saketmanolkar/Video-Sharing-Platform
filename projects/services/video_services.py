@@ -14,6 +14,9 @@ from django.utils.dateparse import parse_datetime
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDay, ExtractHour
 import uuid
+from django.utils.html import strip_tags
+import re
+from django.db import transaction
 
 
 logger = logging.getLogger(__name__)
@@ -389,6 +392,19 @@ class VideoService:
         from django.db.models import Q, Prefetch
         from projects.models import Video, Tag
         
+        # Sanitize search query
+        if search_query:
+            # Strip HTML tags and trim whitespace
+            sanitized_query = strip_tags(search_query).strip()
+            
+            # Limit query length to prevent DOS attacks
+            sanitized_query = sanitized_query[:100]
+            
+            # Remove any SQL injection patterns
+            sanitized_query = re.sub(r'[;\'"]', '', sanitized_query)
+        else:
+            sanitized_query = ''
+        
         # Optimize tag prefetch to only get needed fields
         tags_prefetch = Prefetch(
             'tags',
@@ -402,14 +418,14 @@ class VideoService:
             'tags'              # Get all tags in one query
         )
         
-        if not search_query:
+        if not sanitized_query:
             return base_query.order_by('-created_at')
             
         return base_query.filter(
-            Q(title__icontains=search_query) |
-            Q(description__icontains=search_query) |
-            Q(tags__name__icontains=search_query) |
-            Q(uploader__username__icontains=search_query)
+            Q(title__icontains=sanitized_query) |
+            Q(description__icontains=sanitized_query) |
+            Q(tags__name__icontains=sanitized_query) |
+            Q(uploader__username__icontains=sanitized_query)
         ).distinct().order_by('-created_at')
     
     @staticmethod
@@ -440,49 +456,52 @@ class VideoService:
         from projects.models import Like
         
         try:
-            # Debug log initial state
-            initial_likes = video.likes.filter(is_like=True).count()
-            initial_dislikes = video.likes.filter(is_like=False).count()
-            logger.info(f"Initial state - Likes: {initial_likes}, Dislikes: {initial_dislikes}")
-            
-            like = Like.objects.filter(video=video, user=user).first()
-            
-            if like:
-                if like.is_like == is_like:
-                    like.delete()
-                    action = 'removed'
-                else:
-                    like.is_like = is_like
-                    like.save()
-                    action = 'switched'
-            else:
-                Like.objects.create(
-                    video=video,
-                    user=user,
-                    is_like=is_like
-                )
-                action = 'added'
+            # Use transaction to avoid race conditions
+            with transaction.atomic():
+                # Debug log initial state
+                initial_likes = video.likes.filter(is_like=True).count()
+                initial_dislikes = video.likes.filter(is_like=False).count()
+                logger.info(f"Initial state - Likes: {initial_likes}, Dislikes: {initial_dislikes}")
                 
-            # Get fresh counts directly from database
-            likes_count = video.likes.filter(is_like=True).count()
-            dislikes_count = video.likes.filter(is_like=False).count()
-            
-            # Debug log final state
-            logger.info(f"""
-                Like Action Debug:
-                User: {user.username}
-                Action: {action}
-                Is Like: {is_like}
-                Before - Likes: {initial_likes}, Dislikes: {initial_dislikes}
-                After - Likes: {likes_count}, Dislikes: {dislikes_count}
-            """)
-            
-            return {
-                'status': 'success',
-                'action': action,
-                'likes_count': likes_count,
-                'dislikes_count': dislikes_count
-            }
+                # Lock for update to prevent concurrent modifications
+                like = Like.objects.select_for_update().filter(video=video, user=user).first()
+                
+                if like:
+                    if like.is_like == is_like:
+                        like.delete()
+                        action = 'removed'
+                    else:
+                        like.is_like = is_like
+                        like.save()
+                        action = 'switched'
+                else:
+                    Like.objects.create(
+                        video=video,
+                        user=user,
+                        is_like=is_like
+                    )
+                    action = 'added'
+                    
+                # Get fresh counts directly from database
+                likes_count = video.likes.filter(is_like=True).count()
+                dislikes_count = video.likes.filter(is_like=False).count()
+                
+                # Debug log final state
+                logger.info(f"""
+                    Like Action Debug:
+                    User: {user.username}
+                    Action: {action}
+                    Is Like: {is_like}
+                    Before - Likes: {initial_likes}, Dislikes: {initial_dislikes}
+                    After - Likes: {likes_count}, Dislikes: {dislikes_count}
+                """)
+                
+                return {
+                    'status': 'success',
+                    'action': action,
+                    'likes_count': likes_count,
+                    'dislikes_count': dislikes_count
+                }
             
         except Exception as e:
             logger.error(f"Error handling like: {str(e)}")

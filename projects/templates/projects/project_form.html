@@ -50,7 +50,7 @@
                                 {% if form.instance.file %}
                                     Current: {{ form.instance.file.name }}
                                 {% else %}
-                                    Choose a video...
+                                    Choose a video (MP4 or MOV only)...
                                 {% endif %}
                             </div>
                         </div>
@@ -68,7 +68,7 @@
                                 {% if form.instance.thumbnail %}
                                     {{ form.instance.thumbnail.name }}
                                 {% else %}
-                                    Choose a thumbnail...
+                                    Choose a thumbnail (JPEG or PNG only)...
                                 {% endif %}
                             </div>
                         </div>
@@ -210,6 +210,11 @@
         background-position: right 1.2rem center;
         background-size: 1.8em;
         padding-right: 3.5rem;
+    }
+    
+    .field-errors {
+        color: #e74c3c;
+        margin-top: 0.5rem;
     }
 </style>
 {% endblock %}

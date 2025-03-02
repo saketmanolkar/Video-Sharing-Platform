@@ -31,7 +31,7 @@ from django.urls import reverse
 
 logger = logging.getLogger(__name__)
 
-@login_required
+@login_required(login_url="login-page")
 def creator_studio(request, pk):
     profile_service = ProfileService()
     profile = profile_service.get_profile(pk, Profile)
@@ -44,7 +44,7 @@ def creator_studio(request, pk):
     context = profile_service.get_creator_studio_data_optimized(pk, Profile)
     return render(request, "users/creator_studio.html", context)
 
-@login_required
+@login_required(login_url="login-page")
 def analytics(request, pk):
     profile_service = ProfileService()
     profile = profile_service.get_profile(pk, Profile)
@@ -77,7 +77,7 @@ def profile(request, pk):
     
     return render(request, "users/profile.html", context)
 
-@login_required
+@login_required(login_url="login-page")
 def update_profile(request, pk):
     profile_service = ProfileService()
     profile_cache = ProfileCache()
@@ -102,10 +102,15 @@ def update_profile(request, pk):
         form_cache.set_submission(submission_hash)
         
         try:
-            # Get all user fields
-            username = request.POST.get('username')
-            first_name = request.POST.get('first_name')
-            last_name = request.POST.get('last_name')
+            # Get all user fields - FIX: Handle None values safely
+            username = request.POST.get('username') or ''
+            username = username.strip()
+            
+            first_name = request.POST.get('first_name') or ''
+            first_name = first_name.strip()
+            
+            last_name = request.POST.get('last_name') or ''
+            last_name = last_name.strip()
             
             if not username or not first_name:
                 form_cache.clear_submission(submission_hash)
@@ -191,7 +196,7 @@ def user_videos(request, pk):
     context = profile_service.get_user_videos(pk, Profile, search_query)
     return render(request, "users/user_video.html", context)
 
-@login_required
+@login_required(login_url="login-page")
 def user_history(request, pk):
     # Get the profile with select_related to avoid separate user query
     profile = get_object_or_404(Profile.objects.select_related('user'), id=pk)
@@ -221,7 +226,6 @@ def user_history(request, pk):
     return render(request, "users/view_history.html", context)
 
 def login_user(request):
-    
     if request.COOKIES.get('show_timeout') == 'true':
         print("Found timeout cookie, showing message")
         messages.error(request, 'Session expired due to inactivity')
@@ -244,8 +248,17 @@ def login_user(request):
         form_cache.set_submission(submission_hash)
         
         try:
-            username = request.POST.get("username").lower()
-            password = request.POST.get("password")
+            # Basic sanitization - just trim whitespace and lowercase
+            username = request.POST.get("username", "").strip().lower()
+            password = request.POST.get("password", "")
+            
+            # Simple validation - just check if they exist
+            if not username or not password:
+                form_cache.clear_submission(submission_hash)
+                return JsonResponse({
+                    'message': 'Username and password are required'
+                }, status=400)
+            
             user = authenticate(request, username=username, password=password)
             
             if user is not None:
@@ -259,13 +272,13 @@ def login_user(request):
                     'message': 'Login successful'
                 })
             else:
-                form_cache.clear_submission(submission_hash)  # Clear on failed login
+                form_cache.clear_submission(submission_hash)
                 return JsonResponse({
                     'message': 'Invalid username or password'
                 }, status=400)
                 
         except Exception as e:
-            form_cache.clear_submission(submission_hash)  # Clear on error
+            form_cache.clear_submission(submission_hash)
             print(f"Login error: {e}")
             return JsonResponse({
                 'message': 'An error occurred during login'
@@ -274,6 +287,7 @@ def login_user(request):
     get_token(request)
     return render(request, "users/login_register.html", {"page": "login_page"})
 
+@login_required(login_url="login-page")
 def logout_user(request):
     if request.user.is_authenticated:
         active_session = UserSession.objects.filter(
@@ -334,7 +348,8 @@ def register_user(request):
             form = CustomUserCreationForm(request.POST)
             if form.is_valid():
                 user = form.save(commit=False)
-                user.username = user.username.lower()
+                # Sanitizing username (already validated by Django's form)
+                user.username = user.username.lower().strip()
                 user.save()
                 
                 # Generate JWT tokens
@@ -346,7 +361,10 @@ def register_user(request):
                 return redirect('update-profile', pk=user.profile.id)
             else:
                 form_cache.clear_submission(submission_hash)
-                messages.error(request, "An error occurred during registration")
+                # Display more specific form errors
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f"{field}: {error}")
                 
         except Exception as e:
             form_cache.clear_submission(submission_hash)
@@ -370,6 +388,7 @@ def inbox(request):
     }
     return render(request, "users/inbox.html", context)
 
+@login_required(login_url="login-page")
 def view_message(request,pk):
     profile = request.user.profile
     message=profile.messages.get(id=pk) 
@@ -404,26 +423,39 @@ def create_message(request, pk):
         form_cache.set_submission(submission_hash)
         
         try:
-            form = MessageForm(request.POST)
+            form_data = request.POST.copy()
+            
+            # For authenticated users, pre-fill name and email from their profile
+            if sender:
+                form_data['name'] = sender.name
+                form_data['email'] = sender.email
+            
+            form = MessageForm(form_data)
             if form.is_valid():
                 message = form.save(commit=False)
                 message.sender = sender
                 message.recipient = recipient
                 
+                # Set name and email based on authentication status
                 if sender:
                     message.name = sender.name
                     message.email = sender.email
+                else:
+                    message.name = form.cleaned_data['name']
+                    message.email = form.cleaned_data['email']
                 
                 message.save()
                 messages.success(request, "Message sent successfully")
                 return redirect('profile', pk=recipient.id)
             else:
                 form_cache.clear_submission(submission_hash)
-                messages.error(request, "An error occurred during message creation")
+                # More specific error handling
+                error_msg = "Please correct the errors below."
+                messages.error(request, error_msg)
                 
         except Exception as e:
             form_cache.clear_submission(submission_hash)
-            messages.error(request, str(e))
+            messages.error(request, f"An error occurred: {str(e)}")
             
     context = {
         'recipient': recipient,
@@ -431,7 +463,7 @@ def create_message(request, pk):
     }
     return render(request, "users/message_form.html", context)
 
-@login_required
+@login_required(login_url="login-page") 
 def settings(request):
     if request.method == 'POST':
         form_cache = FormSubmissionCache()
@@ -471,12 +503,14 @@ def settings(request):
     return render(request, 'users/settings.html', context)
 
 @require_POST
+@login_required(login_url="login-page")
 def clear_temp_tokens(request):
     if 'temp_access_token' in request.session:
         del request.session['temp_access_token']
         del request.session['temp_refresh_token']
     return JsonResponse({'status': 'success'})
 
+@login_required(login_url="login-page")
 @cache_control(max_age=3600, public=True)
 def report(request, pk):
     try:

@@ -49,6 +49,7 @@ class EventStreamRenderer(BaseRenderer):
         return f"data: {json.dumps(data)}\n\n"
 
 @api_view(['GET'])
+@permission_classes([IsAdminUser])
 def getRoutes(request):
     routes = [
         # Projects
@@ -76,6 +77,21 @@ def getRoutes(request):
         {'POST': '/api/users/token/'},
         {'POST': '/api/users/token/refresh/'},
         {'GET': '/api/users/token-from-session/'},
+        
+        # Video Statistics
+        {'POST': '/api/video-stats/'},
+        
+        # Report Generation
+        {'POST': '/api/generate-report/'},
+        
+        # Speech Generation
+        {'POST': '/api/generate-speech/'},
+        
+        # Audio Serving
+        {'GET': '/api/audio/profile_id/report_type/'},
+        
+        # TTS Status Check
+        {'GET': '/api/check-tts-status/username/'},
     ]
     
     return Response(routes)
@@ -102,7 +118,7 @@ def getProject(request, pk):
         return Response({'error': 'Video not found'}, status=404)
 
 @api_view(['GET', 'POST'])
-@authentication_classes([JWTAuthentication])
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])  # Require authentication
 def api_handle_like(request, pk):
     try:
@@ -287,7 +303,7 @@ def stream_reviews(request, pk):
         return response
 
 @api_view(['POST'])
-@authentication_classes([JWTAuthentication])
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def api_handle_follow(request, pk):
     follow_service = FollowService()
@@ -417,6 +433,7 @@ def api_debug_videos(request):
     return Response({'videos': debug_info})
 
 @csrf_exempt  # Allow all requests
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 @require_http_methods(["POST"])  # Only allow POST
 def update_video_stats(request):
     from projects.models import ViewHistory
@@ -477,6 +494,7 @@ def update_video_stats(request):
         return JsonResponse({'error': str(e)}, status=400)
 
 @csrf_exempt
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 def generate_report(request):
     if request.method == "POST":
         try:
@@ -534,6 +552,7 @@ def generate_report(request):
     return JsonResponse({"error": "Invalid request method"}, status=400)
 
 @csrf_exempt
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 @require_http_methods(["POST"])
 def generate_speech(request):
     try:
@@ -622,6 +641,7 @@ def serve_audio(request, profile_id, report_type):
         return HttpResponse("Error serving audio file", status=500)
 
 @require_http_methods(["GET"])
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 def check_tts_status(request, username):
     try:
         report = Report.objects.get(user__username=username)

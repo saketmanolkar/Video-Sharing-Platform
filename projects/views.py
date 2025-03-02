@@ -36,6 +36,11 @@ def projects(request):
         request.user = User.objects.select_related('profile').get(id=request.user.id)
     
     search_query = request.GET.get('search', '')
+    
+    # Validate query length
+    if len(search_query) > 100:
+        search_query = search_query[:100]  # Truncate to 100 chars
+    
     videos = VideoService.search_videos(search_query)
     
     paged_videos, custom_range = VideoService.get_paginated_videos(
@@ -254,7 +259,7 @@ def delete_project(request, pk):
         'object': project.title
     })
 
-
+@login_required(login_url="login-page")
 def fun_corner(request):
     # Initialize form and recommendations
     movie_form = MovieRecommendationForm(request.POST if request.method == 'POST' else None)
@@ -308,11 +313,12 @@ def fun_corner(request):
     
     return render(request, 'projects/fun_corner.html', context)
 
+@login_required(login_url="login-page")
 def movie_recommendation(request):
     form = MovieRecommendationForm()
     return render(request, 'projects/movie_rec.html', {'form': form})
 
-@login_required
+@login_required(login_url="login-page")
 def create_playlist(request, pk):
     profile = get_object_or_404(Profile, id=pk)
     
@@ -335,11 +341,20 @@ def create_playlist(request, pk):
         form = CreatePlaylistForm(request.POST)
         video_ids = request.POST.getlist('videos')
         
+        # Validate at least one video is selected
         if not video_ids:
             messages.error(request, 'Please select at least one video for your playlist.')
-            videos = Video.objects.all()
+            videos = Video.objects.filter(uploader=request.user)  # Only show user's videos
             return render(request, 'projects/playlist_form.html', {'form': form, 'videos': videos})
             
+        # Validate video IDs are valid
+        try:
+            for video_id in video_ids:
+                # Check if each video exists
+                video = Video.objects.get(id=video_id)
+        except Video.DoesNotExist:
+            messages.error(request, "One or more selected videos don't exist")
+            return redirect('profile', pk=pk)
         if form.is_valid():
             try:
                 # Set cache to prevent duplicate submission
@@ -371,7 +386,7 @@ def create_playlist(request, pk):
                 # Clear cache if something goes wrong
                 form_cache.clear_submission(submission_hash)
                 messages.error(request, f'Error creating playlist: {str(e)}')
-                videos = Video.objects.all()
+                videos = Video.objects.filter(uploader=request.user)
                 return render(request, 'projects/playlist_form.html', {'form': form, 'videos': videos})
     else:
         form = CreatePlaylistForm()
@@ -383,7 +398,7 @@ def create_playlist(request, pk):
     }
     return render(request, 'projects/playlist_form.html', context)
 
-@login_required
+@login_required(login_url="login-page")
 def update_playlist(request, pk):
     playlist = get_object_or_404(Playlist, id=pk)
     
@@ -491,6 +506,7 @@ def delete_playlist(request, pk):
         'object': playlist.name
     })
 
+@login_required(login_url="login-page")
 def video_status(request, video_id):
     video = get_object_or_404(Video, id=video_id)
     return JsonResponse({

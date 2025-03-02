@@ -132,10 +132,12 @@ def handle_analytics_create(sender, instance, created, **kwargs):
 def handle_review_analytics_update(sender, instance, **kwargs):
     """UPDATE signal - Updates analytics when reviews change"""
     try:
-        analytics = instance.video.analytics
-        analytics.total_comments = VideoService.get_comments_count(instance.video)
-        analytics.save(update_fields=['total_comments', 'updated_at'])
-        logger.info(f"✅ Updated comment count for video: {instance.video.title}")
+        with transaction.atomic():
+            # Get analytics with a lock to prevent concurrent modifications
+            analytics = VideoAnalytics.objects.select_for_update().get(video=instance.video)
+            analytics.total_comments = VideoService.get_comments_count(instance.video)
+            analytics.save(update_fields=['total_comments', 'updated_at'])
+            logger.info(f"✅ Updated comment count for video: {instance.video.title}")
     except Exception as e:
         logger.error(f"❌ Error updating review analytics: {str(e)}")
 
@@ -143,12 +145,14 @@ def handle_review_analytics_update(sender, instance, **kwargs):
 def handle_like_analytics_update(sender, instance, **kwargs):
     """UPDATE signal - Updates analytics when likes/dislikes change"""
     try:
-        analytics = instance.video.analytics
-        # Use VideoService for accurate counts
-        analytics.total_likes = VideoService.get_likes_count(instance.video)
-        analytics.total_dislikes = VideoService.get_dislikes_count(instance.video)
-        analytics.save(update_fields=['total_likes', 'total_dislikes', 'updated_at'])
-        logger.info(f"✅ Updated like counts for video: {instance.video.title}")
+        with transaction.atomic():
+            # Get analytics with a lock to prevent concurrent modifications
+            analytics = VideoAnalytics.objects.select_for_update().get(video=instance.video)
+            # Use VideoService for accurate counts
+            analytics.total_likes = VideoService.get_likes_count(instance.video)
+            analytics.total_dislikes = VideoService.get_dislikes_count(instance.video)
+            analytics.save(update_fields=['total_likes', 'total_dislikes', 'updated_at'])
+            logger.info(f"✅ Updated like counts for video: {instance.video.title}")
     except Exception as e:
         logger.error(f"❌ Error updating like analytics: {str(e)}")
 
@@ -156,31 +160,33 @@ def handle_like_analytics_update(sender, instance, **kwargs):
 def handle_view_analytics_update(sender, instance, **kwargs):
     """UPDATE signal - Updates analytics when views change"""
     try:
-        analytics = instance.video.analytics
-        
-        # Use the optimized method to get all period counts in a single query
-        video_service = VideoService()
-        
-        # Make sure we're using the correct method
-        period_counts = video_service.get_all_period_views_counts_optimized(instance.video)
-        
-        # Debug output to verify we're getting the right data
-        print(f"🔍 Period counts from optimized query: {period_counts}")
-        
-        # Update analytics with the counts - now including total views
-        analytics.total_views = period_counts['total']
-        analytics.last_24h_views = period_counts['day_1']
-        analytics.last_7d_views = period_counts['day_7']
-        analytics.last_30d_views = period_counts['day_30']
-        
-        analytics.save(update_fields=[
-            'total_views', 
-            'last_24h_views', 
-            'last_7d_views', 
-            'last_30d_views', 
-            'updated_at'
-        ])
-        print(f"✅ Updated view metrics for video: {instance.video.title}")
+        with transaction.atomic():
+            # Get analytics with a lock to prevent concurrent modifications
+            analytics = VideoAnalytics.objects.select_for_update().get(video=instance.video)
+            
+            # Use the optimized method to get all period counts in a single query
+            video_service = VideoService()
+            
+            # Make sure we're using the correct method
+            period_counts = video_service.get_all_period_views_counts_optimized(instance.video)
+            
+            # Debug output to verify we're getting the right data
+            print(f"🔍 Period counts from optimized query: {period_counts}")
+            
+            # Update analytics with the counts - now including total views
+            analytics.total_views = period_counts['total']
+            analytics.last_24h_views = period_counts['day_1']
+            analytics.last_7d_views = period_counts['day_7']
+            analytics.last_30d_views = period_counts['day_30']
+            
+            analytics.save(update_fields=[
+                'total_views', 
+                'last_24h_views', 
+                'last_7d_views', 
+                'last_30d_views', 
+                'updated_at'
+            ])
+            print(f"✅ Updated view metrics for video: {instance.video.title}")
     except Exception as e:
         print(f"❌ Error updating view analytics: {str(e)}")
         # Print the full stack trace for debugging
@@ -210,12 +216,15 @@ def handle_video_update(sender, instance, created, **kwargs):
         return
         
     try:
-        analytics = instance.analytics
-        # Update title if it changed
-        if analytics.title != instance.title:
-            analytics.title = instance.title
-            analytics.save(update_fields=['title', 'updated_at'])
-            logger.info(f"✅ Updated analytics title for video: {instance.title}")
+        with transaction.atomic():
+            # Get analytics with a lock to prevent concurrent modifications
+            analytics = VideoAnalytics.objects.select_for_update().get(video=instance)
+            
+            # Update title if it changed
+            if analytics.title != instance.title:
+                analytics.title = instance.title
+                analytics.save(update_fields=['title', 'updated_at'])
+                logger.info(f"✅ Updated analytics title for video: {instance.title}")
     except Exception as e:
         logger.error(f"❌ Error updating video analytics: {str(e)}")
 

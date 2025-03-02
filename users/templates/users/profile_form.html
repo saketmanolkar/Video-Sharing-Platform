@@ -162,6 +162,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateBioCount() {
         const currentLength = bioTextarea.value.length;
         bioCount.textContent = `${currentLength}/300 characters`;
+        
+        // Visual feedback if exceeding limit
+        if (currentLength > 300) {
+            bioCount.style.color = 'red';
+        } else {
+            bioCount.style.color = '';
+        }
     }
 
     bioTextarea.addEventListener('input', updateBioCount);
@@ -173,12 +180,40 @@ document.addEventListener('DOMContentLoaded', function() {
         clearProfilePicCheckbox.addEventListener('change', function(e) {
             const preview = document.getElementById('profileEditPreview');
             if (this.checked) {
-                preview.src = '/static/images/user-default.png';  // Replace with your default image path
+                preview.src = '/static/images/user-default.png';
             } else {
                 preview.src = "{{ profile.get_profile_pic_url }}";
             }
         });
     }
+    
+    // Form submission validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(event) {
+        // Check username
+        const username = document.querySelector('input[name="username"]').value.trim();
+        if (!username) {
+            event.preventDefault();
+            alert('Username is required');
+            return;
+        }
+        
+        // Check first name
+        const firstName = document.querySelector('input[name="first_name"]').value.trim();
+        if (!firstName) {
+            event.preventDefault();
+            alert('First name is required');
+            return;
+        }
+        
+        // Check profile picture file size
+        const profilePic = document.getElementById('id_profile_pics').files[0];
+        if (profilePic && profilePic.size > 5 * 1024 * 1024) {
+            event.preventDefault();
+            alert('Profile picture is too large (max 5MB)');
+            return;
+        }
+    });
 });
 </script>
 {% endblock content %}
