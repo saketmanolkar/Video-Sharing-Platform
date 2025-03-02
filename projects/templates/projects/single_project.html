@@ -45,7 +45,10 @@
                     </div>
                     
                     <div class="message__body">
-                        <p>{{ video.description }}</p>
+                        <div class="collapsible-content" id="descriptionContent">
+                            <p>{{ video.description }}</p>
+                        </div>
+                        <button id="showMoreBtn" class="show-more-btn" style="display: none;">Show more</button>
                     </div>
                 </div>
 
@@ -125,5 +128,78 @@
 
 <!-- Include the delete confirmation popup -->
 {% include 'delete_object.html' with is_authenticated=is_authenticated user_id=user_id %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const descContent = document.getElementById('descriptionContent');
+    const showMoreBtn = document.getElementById('showMoreBtn');
+    
+    // Check if description is too long (over 3 lines)
+    const checkHeight = () => {
+      const lineHeight = parseInt(window.getComputedStyle(descContent).lineHeight);
+      const maxHeight = lineHeight * 3; // 3 lines
+      
+      if (descContent.scrollHeight > maxHeight) {
+        // Description is too long, make it collapsible
+        descContent.style.maxHeight = maxHeight + 'px';
+        descContent.style.overflow = 'hidden';
+        showMoreBtn.style.display = 'block';
+        descContent.classList.add('collapsed');
+      }
+    };
+    
+    // Toggle show more/less
+    showMoreBtn.addEventListener('click', function() {
+      if (descContent.classList.contains('collapsed')) {
+        descContent.style.maxHeight = descContent.scrollHeight + 'px';
+        descContent.classList.remove('collapsed');
+        showMoreBtn.textContent = 'Show less';
+      } else {
+        const lineHeight = parseInt(window.getComputedStyle(descContent).lineHeight);
+        descContent.style.maxHeight = (lineHeight * 3) + 'px';
+        descContent.classList.add('collapsed');
+        showMoreBtn.textContent = 'Show more';
+      }
+    });
+    
+    // Run the check on page load
+    checkHeight();
+  });
+</script>
+
+<style>
+  .collapsible-content {
+    transition: max-height 0.3s ease-out;
+  }
+  
+  .show-more-btn {
+    background: none;
+    border: none;
+    color: #3f8cff;
+    cursor: pointer;
+    padding: 5px 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-top: 5px;
+  }
+  
+  .show-more-btn:hover {
+    text-decoration: underline;
+  }
+  
+  /* Remove shadows from comment rows */
+  .settings__table tr {
+    box-shadow: none !important;
+  }
+  
+  .settings__tableInfo {
+    box-shadow: none !important;
+  }
+  
+  /* Also target any potential container */
+  .comments-list .settings__table {
+    box-shadow: none !important;
+  }
+</style>
 
 {% endblock %}

@@ -93,11 +93,14 @@ class ProjectForm(forms.ModelForm):
         # Sanitize description - remove HTML tags
         sanitized_description = strip_tags(description.strip())
         
-        # Enforce length limits
-        if len(sanitized_description) < 10:
-            raise forms.ValidationError("Description must be at least 10 characters long")
-        if len(sanitized_description) > 5000:
-            raise forms.ValidationError("Description must be less than 5000 characters")
+        # Count words instead of characters
+        word_count = len(sanitized_description.split())
+        
+        # Enforce word limits
+        if word_count < 5:
+            raise forms.ValidationError("Description must be at least 5 words long")
+        if word_count > 100:
+            raise forms.ValidationError("Description must be no more than 100 words")
             
         return sanitized_description
     

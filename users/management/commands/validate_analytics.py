@@ -10,7 +10,7 @@ class Command(BaseCommand):
         self.stdout.write('Starting validation...')
         
         # Get first 4 summaries
-        summaries = UserActivitySummary.objects.all()[:4]
+        summaries = UserActivitySummary.objects.all()[:10]
         follow_service = FollowService()
         
         for summary in summaries:
