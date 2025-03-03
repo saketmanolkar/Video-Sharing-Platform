@@ -9,15 +9,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write('Starting validation...')
         
-        # Get first 4 summaries
+        # Get first 10 summaries
         summaries = UserActivitySummary.objects.all()[:10]
         follow_service = FollowService()
         
         for summary in summaries:
             self.stdout.write(f"\n=== Validating {summary.user.username}'s Data ===")
             
-            # Get direct calculations using UserAnalyticsService
-            analytics = UserAnalyticsService.get_user_analytics(summary.user)
+            # Get direct calculations using UserAnalyticsService all-time method
+            analytics = UserAnalyticsService.get_user_analytics_all_time(summary.user)
             profile_visits = UserAnalyticsService.get_profile_visits_count(summary.user)
             
             # Get direct follower counts using model relationships

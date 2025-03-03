@@ -236,3 +236,20 @@ and the rest of the report should be the other metrics.
         except Exception as e:
             print(f"Error formatting user data: {str(e)}")
             return None
+
+    @staticmethod
+    def get_user_analytics_all_time(user):
+        """Get complete user behavior analytics for all time (no date filtering)"""
+        # Optimized Query with no time filter:
+        sessions = UserSession.objects.filter(
+            user=user
+        ).values(
+            'start_time',    # Needed for day/hour
+            'end_time',      # Needed for duration
+            'user_id'        # Needed for filtering
+        )
+        
+        return {
+            'heatmap_data': UserAnalyticsService._get_heatmap_data(sessions),
+            'time_stats': UserAnalyticsService._get_time_stats(sessions)
+        }

@@ -12,6 +12,7 @@ from urllib.parse import unquote
 from django.core.cache import cache
 import time
 from django.contrib.auth.models import User
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,10 @@ class UserSessionMiddleware:
         self.session_lock = SessionLockCache()
 
     def __call__(self, request):
+        # Skip session creation entirely during tests
+        if settings.TESTING:
+            return self.get_response(request)
+        
         # Skip for static, media, api files and debug toolbar
         if any([
             request.path.startswith('/static/'),

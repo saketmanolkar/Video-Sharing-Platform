@@ -26,8 +26,8 @@ class Command(BaseCommand):
 
         for index, user in enumerate(users, 1):
             try:
-                # Get analytics data using existing service
-                analytics = analytics_service.get_user_analytics(user)
+                # Get analytics data using all-time service
+                analytics = UserAnalyticsService.get_user_analytics_all_time(user)
                 time_stats = analytics['time_stats']
                 
                 # Get profile visits
