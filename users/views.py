@@ -32,28 +32,21 @@ from django.urls import reverse
 logger = logging.getLogger(__name__)
 
 @login_required(login_url="login-page")
-def creator_studio(request, pk):
+def creator_studio(request):
+    profile = request.user.profile
     profile_service = ProfileService()
-    profile = profile_service.get_profile(pk, Profile)
     
-    if request.user != profile.user:
-        messages.error(request, "You don't have permission to access this creator studio")
-        return redirect('profile', pk=pk)
-
-    # Use the optimized function instead
-    context = profile_service.get_creator_studio_data_optimized(pk, Profile)
+    # Use the optimized function
+    context = profile_service.get_creator_studio_data_optimized(profile.id, Profile)
     return render(request, "users/creator_studio.html", context)
 
 @login_required(login_url="login-page")
-def analytics(request, pk):
+def analytics(request):
+    # Use current user's profile directly
+    profile = request.user.profile
     profile_service = ProfileService()
-    profile = profile_service.get_profile(pk, Profile)
     
-    # Check if the requested profile matches current user
-    if request.user.profile != profile:
-        messages.error(request, "You don't have permission to access this analytics")
-        return redirect('profile', pk=pk)
-    
+    # Get analytics data for user's own profile
     context = profile_service.get_analytics_data(profile)
     
     return render(request, 'users/analytics.html', context)
@@ -78,31 +71,28 @@ def profile(request, pk):
     return render(request, "users/profile.html", context)
 
 @login_required(login_url="login-page")
-def update_profile(request, pk):
+def update_profile(request):
+    # Use the logged-in user's profile directly
+    profile = request.user.profile
     profile_service = ProfileService()
     profile_cache = ProfileCache()
     video_context_cache = VideoContextCache()
     form_cache = FormSubmissionCache()
-    profile = profile_service.get_profile(pk, Profile)
-    
-    if request.user != profile.user:
-        messages.error(request, "You don't have permission to edit this profile")
-        return redirect('profile', pk=pk)
     
     if request.method == 'POST':
-        # Generate hash from form data like other views
+        # Generate hash from form data
         form_data = str(request.POST) + str(request.FILES)
         submission_hash = hashlib.md5(form_data.encode()).hexdigest()
         
         if form_cache.check_submission(submission_hash):
             messages.warning(request, "Form was already submitted")
-            return redirect('profile', pk=pk)
+            return redirect('profile', pk=profile.id)
             
         # Mark as submitted
         form_cache.set_submission(submission_hash)
         
         try:
-            # Get all user fields - FIX: Handle None values safely
+            # Get all user fields - Handle None values safely
             username = request.POST.get('username') or ''
             username = username.strip()
             
@@ -197,28 +187,22 @@ def user_videos(request, pk):
     return render(request, "users/user_video.html", context)
 
 @login_required(login_url="login-page")
-def user_history(request, pk):
-    # Get the profile with select_related to avoid separate user query
-    profile = get_object_or_404(Profile.objects.select_related('user'), id=pk)
+def user_history(request):
+    # Use the logged-in user's profile directly
+    profile = request.user.profile
     
-    # Check if the user owns this profile
-    if request.user != profile.user:
-        messages.error(request, "You don't have permission to view this history")
-        return redirect('profile', pk=pk)
-    
-    # If authorized, proceed with getting the history
+    # Get the user's view history
     profile_service = ProfileService()
-    # Pass the already fetched profile to the service method
     history_data = profile_service.get_user_history(profile)
 
-    # Add pagination similar to projects view
+    # Add pagination
     paged_history, custom_range = VideoService.get_paginated_videos(
         history_data['history_videos'],
         request.GET.get('page', 1)
     )
 
     context = {
-        'profile': profile,  # Use the profile we already fetched
+        'profile': profile,
         'view_history': paged_history,
         'custom_range': custom_range
     }
@@ -358,7 +342,7 @@ def register_user(request):
                 request.session['temp_refresh_token'] = str(refresh)
                 
                 login(request, user)
-                return redirect('update-profile', pk=user.profile.id)
+                return redirect('update-profile')
             else:
                 form_cache.clear_submission(submission_hash)
                 # Display more specific form errors
@@ -401,7 +385,7 @@ def view_message(request,pk):
     return render(request, "users/message.html", context)
 
 def create_message(request, pk):
-    recipient = Profile.objects.get(id=pk)
+    recipient = get_object_or_404(Profile, id=pk)
     form = MessageForm()
 
     try:

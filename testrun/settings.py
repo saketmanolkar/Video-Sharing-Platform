@@ -332,4 +332,5 @@ CELERY_WORKER_MAX_MEMORY_PER_CHILD = 50000  # 50MB
 
 INTERNAL_IPS = [
     '127.0.0.1',  # Add your local IP address if needed
+    '*' # Allow all hosts
 ]

@@ -17,7 +17,7 @@
               <!-- Only show edit button if the profile belongs to the logged-in user -->
               <div class="edit-button-container">
                 {% if request.user == profile.user %}
-                  <a class="edit-button" href="{% url 'update-profile' profile.id %}">
+                  <a class="edit-button" href="{% url 'update-profile'%}">
                     Edit Profile
                   </a>
                 {% elif request.user.is_authenticated %}
@@ -86,7 +86,7 @@
 
                   <!-- Inbox Button -->
                   <div class="profile-action-btn">
-                    <a href="{% url 'creator-studio' profile.id %}" class="profile-btn">
+                    <a href="{% url 'creator-studio' %}" class="profile-btn">
                       <i class="fas fa-video"></i>
                       <span>Creator Studio</span>
                     </a>
@@ -97,7 +97,7 @@
 
                   <!-- Inbox Button -->
                   <div class="profile-action-btn">
-                    <a href="{% url 'analytics' profile.id %}" class="profile-btn">
+                    <a href="{% url 'analytics' %}" class="profile-btn">
                       <i class="fas fa-chart-line"></i>
                       <span>Analytics Hub</span>
                     </a>
@@ -107,7 +107,7 @@
                   
                   <!-- Settings Button -->
                   <div class="profile-action-btn">
-                    <a href="{% url 'user-history' profile.id %}" class="profile-btn">
+                    <a href="{% url 'user-history' %}" class="profile-btn">
                       <i class="fas fa-history"></i>
                       <span>Your Viewing History</span>
                     </a>
@@ -209,7 +209,7 @@
                   <div class="playlist-actions" style="display: flex; gap: 0.5rem;">
                     {% if request.user.profile.id == profile.id and request.user.is_authenticated %}
                       <span class="tag tag--pill tag--sub tag--lg">
-                          <a href="{% url 'create-playlist' profile.id %}" style="text-decoration: none; color: inherit;">
+                          <a href="{% url 'create-playlist' %}" style="text-decoration: none; color: inherit;">
                               +
                           </a>
                       </span>

@@ -221,7 +221,7 @@ def update_project(request, pk):
                     cache.delete(f'video_context_{project.id}')
                     
                     messages.success(request, 'Project updated successfully!')
-                    return redirect('creator-studio', pk=request.user.profile.id)
+                    return redirect('creator-studio')
                     
         except Exception as e:
             # Clear the cache in case of error
@@ -250,7 +250,7 @@ def delete_project(request, pk):
         try:
             project.delete()
             messages.success(request, 'Video deleted successfully!')
-            return redirect('creator-studio', pk=request.user.profile.id)
+            return redirect('creator-studio')
         except Exception as e:
             messages.error(request, f'Error deleting video: {str(e)}')
             return redirect('project', pk=pk)
@@ -319,11 +319,9 @@ def movie_recommendation(request):
     return render(request, 'projects/movie_rec.html', {'form': form})
 
 @login_required(login_url="login-page")
-def create_playlist(request, pk):
-    profile = get_object_or_404(Profile, id=pk)
-    
-    if request.user != profile.user:
-        return HttpResponseForbidden("You can only create playlists on your own profile")
+def create_playlist(request):
+    # Use current user's profile directly
+    profile = request.user.profile
     
     if request.method == 'POST':
         # Generate unique key for this playlist submission
@@ -336,7 +334,7 @@ def create_playlist(request, pk):
         # Check if this exact playlist was recently submitted
         if form_cache.check_submission(submission_hash):
             messages.warning(request, 'This playlist was already submitted.')
-            return redirect('profile', pk=pk)
+            return redirect('profile', pk=profile.id)
 
         form = CreatePlaylistForm(request.POST)
         video_ids = request.POST.getlist('videos')
@@ -354,7 +352,7 @@ def create_playlist(request, pk):
                 video = Video.objects.get(id=video_id)
         except Video.DoesNotExist:
             messages.error(request, "One or more selected videos don't exist")
-            return redirect('profile', pk=pk)
+            return redirect('profile', pk=profile.id)
         if form.is_valid():
             try:
                 # Set cache to prevent duplicate submission
@@ -380,7 +378,7 @@ def create_playlist(request, pk):
                     playlist.save()
                     messages.success(request, 'Playlist created successfully!')
                 
-                return redirect('profile', pk=pk)
+                return redirect('profile', pk=profile.id)
                 
             except Exception as e:
                 # Clear cache if something goes wrong
