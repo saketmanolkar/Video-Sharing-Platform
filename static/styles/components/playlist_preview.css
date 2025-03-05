@@ -1,0 +1,242 @@
+/* Grid styles */
+.grid {
+    position: relative;
+    z-index: 1;
+}
+
+.grid.grid--three {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 2rem;
+    padding: 1rem;
+}
+
+.column {
+    position: relative;
+    z-index: 1;
+}
+
+/* Playlist preview styles */
+.playlist-preview {
+    background: white;
+    border-radius: 0;
+    overflow: hidden;
+    transition: transform 0.2s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    height: 100%;
+    position: relative;
+    z-index: 1;
+    transform: scale(0.85);
+    transform-origin: center top;
+    margin: -1rem;
+    margin-bottom: 2rem;
+}
+
+.playlist-preview:hover {
+    transform: scale(0.85) translateY(-5px);
+}
+
+.playlist-preview__link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.playlist-preview__thumbnail {
+    position: relative;
+    aspect-ratio: 16/9;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+}
+
+.playlist-preview__thumbnail img {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    object-position: center;
+}
+
+.playlist-preview__count {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 0;
+    font-size: 1.2rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.playlist-preview__count i {
+    font-size: 1.3rem;
+}
+
+.playlist-preview__actions {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    display: flex;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 8px 15px;
+    border-radius: 0;
+}
+
+.playlist-preview__action {
+    color: white;
+    font-size: 1.3rem;
+}
+
+.playlist-preview__action:hover {
+    color: var(--color-main);
+    transform: scale(1.1);
+    transition: all 0.2s ease;
+}
+
+.playlist-preview__info {
+    padding: 0.8rem;
+}
+
+.playlist-preview__title {
+    margin: 0;
+    font-size: 2rem;
+    color: #2d2d2d;
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+}
+
+.playlist-preview__creator {
+    font-size: 1.5rem;
+    color: #666;
+    margin: 0.3rem 0 0 0;
+}
+
+/* Modal styles with higher z-index */
+.playlist-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 999999 !important;
+}
+
+.playlist-modal__content {
+    background: var(--color-sub-lighter);
+    margin: 5% auto;
+    width: 90%;
+    max-width: 800px;
+    position: relative;
+    z-index: 1000000 !important;
+}
+
+.playlist-modal__header {
+    padding: 2rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.playlist-modal__header h2 {
+    margin: 0;
+    font-size: 2.2rem;
+    font-weight: 500;
+    color: var(--color-text);
+    letter-spacing: -0.5px;
+}
+
+.close-modal {
+    font-size: 2.5rem;
+    cursor: pointer;
+    color: #666;
+}
+
+.close-modal:hover {
+    color: var(--color-main);
+}
+
+.playlist-modal__body {
+    padding: 1.5rem;
+}
+
+.playlist-video-item {
+    display: flex;
+    gap: 1rem;
+    padding: 0.8rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+}
+
+.playlist-video-item:hover {
+    background-color: var(--color-light);
+    transform: translateX(5px);
+}
+
+.playlist-video-item__thumbnail {
+    width: 140px;
+    height: 80px;
+    border-radius: 0;
+    overflow: hidden;
+}
+
+.playlist-video-item__thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.playlist-video-item__info {
+    flex: 1;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.playlist-video-item__title {
+    margin: 0;
+    font-size: 1.8rem;
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.playlist-video-item__uploader {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--color-text-muted);
+}
+
+.empty-playlist {
+    text-align: center;
+    color: #666;
+    padding: 2rem;
+}
+
+/* Remove any z-index from grid elements */
+.grid, .grid--three, .column {
+    position: relative;
+    z-index: 1;
+}
+
+.playlist-preview {
+    position: relative;
+    z-index: 1;
+}
+
+/* Additional style for playlist grid in profile */
+.playlists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 2rem;
+    padding: 1rem;
+}

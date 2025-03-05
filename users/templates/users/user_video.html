@@ -1,6 +1,10 @@
 {% extends 'main.html' %}
 {% load static %}
 
+{% block styles %}
+<link rel="stylesheet" href="{% static 'styles/components/playlist_preview.css' %}">
+{% endblock %}
+
 {% block content %}
 <main class="checkered-background">
   <section class="creator-studio-header">

@@ -1,20 +1,12 @@
 {% extends 'main.html' %}
 {% load static %}
 
-{% block content %}
-<style>
-    .checkered-background {
-        min-height: calc(100vh - 80px); /* Adjust if needed based on your header height */
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .projectsList {
-        flex: 1;
-    }
-</style>
+{% block styles %}
+<link rel="stylesheet" href="{% static 'styles/components/video_grid.css' %}">
+{% endblock %}
 
-<main class="checkered-background">
+{% block content %}
+<main class="checkered-background" style="min-height: calc(100vh - 80px); display: flex; flex-direction: column;">
   <section class="creator-studio-header">
     <div class="container container--narrow">
       <div class="creator-studio-header__content">
@@ -24,7 +16,7 @@
     </div>
   </section>
 
-  <section class="projectsList" style="margin-top: 0;">
+  <section class="projectsList" style="margin-top: 0; flex: 1;">
     <div class="container">
       {% include 'components/video_grid.html' with videos=view_history %}
     </div>

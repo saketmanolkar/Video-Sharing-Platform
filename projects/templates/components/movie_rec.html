@@ -1,0 +1,29 @@
+
+
+
+{% block content %}
+<main class="formPage my-xl">
+    <div class="content-container">
+        <br>
+        <h1 class="rec-title">Find Your Next Watch</h1>
+        
+        <p class="rec-subtitle">Get personalized movie and TV show recommendations powered by AI and TMDB</p>
+        
+        <form method="post" style="text-align: center; margin-bottom: 3rem;">
+            {% csrf_token %}
+            <p style="font-size: 1.8rem; line-height: 2.2;">
+                I'm looking for a 
+                <span style="display: inline-block; margin: 0 10px;">{{ movie_form.media_type }}</span> 
+                in 
+                <span style="display: inline-block; margin: 0 10px;">{{ movie_form.language }}</span> 
+                from
+                <span style="display: inline-block; margin: 0 10px;">{{ movie_form.time_period }}</span> 
+                with 
+                <span style="display: inline-block; margin: 0 10px;">{{ movie_form.genres }}</span> 
+                genres.
+            </p>
+            <button type="submit" style="background-color: #28a745; color: white; border: none; padding: 15px 20px; border-radius: 8px; font-size: 1.3rem; margin-top: 2rem; margin-bottom: -10rem; cursor: pointer; transition: all 0.3s ease;">Get Recommendations</button>
+        </form>
+    </div>
+</main>
+{% endblock %}

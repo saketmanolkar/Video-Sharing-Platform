@@ -188,9 +188,9 @@ def save_activity_overflow(self, session_id, user_id):
 @shared_task
 def process_video_stats(user_id):
     video_stats_cache = VideoStatsCache()
-    user_cache_key = f"user_{user_id}"  
-
-    video_stats = video_stats_cache.get_video_stats(user_cache_key)
+    
+    # Get stats using the class's own method to generate the key
+    video_stats = video_stats_cache.get_video_stats(user_id)
 
     if video_stats:
         print("📊 Retrieved video stats from cache:")
@@ -221,7 +221,8 @@ def process_video_stats(user_id):
             else:
                 print(f"No ViewHistory entry found for Video ID: {video_id}, Window ID: {window_id}")
 
-    video_stats_cache.invalidate(user_cache_key)
+    # Use the same pattern for invalidation as for retrieval
+    video_stats_cache.invalidate(user_id)
     print(f"🗑️ Invalidated cached video stats for user ID: {user_id}")
 
 @shared_task

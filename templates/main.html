@@ -22,6 +22,9 @@
   <link rel="stylesheet" href="{% static 'uikit/app.css' %}">
   <link rel="stylesheet" href="{% static 'styles/app.css' %}" />
 
+  <!-- Template-specific CSS -->
+  {% block styles %}{% endblock %}
+
   <!-- Markdown parser -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -58,9 +61,6 @@
         <script src="{% static 'js/auth.js' %}"></script>
         {% with auth_script_loaded=True %}{% endwith %}
     {% endif %}
-
-    <!-- Template specific scripts -->
-    {% block scripts %}{% endblock %}
 
     <!-- Alert handler script stays the same -->
     <script>

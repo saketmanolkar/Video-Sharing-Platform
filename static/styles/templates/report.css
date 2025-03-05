@@ -1,0 +1,128 @@
+.report-container h1 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s;
+}
+
+.icon-button:hover {
+    transform: scale(1.1);
+}
+
+/* Updated audio player styling */
+.audio-wrapper {
+    display: flex;
+    align-items: center;
+    background: transparent;
+    border-radius: 4px;
+    padding: 2px;
+    box-shadow: none;
+}
+
+audio {
+    width: 180px;
+    height: 28px;
+}
+
+audio::-webkit-media-controls-panel {
+    background-color: #f9f9f9 !important;  /* Match main container background */
+    padding: 0 0;
+}
+
+audio::-webkit-media-controls-enclosure {
+    background-color: #f9f9f9 !important;
+}
+
+audio::-webkit-media-controls-timeline {
+    width: 80px;
+    margin: 0 5px;
+}
+
+audio::-webkit-media-controls-current-time-display,
+audio::-webkit-media-controls-time-remaining-display {
+    font-size: 11px;
+    color: #666;
+}
+
+audio::-webkit-media-controls-play-button {
+    margin: 0 0;
+}
+
+.generate-tts-btn {
+    background-color: #f0f0f0;  /* Light gray background */
+    color: #666;  /* Darker gray text - matches your title color */
+    border: 1px solid #ddd;  /* Subtle border */
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10.5px;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.generate-tts-btn:hover {
+    background-color: #e5e5e5;  /* Slightly darker on hover */
+    color: #444;  /* Darker text on hover */
+}
+
+.generate-tts-btn i {
+    margin-right: 5px;
+    color: #888;  /* Subtle icon color */
+}
+
+/* Add this to existing styles */
+.generate-tts-btn.generated-state {
+    background-color: #e8f5e9 !important;  /* Light green background */
+    color: #2e7d32 !important;  /* Darker green text */
+    border-color: #a5d6a7 !important;  /* Light green border */
+    opacity: 1 !important;  /* Keep it visible */
+}
+
+.generate-tts-btn.generated-state:disabled {
+    cursor: default !important;
+}
+
+.report-content {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.8;
+    color: #2d3748;
+    font-size: 1.1rem;
+    padding: 3rem;
+}
+
+.report-content h2 {
+    font-size: 1.8rem;
+    color: #1a202c;
+    margin: 2.5rem 0 1.5rem 0;
+    font-weight: 600;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.5rem;
+}
+
+.report-content h3 {
+    font-size: 1.4rem;
+    color: #2d3748;
+    margin: 2rem 0 1rem 0;
+    font-weight: 600;
+}
+
+.report-content p {
+    margin: 1.5rem 0;
+    line-height: 1.8;
+}
+
+/* Add spacing between sections */
+.report-content > * + * {
+    margin-top: 1.5rem;
+}

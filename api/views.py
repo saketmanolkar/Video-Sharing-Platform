@@ -468,11 +468,18 @@ def update_video_stats(request):
         except ValueError as ve:
             return JsonResponse({'error': f'Invalid total_watched value: {total_watched}'}, status=400)
 
+        # Handle user_id with "user_" prefix
+        if isinstance(user_id, str) and user_id.startswith('user_'):
+            user_id = user_id.replace('user_', '')
+            print(f"⚙️ Extracted user ID from prefixed value: {user_id}")
+
         # Get the user object
         try:
-            user = User.objects.get(id=user_id)  # Assuming user_id is the actual user ID
+            user = User.objects.get(id=user_id)  # Now using the numeric ID
         except User.DoesNotExist:
-            return JsonResponse({'error': 'User not found'}, status=404)
+            return JsonResponse({'error': f'User not found with ID: {user_id}'}, status=404)
+        except ValueError:
+            return JsonResponse({'error': f'Invalid user ID format: {user_id}'}, status=400)
 
         # Save the stats to the database
         try:

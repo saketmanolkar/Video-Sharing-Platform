@@ -1,0 +1,111 @@
+.content-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    text-align: center;
+    padding: 2rem;
+}
+
+.rec-title {
+    font-size: 3.5rem;
+    color: #666;
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+.rec-subtitle {
+    font-size: 1.5rem;
+    color: #888;
+    margin-bottom: 3rem;
+}
+
+.rec-form {
+    margin: 2rem 0;
+}
+
+.search-line {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 80px;
+    color: #666;
+}
+
+.rec-button {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.rec-button:hover {
+    background-color: #218838;
+    transform: translateY(-2px);
+}
+
+.search-text {
+    font-size: 80px;
+}
+
+/* Form styling */
+.search-line span {
+    font-size: 24px !important;
+    color: #666 !important;
+}
+
+.search-line select {
+    font-size: 24px !important;
+    padding: 8px 15px !important;
+    min-width: 200px !important;
+    height: 45px !important;
+}
+
+.search-line {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    margin: 30px 0 !important;
+}
+
+select {
+    font-size: 1.4rem !important;
+    padding: 8px 16px !important;
+    min-width: 200px !important;
+    height: auto !important;
+    border-radius: 8px !important;
+    border: 2px solid #ccc !important;
+    cursor: pointer !important;
+}
+
+select:hover {
+    border-color: #28a745 !important;
+    transform: translateY(-1px) !important;
+}
+
+button.submit-btn {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 15px 20px;
+    border-radius: 8px;
+    font-size: 1.3rem;
+    margin-top: 2rem;
+    margin-bottom: -10rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+button.submit-btn:hover {
+    background-color: #218838 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+}
+
+span.form-field {
+    display: inline-block;
+    margin: 0 10px !important;
+}

@@ -1,5 +1,10 @@
 {% extends 'main.html' %}
 {% load static %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'styles/components/video_grid.css' %}">
+{% endblock %}
+
 {% block content %}
     <main class="projects">
         <section class="hero-section text-center">
