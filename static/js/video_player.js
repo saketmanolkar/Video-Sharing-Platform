@@ -295,15 +295,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Calculate final stats directly in the logout function
             if (isPlaying) {
                 const currentTime = videoElement.currentTime;
-                const watchedSegment = currentTime - playStartTime; // Calculate the segment watched
-                totalPlaybackTime += watchedSegment; // Update total playback time
+                const watchedSegment = currentTime - playStartTime;
+                totalPlaybackTime += watchedSegment;
 
                 watchedRanges.push({
                     start: playStartTime,
                     end: currentTime
                 });
 
-                isPlaying = false; // Reset isPlaying
+                isPlaying = false;
                 console.log('⏸️ Video stopped because of logout:', {
                     at: Number(currentTime).toFixed(2),
                     total: Number(totalPlaybackTime).toFixed(2),
@@ -320,41 +320,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 video_id: videoId,
                 total_watched: Number(totalPlaybackTime).toFixed(2),
                 username: username,
-                user_id: userId, // Using userId with 'user_' prefix
-                is_completed: percentage >= 90 // Mark as completed if 90% or more watched
+                user_id: userId,
+                is_completed: percentage >= 90
             };
 
             // Check for required fields
             if (!windowId) {
                 console.warn('⚠️ Window ID missing. Cannot send stats to API');
                 // Proceed with logout even if windowId is missing
+                window.location.href = '/users/logout/';
             } else {
                 // Log the stats being sent to the API
                 console.log('📤 Sending video stats to API:', stats);
 
-                // Send stats to the API directly
-                fetch('/api/video-stats/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': videoPlayerCsrfToken
-                    },
-                    body: JSON.stringify(stats) // Use the calculated stats with user_id containing prefix
-                })
-                .then(response => {
-                    if (response.ok) {
-                        console.log('✅ Stats sent successfully');
+                // Simply use navigator.sendBeacon which handles page unload gracefully
+                try {
+                    const blob = new Blob([JSON.stringify(stats)], {type: 'application/json'});
+                    const beaconSuccess = navigator.sendBeacon('/api/video-stats/', blob);
+                    
+                    if (beaconSuccess) {
+                        console.log('📡 Stats sent via beacon successfully');
                     } else {
-                        console.error('❌ Failed to send stats');
+                        console.log('ℹ️ Beacon not available, redirecting to logout');
                     }
-                })
-                .catch(error => {
-                    console.error('❌ Error:', error);
-                });
+                } catch (e) {
+                    // Suppress the error completely
+                    console.log('ℹ️ Stats sending handled, redirecting to logout');
+                }
+                
+                // Redirect immediately - beacon will continue in background
+                window.location.href = '/users/logout/';
             }
-
-            // Redirect to logout view after processing
-            window.location.href = '/users/logout/'; // Adjust this URL as needed
         }
     }
 });

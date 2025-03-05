@@ -122,8 +122,18 @@ class VideoStatsCache:
         self.redis = get_redis_connection("default")
     
     @staticmethod
+    def normalize_user_id(user_id):
+        """Convert any user ID format to a consistent format"""
+        # If it's a prefixed string like 'user_1', extract the numeric part
+        if isinstance(user_id, str) and user_id.startswith('user_'):
+            return user_id.replace('user_', '')
+        return str(user_id)  # Otherwise, ensure it's a string
+    
+    @staticmethod
     def get_cache_key(user_id):
-        return f"{VideoStatsCache.FOLDER}:{user_id}"  # Single key for user stats
+        """Get a consistent cache key regardless of user ID format"""
+        normalized_id = VideoStatsCache.normalize_user_id(user_id)
+        return f"{VideoStatsCache.FOLDER}:{normalized_id}"
     
     def set_video_stats(self, user_id, video_id, window_id, stats):
         """Add video stats to cache under a single user key as a hash"""
@@ -139,22 +149,29 @@ class VideoStatsCache:
         }))
         self.redis.expire(cache_key, self.TTL)  # Set TTL for the hash
 
-        logger.info(f"📊 Added video stats for user ID {user_id}: {field_key}.")
+        logger.info(f"📊 Added video stats for user ID {user_id} (normalized: {self.normalize_user_id(user_id)}): {field_key}.")
 
     def get_video_stats(self, user_id):
         """Get all video stats for a user"""
         cache_key = self.get_cache_key(user_id)
         try:
             stats = self.redis.hgetall(cache_key)  # Get all entries in the hash
-            return {key.decode(): json.loads(value) for key, value in stats.items()}  # Decode each entry
+            if stats:
+                logger.info(f"📋 Found {len(stats)} video stats in cache for user {user_id}")
+                return {key.decode(): json.loads(value) for key, value in stats.items()}
+            else:
+                logger.warning(f"📭 No video stats found in cache for user {user_id}")
+                return {}  # Return empty dict instead of None
         except Exception as e:
-            logger.error(f"Failed to get video stats: {str(e)}")
-        return None
+            logger.error(f"❌ Failed to get video stats: {str(e)}")
+            return {}
     
     def invalidate(self, user_id):
         """Invalidate all video stats for a user"""
         cache_key = self.get_cache_key(user_id)
-        self.redis.delete(cache_key)
+        normalized_id = self.normalize_user_id(user_id)
+        result = self.redis.delete(cache_key)
+        logger.info(f"🗑️ Invalidated cached video stats for user ID: {user_id} (normalized: {normalized_id}), result: {result}")
 
 class SessionLockCache:
     FOLDER = ":1:session"

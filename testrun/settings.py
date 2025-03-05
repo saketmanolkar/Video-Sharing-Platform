@@ -167,13 +167,28 @@ WSGI_APPLICATION = "testrun.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "testrun",
-        "USER": "saketmanolkar",
-        "PASSWORD": "Clarion67@123",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "NAME": "defaultdb",  # DigitalOcean default database name
+        "USER": "doadmin",    # DigitalOcean default admin user
+        "PASSWORD": "AVNS_BXYkKwtVzCb-jcasNTY",  # Use your actual password
+        "HOST": "db-postgresql-testrun-do-user-18917001-0.l.db.ondigitalocean.com",
+        "PORT": "25060",
+        "OPTIONS": {
+            "sslmode": "require",
+            "sslrootcert": os.path.join(BASE_DIR, "cert", "ca-certificate.crt"),
+        }
     }
 }
+
+#DATABASES = {
+#    "default": {
+#        "ENGINE": "django.db.backends.postgresql",
+#        "NAME": "testrun",
+#        "USER": "saketmanolkar",
+#        "PASSWORD": "Clarion67@123",
+#        "HOST": "localhost",
+#        "PORT": "5432",
+#    }
+#}
 
 # DATABASES = {
 #     "default": {

@@ -625,9 +625,9 @@ class ProfileService:
         
         # Extract follower metrics
         follower_metrics = {
-            'following_count': summary_stats['total_following'],
+            'following_count': summary_stats.get('total_following', 0),
             'new_followers_30d': follower_analytics['new_followers_30d'],
-            'total_followers': summary_stats['total_followers']
+            'total_followers': summary_stats.get('total_followers', 0)
         }
         
         # Extract just the engagement breakdown for pie charts
