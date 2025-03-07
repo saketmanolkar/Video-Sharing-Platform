@@ -21,23 +21,22 @@ TESTING = 'pytest' in sys.modules or 'test' in sys.argv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 # Add these if not already present
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-VIDEO_UPLOAD_PATH = os.path.join(MEDIA_ROOT, 'videos')
+# MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# VIDEO_UPLOAD_PATH = os.path.join(MEDIA_ROOT, 'videos')
 
-# Create necessary directories
+# # Create necessary directories
+# os.makedirs(VIDEO_UPLOAD_PATH, exist_ok=True)
 
-os.makedirs(VIDEO_UPLOAD_PATH, exist_ok=True)
+# # Create media directories if they don't exist
+# MEDIA_DIRS = [
+#     os.path.join(BASE_DIR, 'media'),
+#     os.path.join(BASE_DIR, 'media', 'videos'),
+#     os.path.join(BASE_DIR, 'media', 'thumbnails'),
+# ]
 
-# Create media directories if they don't exist
-MEDIA_DIRS = [
-    os.path.join(BASE_DIR, 'media'),
-    os.path.join(BASE_DIR, 'media', 'videos'),
-    os.path.join(BASE_DIR, 'media', 'thumbnails'),
-]
-
-for dir_path in MEDIA_DIRS:
-    os.makedirs(dir_path, exist_ok=True)
+# for dir_path in MEDIA_DIRS:
+#     os.makedirs(dir_path, exist_ok=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -72,6 +71,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "debug_toolbar",
+    "storages",
+    'django_ckeditor_5',
 ]
 
 
@@ -273,6 +274,47 @@ STATICFILES_DIRS = [
 # Add this near your other static files settings
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# DigitalOcean Spaces configuration 
+AWS_DEFAULT_ACL = 'public-read'
+AWS_QUERYSTRING_AUTH = False
+AWS_FILE_OVERWRITE = False
+AWS_ACCESS_KEY_ID = 'DO801ZRMXFKTEYBYXUQK'
+AWS_SECRET_ACCESS_KEY = 'p9hW6mweseMZLNpFTdCqjWo1324WVXvCIKLMogKK3Q0'
+AWS_STORAGE_BUCKET_NAME = 'bucket-devserach'
+AWS_S3_REGION_NAME = 'nyc3'
+AWS_S3_CUSTOM_DOMAIN = 'bucket-devserach.nyc3.cdn.digitaloceanspaces.com'
+
+# Fixed endpoint URL - this was incorrect before
+AWS_S3_ENDPOINT_URL = 'https://nyc3.digitaloceanspaces.com'
+
+# Conditional storage configuration based on environment
+if TESTING:
+    # Use local storage for testing
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    
+    # Define video upload path
+    VIDEO_UPLOAD_PATH = os.path.join(MEDIA_ROOT, 'videos')
+    
+    # Create necessary media directories if they don't exist
+    MEDIA_DIRS = [
+        os.path.join(BASE_DIR, 'media'),
+        os.path.join(BASE_DIR, 'media', 'videos'),
+        os.path.join(BASE_DIR, 'media', 'thumbnails'),
+        os.path.join(BASE_DIR, 'media', 'reports'),
+        os.path.join(BASE_DIR, 'media', 'profiles'),
+    ]
+    for dir_path in MEDIA_DIRS:
+        os.makedirs(dir_path, exist_ok=True)
+        
+    # Create video upload path
+    os.makedirs(VIDEO_UPLOAD_PATH, exist_ok=True)
+else:
+    # Use DigitalOcean Spaces in production
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
@@ -349,3 +391,14 @@ INTERNAL_IPS = [
     '127.0.0.1',  # Add your local IP address if needed
     '*' # Allow all hosts
 ]
+
+# Django CKEditor 5 settings
+CKEDITOR_5_CONFIGS = {
+    'default': {
+        'toolbar': ['heading', '|', 'bold', 'italic', 'link',
+                   'bulletedList', 'numberedList', 'blockQuote', 'imageUpload', ],
+    }
+}
+
+CKEDITOR_5_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+CKEDITOR_5_STORAGE_BACKEND = "storages.backends.s3boto3.S3Boto3Storage"

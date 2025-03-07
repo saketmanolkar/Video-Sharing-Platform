@@ -29,6 +29,7 @@ from django.db.models import Count, Prefetch
 from projects.models import Playlist, Video, Tag
 from projects.models import ViewHistory
 from projects.models import PlaylistItem
+from custom_storage import upload_content_to_spaces
 
 class UserReportService:
     def __init__(self, api_key):
@@ -97,23 +98,7 @@ class UserReportService:
 
         # Get or create a report for the user
         report, created = Report.objects.get_or_create(user=user)
-        # Delete existing report files
-        try:
-            # Find and delete all existing reports for this user and type
-            report_pattern = f"{username}_{report_type}_*.txt"
-            existing_reports = [f for f in os.listdir(self.reports_dir) 
-                              if f.startswith(f"{username}_{report_type}_") and f.endswith('.txt')]
-            
-            for report_file in existing_reports:
-                try:
-                    report_path = os.path.join(self.reports_dir, report_file)
-                    os.remove(report_path)
-                    print(f"Successfully deleted existing {report_type} report: {report_file}")
-                except OSError as e:
-                    print(f"Error deleting {report_type} report {report_file}: {str(e)}")
-        except Exception as e:
-            print(f"Error handling report deletion: {str(e)}")
-
+        
         # Create a new filename for the report
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{username}_{report_type}_{timestamp}.txt"
@@ -121,48 +106,161 @@ class UserReportService:
         # Hard-code the report header
         today_date = datetime.now().strftime('%Y-%m-%d')
         report_header = f"{report_type.upper()} DATA REPORT - GENERATED ON {datetime.now().strftime('%d %b %I:%M %p')}.\n\n"
-
-        # Save the new text report in the specified directory
-        text_path = os.path.join(self.reports_dir, filename)
-        with open(text_path, 'w') as f:
-            f.write(report_header)
-            f.write(report_content)
-
-        # Construct local file URL for the new report
-        report_url = f"file://{text_path}"
-
+        
+        # Combine header and content
+        full_content = report_header + report_content
+        
+        # Handle storage differently based on environment
+        if settings.TESTING:
+            # Testing mode: Save locally
+            self.reports_dir = os.path.join(settings.MEDIA_ROOT, 'reports')
+            os.makedirs(self.reports_dir, exist_ok=True)
+            
+            # Delete existing report files
+            try:
+                report_pattern = f"{username}_{report_type}_*.txt"
+                existing_reports = [f for f in os.listdir(self.reports_dir) 
+                                  if f.startswith(f"{username}_{report_type}_") and f.endswith('.txt')]
+                
+                for report_file in existing_reports:
+                    try:
+                        report_path = os.path.join(self.reports_dir, report_file)
+                        os.remove(report_path)
+                        print(f"Successfully deleted existing {report_type} report: {report_file}")
+                    except OSError as e:
+                        print(f"Error deleting {report_type} report {report_file}: {str(e)}")
+            except Exception as e:
+                print(f"Error handling report deletion: {str(e)}")
+            
+            # Save local file
+            text_path = os.path.join(self.reports_dir, filename)
+            with open(text_path, 'w') as f:
+                f.write(full_content)
+            
+            # Use file:// URL for local testing
+            report_url = f"file://{text_path}"
+        else:
+            # Production mode: Upload directly to DO Spaces
+            
+            # Delete ALL existing reports for this user and type in DO Spaces
+            try:
+                # Import boto3
+                import boto3
+                
+                print(f"🔍 DEBUG: Starting cleanup of reports for user: {username}, type: {report_type}")
+                print(f"🔍 DEBUG: AWS settings - Bucket: {settings.AWS_STORAGE_BUCKET_NAME}, Endpoint: {settings.AWS_S3_ENDPOINT_URL}")
+                
+                # Create a boto3 client using settings
+                s3 = boto3.client('s3',
+                    endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+                    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                    region_name=settings.AWS_S3_REGION_NAME)
+                
+                # List all objects in the reports directory
+                print(f"🔍 DEBUG: Listing objects with prefix 'reports/'")
+                response = s3.list_objects_v2(
+                    Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                    Prefix='reports/'
+                )
+                
+                # Count and log found objects
+                found_files = []
+                if 'Contents' in response:
+                    print(f"🔍 DEBUG: Found {len(response['Contents'])} total objects in bucket")
+                    for obj in response['Contents']:
+                        found_files.append(obj['Key'])
+                    print(f"🔍 DEBUG: All files in reports/: {', '.join(found_files)}")
+                else:
+                    print("🔍 DEBUG: No objects found in reports/")
+                
+                # Track deleted files
+                deleted_files = []
+                
+                # Delete matching report files using exact start pattern
+                if 'Contents' in response:
+                    for obj in response['Contents']:
+                        key = obj['Key']
+                        
+                        # Check if file matches our pattern (username_type_)
+                        search_pattern = f"{username}_{report_type}_"
+                        
+                        # We need to check if the filename (not full path) starts with our pattern
+                        # Extract just the filename part from the full key
+                        filename_part = key.split('/')[-1]
+                        
+                        if filename_part.startswith(search_pattern) and filename_part.endswith('.txt'):
+                            print(f"🔍 DEBUG: MATCH FOUND - will delete: {key}")
+                            
+                            try:
+                                # Delete the object
+                                s3.delete_object(
+                                    Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                                    Key=key
+                                )
+                                deleted_files.append(key)
+                                print(f"✅ DELETED: Report {key}")
+                            except Exception as e:
+                                print(f"❌ ERROR: Failed to delete {key}: {str(e)}")
+                
+                
+            except Exception as e:
+                print(f"❌ ERROR: Failed to clean up old reports: {str(e)}")
+                import traceback
+                traceback.print_exc()
+            
+            report_url = upload_content_to_spaces(full_content, filename)
+        
         # Update the appropriate report URL and timestamp
         if report_type == 'user':
-
-            # Update the user report url and timestamp in the DB
             report.user_report_url = report_url
             report.user_report_generated_at = datetime.now()
-
-            # Clear the user report audio file url and timestamp in the DB
             report.user_report_audio_file_url = None
             report.user_report_audio_generated_at = None
-
-            
         elif report_type == 'video':
-
-            #Update the video report url and timestamp in the DB
             report.video_report_url = report_url
             report.video_report_generated_at = datetime.now()
-
-            # Clear the video report audio file url and timestamp in the DB
             report.video_report_audio_file_url = None
             report.video_report_audio_generated_at = None
-
         
-        # Define the audio file path to delete after report generation
-        audio_file_name = f"{username}_{report_type}_audio.wav"
-        audio_file_path = os.path.join(self.reports_dir, audio_file_name)
-
-        # Check if the report audio file already exists and delete it if necessary
-        if os.path.exists(audio_file_path):
-            os.remove(audio_file_path)
-            print(f"Deleted existing {report_type} data report audio file after report generation: {audio_file_path}")
-
+        # Handle audio file cleanup in both environments
+        if settings.TESTING:
+            # Define the audio file path to delete after report generation
+            audio_file_name = f"{username}_{report_type}_audio.wav"
+            audio_file_path = os.path.join(self.reports_dir, audio_file_name)
+            
+            # Check if the report audio file already exists and delete it if necessary
+            if os.path.exists(audio_file_path):
+                os.remove(audio_file_path)
+                print(f"Deleted existing {report_type} data report audio file after report generation: {audio_file_path}")
+        else:
+            # Delete associated audio files in DO Spaces too
+            try:
+                # Use the same s3 client from above
+                # List objects again to find audio files
+                response = s3.list_objects_v2(
+                    Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                    Prefix='reports/'
+                )
+                
+                # Filter for this user's audio files of the specified type
+                if 'Contents' in response:
+                    for obj in response['Contents']:
+                        key = obj['Key']
+                        # Check if this is an audio file for this user and type
+                        if key.endswith('.wav') and f"/{username}_{report_type}_audio" in key:
+                            try:
+                                # Delete the object
+                                s3.delete_object(
+                                    Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                                    Key=key
+                                )
+                                print(f"Deleted old audio file from DO Spaces: {key}")
+                            except Exception as e:
+                                print(f"Error deleting audio file {key}: {str(e)}")
+            except Exception as e:
+                print(f"Error cleaning up old audio files in DO Spaces: {str(e)}")
+        
         report.save()
 
         return {
@@ -177,67 +275,134 @@ class SpeechService:
     def generate_speech(self, username, report_type):
         """Generate speech from a text file associated with the username and report type."""
         try:
-            print(f"Using reports directory: {self.reports_dir}")
-
-            # Determine the correct file pattern based on the report type
-            if report_type == 'user':
-                file_pattern = f"{username}_user_*.txt"
-            elif report_type == 'video':
-                file_pattern = f"{username}_video_*.txt"
-            else:
-                print(f"Invalid report type: {report_type}")
-                return None
-
-            # Print the file pattern being searched
-            print(f"Searching for files with pattern: {file_pattern}")
-
-            # List all files in the reports directory for debugging
-            all_files = os.listdir(self.reports_dir)
-            print(f"All files in directory: {all_files}")
-
-            # Find the text file that matches the pattern
-            text_files = glob.glob(os.path.join(self.reports_dir, file_pattern))
-            print(f"Found files: {text_files}")  # Debugging line
-
-            if not text_files:
-                print(f"No report file found for username: {username} and report type: {report_type}")
+            print(f"🔊 Starting speech generation for {username}, report type: {report_type}")
+            
+            # Get report content from the correct URL
+            content = None
+            remote_url = None
+            
+            try:
+                from users.models import Report, User
+                from django.conf import settings
+                
+                # Check if we're in testing mode
+                is_testing = getattr(settings, 'TESTING', False)
+                print(f"🔊 Environment mode: {'TESTING' if is_testing else 'PRODUCTION'}")
+                
+                user = User.objects.get(username=username)
+                report = Report.objects.get(user=user)
+                
+                # Get the appropriate report URL based on type
+                if report_type == 'user':
+                    remote_url = report.user_report_url
+                elif report_type == 'video':
+                    remote_url = report.video_report_url
+                else:
+                    print(f"❌ Invalid report type: {report_type}")
+                    return None
+                    
+                if not remote_url:
+                    print(f"❌ No report URL found for {username} and {report_type}")
+                    return None
+                    
+                print(f"📄 Found report URL: {remote_url}")
+                
+                # Fetch content from remote URL
+                import requests
+                try:
+                    response = requests.get(remote_url)
+                    if response.status_code == 200:
+                        content = response.text
+                        print(f"✅ Successfully fetched content: {len(content)} characters")
+                    else:
+                        print(f"❌ Error fetching content: HTTP {response.status_code}")
+                        return None
+                except Exception as req_err:
+                    print(f"❌ Request error: {str(req_err)}")
+                    return None
+                    
+            except Exception as db_err:
+                print(f"❌ Database error: {str(db_err)}")
                 return None
             
-            # Read the content of the first matching file
-            with open(text_files[0], 'r') as file:
-                content = file.read()
+            if not content:
+                print("❌ No content found for TTS generation")
+                return None
 
             # Remove asterisks from the content
             cleaned_content = content.replace('*', '')
 
-            # Save the cleaned content to a new file
-            cleaned_file_path = os.path.join(self.reports_dir, f"{username}_cleaned.txt")
-            with open(cleaned_file_path, 'w') as cleaned_file:
-                cleaned_file.write(cleaned_content)
-
-            # Define the audio file path
+            # Create temp files for processing
+            import tempfile
             audio_file_name = f"{username}_{report_type}_audio.wav"
-            audio_file_path = os.path.join(self.reports_dir, audio_file_name)
-
-            # Check if the audio file already exists and delete it if necessary
-            if os.path.exists(audio_file_path):
-                os.remove(audio_file_path)
-                print(f"Deleted existing audio file: {audio_file_path}")
-
+            temp_audio_path = os.path.join(tempfile.gettempdir(), audio_file_name)
+            
             # Initialize TTS and generate audio
+            print(f"🔊 Generating audio with TTS engine...")
             tts = TTS(model_name="tts_models/en/vctk/vits")
-            tts.tts_to_file(text=cleaned_content, file_path=audio_file_path, speaker="p339")
-
-            print(f"Audio generated and saved at: {audio_file_path}")
-
-            # Delete the cleaned text file after generating audio
-            os.remove(cleaned_file_path)
-            print(f"Deleted temporary file: {cleaned_file_path}")
-
-            return audio_file_name
+            tts.tts_to_file(text=cleaned_content, file_path=temp_audio_path, speaker="p339")
+            print(f"✅ Audio file generated at: {temp_audio_path}")
+            
+            # Upload to appropriate storage
+            from django.conf import settings
+            audio_url = None
+            
+            if not getattr(settings, 'TESTING', False):
+                # Production: Upload to DigitalOcean Spaces
+                print(f"📤 Uploading to DigitalOcean Spaces...")
+                
+                try:
+                    # Make sure file exists before reading
+                    if not os.path.exists(temp_audio_path):
+                        print(f"❌ Temp audio file not found at: {temp_audio_path}")
+                        return None
+                    
+                    # Read the generated audio file
+                    with open(temp_audio_path, 'rb') as audio_file:
+                        audio_content = audio_file.read()
+                        print(f"✅ Read {len(audio_content)} bytes from temp audio file")
+                    
+                    # Upload to DO Spaces
+                    from custom_storage import upload_file_to_spaces
+                    spaces_path = f"reports/{audio_file_name}"
+                    audio_url = upload_file_to_spaces(audio_content, spaces_path)
+                    
+                    if audio_url:
+                        print(f"✅ Successfully uploaded to: {audio_url}")
+                    else:
+                        print("❌ upload_file_to_spaces returned None")
+                        
+                except Exception as upload_err:
+                    print(f"❌ Upload error: {str(upload_err)}")
+                    import traceback
+                    traceback.print_exc()
+                    # Fall back to local file
+                    audio_url = f"/media/reports/{audio_file_name}"
+                    # Copy to local reports directory
+                    import shutil
+                    shutil.copy(temp_audio_path, os.path.join(self.reports_dir, audio_file_name))
+                    print(f"⚠️ Fallback to local file: {audio_url}")
+            else:
+                # Testing: Save locally
+                local_audio_path = os.path.join(self.reports_dir, audio_file_name)
+                import shutil
+                shutil.copy(temp_audio_path, local_audio_path)
+                audio_url = f"/media/reports/{audio_file_name}"
+                print(f"✅ Saved to local path: {local_audio_path}")
+            
+            # Clean up temp files
+            try:
+                os.unlink(temp_audio_path)
+                print(f"✅ Deleted temp audio file")
+            except Exception as cleanup_err:
+                print(f"⚠️ Error cleaning up temp file: {str(cleanup_err)}")
+            
+            return audio_url
             
         except Exception as e:
-            print(f"Error in generating speech: {str(e)}")
+            print(f"❌ CRITICAL ERROR in speech generation: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
 
 class ProfileService:

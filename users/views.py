@@ -549,18 +549,28 @@ def report(request, pk):
                 'report_exists': False,
             })
 
-        # Modify the report URL to be web-accessible
-        if report_url and not report_url.startswith('http'):
-            report_url = f"{django_settings.MEDIA_URL}reports/{report_url.split('/')[-1]}"
-            
-            # Read the file content
-            file_path = os.path.join(django_settings.MEDIA_ROOT, 'reports', report_url.split('/')[-1])
+        # Get content from the report URL - handling both local and remote URLs
+        file_content = ""
+        if report_url:
             try:
-                with open(file_path, 'r') as file:
-                    file_content = file.read()
+                if report_url.startswith('http'):
+                    # Remote URL (DigitalOcean Spaces) - use requests to fetch content
+                    import requests
+                    response = requests.get(report_url)
+                    if response.status_code == 200:
+                        file_content = response.text
+                    else:
+                        print(f"Error fetching remote file: HTTP {response.status_code}")
+                        file_content = f"Error fetching report: HTTP {response.status_code}"
+                else:
+                    # Local file - read from filesystem
+                    report_url = f"{django_settings.MEDIA_URL}reports/{report_url.split('/')[-1]}"
+                    file_path = os.path.join(django_settings.MEDIA_ROOT, 'reports', report_url.split('/')[-1])
+                    with open(file_path, 'r') as file:
+                        file_content = file.read()
             except Exception as e:
                 print(f"Error reading file: {e}")
-                file_content = "Error reading file content"
+                file_content = f"Error reading file content: {str(e)}"
 
         # Handle audio URL with cache busting
         if audio_url and not audio_url.startswith('http'):

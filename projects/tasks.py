@@ -8,6 +8,8 @@ from django.core.files.storage import default_storage
 import logging
 from redis import Redis
 from redis.lock import Lock
+import tempfile
+import requests
 
 logger = getLogger(__name__)
 
@@ -84,13 +86,16 @@ def process_thumbnail_task(self, video_id):
 
 @shared_task(bind=True)
 def process_video_task(self, video_id):
-    """Process video encoding in background"""
+    """Process video encoding in background - Cloud Storage Compatible"""
     from .models import Video
     from django.conf import settings
     import os
+    import tempfile
+    import requests
     from datetime import datetime
     from django.utils.text import slugify
     from .utils import encode_video
+    from custom_storage import upload_file_to_spaces, delete_file_from_spaces
     
     lock_key = f'encoding_lock_{video_id}'
     lock = redis_client.lock(
@@ -112,16 +117,34 @@ def process_video_task(self, video_id):
         
         try:
             video = Video.objects.get(id=video_id)
-            input_path = video.file.path
-            print(f"📁 Input path: {input_path}")
+            
+            # IMPORTANT: Store original file path before changing it
+            original_file_path = video.file.name
+            print(f"💾 Original file path: {original_file_path}")
+            
+            # Get file from cloud storage
+            video_url = video.file.url
+            print(f"☁️ Downloading video from: {video_url}")
+            
+            # Create temp file for processing
+            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
+                input_path = temp_file.name
+                
+            # Download file to temp location
+            response = requests.get(video_url, stream=True)
+            if response.status_code != 200:
+                print(f"❌ Failed to download video: {response.status_code}")
+                return False
+                
+            with open(input_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+                    
+            print(f"✅ Downloaded video to temp file: {input_path}")
             
             # Generate base output name
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             base_name = slugify(os.path.splitext(os.path.basename(video.file.name))[0])
-            
-            # Ensure videos directory exists
-            videos_dir = os.path.join(settings.MEDIA_ROOT, 'videos')
-            os.makedirs(videos_dir, exist_ok=True)
             
             encoded_versions = {}
             
@@ -129,24 +152,46 @@ def process_video_task(self, video_id):
             for quality in [('720p', '720'), ('360p', '360')]:
                 version, size = quality
                 print(f"🎬 Encoding {version}...")
-                output_name = f"{base_name}_{timestamp}_{version}.mp4"
-                output_path = os.path.join(videos_dir, output_name)
+                
+                # Create temp output file
+                with tempfile.NamedTemporaryFile(suffix=f'_{version}.mp4', delete=False) as out_temp:
+                    output_path = out_temp.name
                 
                 if encode_video(input_path, output_path, size):
-                    encoded_versions[version] = output_name
-                    print(f"✨ Encoded successfully: {output_name}")
+                    # Define cloud path
+                    cloud_filename = f"videos/{base_name}_{timestamp}_{version}.mp4"
+                    
+                    # Upload encoded file to cloud
+                    with open(output_path, 'rb') as f:
+                        video_data = f.read()
+                    
+                    video_url = upload_file_to_spaces(video_data, cloud_filename)
+                    if video_url:
+                        encoded_versions[version] = cloud_filename
+                        print(f"☁️ Uploaded to cloud: {cloud_filename}")
+                    
+                    # Clean up temp output file
+                    os.unlink(output_path)
+            
+            # Clean up temp input file
+            os.unlink(input_path)
             
             if encoded_versions:
+                # Update video model
                 video.encoded_versions = encoded_versions
-                video.file.name = f"videos/{encoded_versions['720p']}"
+                video.file.name = encoded_versions['720p']  # Use the HD version as the primary
                 video.processed = True
                 video.save()
                 print("✨ Video processing complete")
                 
-                # Only delete original after successful encoding
-                if os.path.exists(input_path):
-                    os.remove(input_path)
-                    print(f"🗑️ Cleaned up original file")
+                # Now delete the original file from cloud storage
+                if original_file_path and original_file_path != encoded_versions['720p']:
+                    print(f"🗑️ Attempting to delete original file: {original_file_path}")
+                    delete_success = delete_file_from_spaces(original_file_path)
+                    if delete_success:
+                        print(f"✅ Original file deleted from cloud storage")
+                    else:
+                        print(f"⚠️ Failed to delete original file from cloud storage")
                 return True
                 
             return False
@@ -158,9 +203,17 @@ def process_video_task(self, video_id):
             
     except Exception as e:
         print(f"❌ Error in task: {str(e)}")
+        import traceback
+        traceback.print_exc()
         try:
+            # Clean up temp files if they exist
+            if 'input_path' in locals() and os.path.exists(input_path):
+                os.unlink(input_path)
+            if 'output_path' in locals() and os.path.exists(output_path):
+                os.unlink(output_path)
+            
             lock.release()
             print(f"🔓 Lock released after error")
-        except:
-            pass
+        except Exception as cleanup_err:
+            print(f"⚠️ Cleanup error: {str(cleanup_err)}")
         return False

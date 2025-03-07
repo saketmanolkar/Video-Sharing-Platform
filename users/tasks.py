@@ -227,39 +227,105 @@ def process_video_stats(user_id):
 
 @shared_task
 def generate_speech_task(username, report_type):
+    """Generate speech and store EVERYTHING in DigitalOcean Spaces only - no local files"""
     try:
-        # Get report first
+        # Get report
         report = Report.objects.get(user__username=username)
         
-        # Initialize speech service
-        reports_dir = os.path.join(settings.MEDIA_ROOT, 'reports')
-        speech_service = SpeechService(reports_dir=reports_dir)
+        # Get report content from DO Spaces
+        import requests
+        from io import BytesIO
         
-        # Generate the audio file
-        audio_file_name = speech_service.generate_speech(username, report_type)
+        if report_type == "user":
+            report_url = report.user_report_url
+        else:
+            report_url = report.video_report_url
+            
+        print(f"🔍 Getting report from DO Spaces: {report_url}")
+        response = requests.get(report_url)
+        if response.status_code != 200:
+            print(f"❌ ERROR: Failed to fetch report: {response.status_code}")
+            return None
+            
+        # Process content in memory
+        content = response.text
+        cleaned_content = content.replace('*', '')
         
-        if audio_file_name:
-            # Construct the audio file URL
-            audio_file_url = f"/media/reports/{audio_file_name}"
-            now = timezone.now()
-
-            # Simple direct updates with timestamps
-            if report_type == "user":
-                report.user_report_audio_file_url = audio_file_url
-                report.user_report_audio_generated_at = now
-            else:
-                report.video_report_audio_file_url = audio_file_url
-                report.video_report_audio_generated_at = now
+        # UPLOAD CLEANED TEXT TO DO SPACES
+        from custom_storage import upload_file_to_spaces
+        cleaned_filename = f"reports/{username}_{report_type}_cleaned.txt"
+        cleaned_url = upload_file_to_spaces(cleaned_content.encode('utf-8'), cleaned_filename)
+        
+        if not cleaned_url:
+            print("❌ ERROR: Failed to upload cleaned text to DO Spaces")
+            return None
+        
+        print(f"✅ SUCCESS: Uploaded cleaned text to {cleaned_url}")
+        
+        # TTS requires a file path output, so we must use a temporary file
+        # This is the only place we need local file access
+        import tempfile
+        import os
+        
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+            temp_path = temp_file.name
             
-            report.audio_is_generated = True
-            report.save()
+        # Run TTS
+        from TTS.api import TTS
+        tts = TTS(model_name="tts_models/en/vctk/vits")
+        tts.tts_to_file(text=cleaned_content, file_path=temp_path, speaker="p339")
+        
+        # IMMEDIATELY read file to memory and delete
+        try:
+            with open(temp_path, 'rb') as f:
+                audio_data = f.read()
+            os.unlink(temp_path)  # Delete immediately
+            print(f"✅ Generated audio ({len(audio_data)} bytes) and deleted temp file")
+        except Exception as file_err:
+            print(f"❌ ERROR reading temp file: {str(file_err)}")
+            try:
+                os.unlink(temp_path)  # Try to clean up
+            except:
+                pass
+            return None
             
-            print(f"Updated report for {username} - {report_type}")
-            print(f"Audio URL: {audio_file_url}")
-            print(f"Generated at: {now}")
+        # UPLOAD AUDIO TO DO SPACES
+        audio_filename = f"reports/{username}_{report_type}_audio.wav"
+        audio_url = upload_file_to_spaces(audio_data, audio_filename)
+        
+        if not audio_url:
+            print("❌ ERROR: Failed to upload audio to DO Spaces")
+            return None
             
-            return audio_file_name
+        print(f"✅ SUCCESS: Uploaded audio to {audio_url}")
+        
+        # Update report
+        now = timezone.now()
+        if report_type == "user":
+            report.user_report_audio_file_url = audio_url
+            report.user_report_audio_generated_at = now
+        else:
+            report.video_report_audio_file_url = audio_url
+            report.video_report_audio_generated_at = now
+            
+        report.audio_is_generated = True
+        report.save()
+        
+        print(f"✅ SUCCESS: Updated report with audio URL: {audio_url}")
+        
+        # DELETE TEMP FILE FROM DO SPACES
+        from custom_storage import delete_file_from_spaces
+        deleted = delete_file_from_spaces(cleaned_filename)
+        if deleted:
+            print(f"🗑️ SUCCESS: Deleted temporary cleaned text file from DO Spaces: {cleaned_filename}")
+        else:
+            print(f"⚠️ WARNING: Failed to delete temporary cleaned text file: {cleaned_filename}")
+        
+        # Everything is now ONLY in DO Spaces!
+        return audio_url
             
     except Exception as e:
-        print(f"Error in speech generation task: {str(e)}")
+        print(f"❌ CRITICAL ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
