@@ -225,10 +225,25 @@ def process_video_stats(user_id):
     video_stats_cache.invalidate(user_id)
     print(f"🗑️ Invalidated cached video stats for user ID: {user_id}")
 
-@shared_task
-def generate_speech_task(username, report_type):
+@shared_task(bind=True, max_retries=3)
+def generate_speech_task(self, username, report_type):
     """Generate speech and store EVERYTHING in DigitalOcean Spaces only - no local files"""
+    print(f"🔊 STARTING SPEECH GENERATION: User={username}, Type={report_type}")
     try:
+        # Debug numpy
+        import sys
+        print(f"Python path: {sys.path}")
+        
+        try:
+            import numpy as np
+            print(f"NumPy version: {np.__version__}")
+            print(f"NumPy location: {np.__file__}")
+            # Create a small array to confirm NumPy works
+            test_arr = np.array([1, 2, 3])
+            print(f"NumPy test array: {test_arr}")
+        except Exception as np_err:
+            print(f"⚠️ NumPy error: {str(np_err)}")
+        
         # Get report
         report = Report.objects.get(user__username=username)
         
@@ -249,7 +264,7 @@ def generate_speech_task(username, report_type):
             
         # Process content in memory
         content = response.text
-        cleaned_content = content.replace('*', '')
+        cleaned_content = content.replace('*', '').replace('#', '').replace('/', ' or ')
         
         # UPLOAD CLEANED TEXT TO DO SPACES
         from custom_storage import upload_file_to_spaces
@@ -262,33 +277,103 @@ def generate_speech_task(username, report_type):
         
         print(f"✅ SUCCESS: Uploaded cleaned text to {cleaned_url}")
         
-        # TTS requires a file path output, so we must use a temporary file
-        # This is the only place we need local file access
-        import tempfile
-        import os
-        
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
-            temp_path = temp_file.name
+        # NEW: Function to split text into manageable chunks
+        def split_into_chunks(text, max_chunk_size=350):
+            import re
+            # Split on sentences (more intelligently than just '.')
+            sentence_endings = r'(?<=[.!?])\s+'
+            sentences = re.split(sentence_endings, text)
             
-        # Run TTS
+            chunks = []
+            current_chunk = ""
+            
+            for sentence in sentences:
+                if not sentence.strip():
+                    continue
+                    
+                # Make sure sentence ends with proper punctuation
+                if not sentence.rstrip().endswith(('.', '!', '?')):
+                    sentence = sentence.rstrip() + '.'
+                
+                # If adding this sentence would make chunk too large, start a new chunk
+                if len(current_chunk) + len(sentence) + 1 > max_chunk_size:
+                    if current_chunk:  # Don't add empty chunks
+                        chunks.append(current_chunk)
+                    current_chunk = sentence + " "
+                else:
+                    current_chunk += sentence + " "
+            
+            # Add the last chunk if it has content
+            if current_chunk.strip():
+                chunks.append(current_chunk)
+                
+            print(f"📚 Split content into {len(chunks)} chunks (avg size: {sum(len(c) for c in chunks)/max(len(chunks), 1):.1f} chars)")
+            return chunks
+        
+        # Split the content into chunks
+        chunks = split_into_chunks(cleaned_content)
+        
+        # Import TTS once outside the loop
         from TTS.api import TTS
-        tts = TTS(model_name="tts_models/en/vctk/vits")
-        tts.tts_to_file(text=cleaned_content, file_path=temp_path, speaker="p339")
+        import os
+        import tempfile
+        import wave
+        from pydub import AudioSegment
         
-        # IMMEDIATELY read file to memory and delete
-        try:
-            with open(temp_path, 'rb') as f:
-                audio_data = f.read()
-            os.unlink(temp_path)  # Delete immediately
-            print(f"✅ Generated audio ({len(audio_data)} bytes) and deleted temp file")
-        except Exception as file_err:
-            print(f"❌ ERROR reading temp file: {str(file_err)}")
-            try:
-                os.unlink(temp_path)  # Try to clean up
-            except:
-                pass
-            return None
+        # Create a temporary directory for all chunk files
+        with tempfile.TemporaryDirectory() as temp_dir:
+            chunk_files = []
             
+            # Initialize TTS only once
+            try:
+                # Replace Tacotron2 with glow-tts as primary model
+                tts = TTS(model_name="tts_models/en/ljspeech/glow-tts")
+                
+                # Process each chunk (same chunking logic, better model)
+                for i, chunk in enumerate(chunks):
+                    chunk_path = os.path.join(temp_dir, f"chunk_{i}.wav")
+                    print(f"🔊 Processing chunk {i+1}/{len(chunks)} ({len(chunk)} chars)")
+                    
+                    # Generate TTS for this chunk
+                    tts.tts_to_file(text=chunk, file_path=chunk_path)
+                    chunk_files.append(chunk_path)
+                
+                # Combine audio files
+                if not chunk_files:
+                    raise Exception("No audio chunks were generated")
+                
+                # Combine using pydub (much lower memory usage than raw numpy concatenation)
+                combined = AudioSegment.empty()
+                for chunk_file in chunk_files:
+                    audio_segment = AudioSegment.from_wav(chunk_file)
+                    combined += audio_segment
+                
+                # Export combined audio to a temporary file
+                final_temp_path = os.path.join(temp_dir, "final_audio.wav")
+                combined.export(final_temp_path, format="wav")
+                
+                # Read the final combined file
+                with open(final_temp_path, 'rb') as f:
+                    audio_data = f.read()
+                    
+                print(f"✅ Generated combined audio ({len(audio_data)} bytes) from {len(chunks)} chunks")
+                    
+            except Exception as tts_err:
+                print(f"⚠️ TTS with chunking failed: {str(tts_err)}")
+                try:
+                    # Fallback to a different model if glow-tts chunking fails
+                    final_temp_path = os.path.join(temp_dir, "fallback_audio.wav")
+                    tts = TTS(model_name="tts_models/en/ljspeech/vits")  # Try VITS as fallback
+                    tts.tts_to_file(text=cleaned_content[:1000], file_path=final_temp_path)
+                    
+                    with open(final_temp_path, 'rb') as f:
+                        audio_data = f.read()
+                        
+                    print(f"⚠️ Used fallback approach with limited text: {len(audio_data)} bytes")
+                except Exception as tts_err2:
+                    print(f"❌ Both TTS approaches failed: {str(tts_err2)}")
+                    raise Exception(f"TTS generation failed with both approaches: {str(tts_err2)}")
+        
         # UPLOAD AUDIO TO DO SPACES
         audio_filename = f"reports/{username}_{report_type}_audio.wav"
         audio_url = upload_file_to_spaces(audio_data, audio_filename)
@@ -322,10 +407,17 @@ def generate_speech_task(username, report_type):
             print(f"⚠️ WARNING: Failed to delete temporary cleaned text file: {cleaned_filename}")
         
         # Everything is now ONLY in DO Spaces!
+        print(f"✅ COMPLETED SPEECH GENERATION: User={username}, Type={report_type}")
         return audio_url
             
     except Exception as e:
-        print(f"❌ CRITICAL ERROR: {str(e)}")
+        print(f"❌ SPEECH GENERATION FAILED: User={username}, Type={report_type}, Error={str(e)}")
         import traceback
         traceback.print_exc()
+        
+        # Retry the task
+        retry_count = self.request.retries
+        print(f"🔄 Retrying task (attempt {retry_count+1}/3)")
+        self.retry(exc=e, countdown=5 * (retry_count + 1))
+        
         return None

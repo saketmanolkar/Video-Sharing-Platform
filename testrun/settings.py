@@ -198,10 +198,18 @@ DATABASES = {
 #     }
 # }
 
+# Get Redis URL from environment with fallback to localhost
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
+
+# Update Celery Configuration to use REDIS_URL
+CELERY_BROKER_URL = REDIS_URL + '/0'      # Ensure DB 0
+CELERY_RESULT_BACKEND = REDIS_URL + '/0'  # Ensure DB 0
+
+# Update CACHES configuration to use REDIS_URL
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",
+        "LOCATION": REDIS_URL + '/1',
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CONNECTION_POOL_KWARGS": {
@@ -362,8 +370,6 @@ LOGGING = {
 }
 
 # Celery Configuration
-CELERY_BROKER_URL = 'redis://localhost:6379/0'      # Ensure DB 0
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Ensure DB 0
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'

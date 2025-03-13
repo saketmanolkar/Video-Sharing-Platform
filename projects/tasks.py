@@ -10,10 +10,13 @@ from redis import Redis
 from redis.lock import Lock
 import tempfile
 import requests
+from django.conf import settings
 
 logger = getLogger(__name__)
 
-redis_client = Redis(host='localhost', port=6379, db=0)
+# Get Redis host from environment or use 'redis' for Docker
+redis_host = os.environ.get('REDIS_HOST', 'redis')
+redis_client = Redis(host=redis_host, port=6379, db=0)
 
 
 @shared_task(bind=True)

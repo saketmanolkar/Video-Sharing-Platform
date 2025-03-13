@@ -3,12 +3,18 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{% static 'styles/components/playlist_preview.css' %}">
+<link rel="stylesheet" href="{% static 'styles/templates/profile_page.css' %}">
+<style>
+  /* Simple solution to push content down when empty */
+  .empty-content-spacer {
+    min-height: 350px; /* Add space when no videos/playlists */
+  }
+</style>
 {% endblock %}
 
 {% block content %}
 {% csrf_token %}
-<!-- <main class="profile-page-pattern"> -->
-<main class="checkered-background" style="min-height: calc(100vh - 80px); display: flex; flex-direction: column;">
+<main class="checkered-background" style="min-height: calc(100vh - 80px); display: flex; flex-direction: column; position: relative;">
   <br>
 
   <section class="projectsList" style="margin-top: 0;">
@@ -189,7 +195,7 @@
 
         <!-- Right Column - About & Skills (90%) -->
         <div class="column" style="margin-left: 20%;">
-          <div class="card project" style="min-height: 110vh; background: white;">
+          <div class="card project" style="min-height: 110vh; background: white; position: relative;">
             <div class="card__body" style="padding: 4rem;">
               <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 2rem;">{{ profile.user.first_name }}'s Profile Page</h3>
               <p class="project--rating" style="min-height: 100px; font-size: 1.3rem; line-height: 1.8; color: #444; margin-bottom: 4rem;">
@@ -232,12 +238,17 @@
                   <p>No playlists created yet.</p>
                 {% endfor %}
               </div>
+              
+              {% if not videos %}
+              <!-- Add spacer AFTER playlists but only when there are no videos -->
+              <div class="empty-content-spacer"></div>
+              {% endif %}
+              
             </div>
           </div>
         </div>
       </div>
     </div>
-
   </section>
 </main>
 

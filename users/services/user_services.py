@@ -18,6 +18,8 @@ import google.generativeai as genai
 import os
 from django.conf import settings
 from datetime import datetime
+
+# Then import TTS as before
 from TTS.api import TTS
 import psutil
 import time
@@ -44,7 +46,7 @@ class UserReportService:
             4. While writing the Details section, give a detailed analysis of the user's activity data in 5 concise bullet points that capture all the provided metrics.
             5. You are writing a professional report. Be concise & Write in paragraph format.
             6. Give recommendations to the user from the perspective of improving the user's app usage habits only.
-            7. The Word limit of this report stictly should'nt exceed 250 words.
+            7. The Word limit of this report stictly should'nt exceed 100 words.
             8. Donot give moral advice  to {username}. You are a professional data analyst. Just do your job.
 
             Now, analyze this user's activity data: """,
@@ -57,7 +59,7 @@ class UserReportService:
             4. While writing the Details section, give a detailed analysis of the video's performance data in 5 concise bullet points that capture all the provided metrics.
             5. In the Recommendations section, in 3 concise bullet points, identify what worked well for {username} , Point out areas for improvement and provide user specific tips for future videos based no the provided metrics.
             6. You are writing a professional report. Be concise & Write in paragraph format.
-            7. The Word limit of this report stictly should'nt exceed 250 words.
+            7. The Word limit of this report stictly should'nt exceed 100 words.
             8. Donot give moral advice  to {username}. You are a professional data analyst. Just do your job.
 
             Now, analyze this video performance data: """
@@ -339,7 +341,7 @@ class SpeechService:
             
             # Initialize TTS and generate audio
             print(f"🔊 Generating audio with TTS engine...")
-            tts = TTS(model_name="tts_models/en/vctk/vits")
+            tts = TTS(model_name="tts_models/en/ljspeech/glow-tts", use_phonemes=False)
             tts.tts_to_file(text=cleaned_content, file_path=temp_audio_path, speaker="p339")
             print(f"✅ Audio file generated at: {temp_audio_path}")
             
@@ -420,7 +422,7 @@ class ProfileService:
         
         # If not in cache, get from DB
         print("\n💾 CACHE MISS: Getting from DB")
-        profile = get_object_or_404(profile_model, id=profile_id)
+        profile = get_object_or_404(profile_model.objects.select_related('user'), id=profile_id)
         
         # Save to cache
         self.profile_cache.set_profile_cache(profile_id, profile)
@@ -487,25 +489,24 @@ class ProfileService:
     def get_user_history(self, profile):
         """Get user viewing history with optimized queries"""
         # Use select_related to fetch video, uploader, and uploader's profile in a single query
-        # Also prefetch tags to avoid N+1 queries when displaying video tags
         history_entries = profile.user.view_history.select_related(
             'video', 
             'video__uploader',
-            'video__uploader__profile'  # Prefetch the uploader's profile
+            'video__uploader__profile'
         ).prefetch_related(
-            'video__tags'  # Prefetch tags to avoid N+1 queries
+            'video__tags'
         ).order_by('-viewed_at')
         
-        # Extract videos from history entries
+        # Extract videos from history entries, filtering out None values
         history_videos = []
         for entry in history_entries:
-            video = entry.video
-            history_videos.append(video)
+            if entry.video is not None:  # Only include non-deleted videos
+                history_videos.append(entry.video)
         
         return {
             'history_videos': history_videos
         }
-    
+        
     def get_total_views(self, user):
         from projects.models import Video
         return Video.objects.filter(uploader=user).aggregate(

@@ -127,10 +127,14 @@ class Video(models.Model):
 
 class Review(models.Model):
     video = models.ForeignKey(
-        Video, 
-        on_delete=models.CASCADE,
+        'Video', 
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True,
         related_name='reviews'
     )
+    deleted_video_title = models.CharField(max_length=255, blank=True, null=True)
+    deleted_video_id = models.UUIDField(null=True, blank=True)
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -224,10 +228,14 @@ class PlaylistItem(models.Model):
 
 class Like(models.Model):
     video = models.ForeignKey(
-        Video, 
-        on_delete=models.CASCADE,
+        'Video', 
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True,
         related_name='likes'
     )
+    deleted_video_title = models.CharField(max_length=255, blank=True, null=True)
+    deleted_video_id = models.UUIDField(null=True, blank=True)
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -289,10 +297,14 @@ class ViewHistory(models.Model):
         blank=True
     )
     video = models.ForeignKey(
-        Video,
-        on_delete=models.CASCADE,
+        'Video',
+        on_delete=models.SET_NULL,  # Instead of CASCADE
+        null=True,                  # Allow null for deleted videos
+        blank=True,
         related_name='views_history'
     )
+    deleted_video_title = models.CharField(max_length=255, blank=True, null=True)
+    deleted_video_id = models.UUIDField(null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     viewed_at = models.DateTimeField(auto_now_add=True)
 

@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: >
+      bash -c "python manage.py migrate &&
+               python manage.py collectstatic --noinput &&
+               gunicorn testrun.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 300 --worker-tmp-dir /dev/shm"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/mediafiles
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    restart: always
+    shm_size: 512M
+
+  celery:
+    build: .
+    command: >
+      bash -c "python manage.py migrate &&
+               python manage.py collectstatic --noinput &&
+               cd /app && celery -A testrun worker --loglevel=INFO"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/mediafiles
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+      - web
+    restart: always
+
+  redis:
+    image: redis:7
+    restart: always
+    volumes:
+      - redis_data:/data
+
+volumes:
+  static_volume:
+  media_volume:
+  redis_data:  # For Redis persistence
