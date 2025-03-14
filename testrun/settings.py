@@ -43,10 +43,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-@9lv6_22a)6puq7=rft1fq*ggd)3_2(7@tdri)1-z4lipsklr*"
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = 'True'
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -168,12 +168,12 @@ WSGI_APPLICATION = "testrun.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "defaultdb",  # DigitalOcean default database name
-        "USER": "doadmin",    # DigitalOcean default admin user
-        "PASSWORD": "AVNS_BXYkKwtVzCb-jcasNTY",  # Use your actual password
-        "HOST": "db-postgresql-testrun-do-user-18917001-0.l.db.ondigitalocean.com",
-        "PORT": "25060",
+        "ENGINE": os.environ.get("DB_ENGINE", "django.db.backends.postgresql"),
+        "NAME": os.environ.get("DB_NAME", "defaultdb"),
+        "USER": os.environ.get("DB_USER", "doadmin"),
+        "PASSWORD": os.environ.get("DB_PASSWORD"),  # No default value
+        "HOST": os.environ.get("DB_HOST", "db-postgresql-testrun-do-user-18917001-0.l.db.ondigitalocean.com"),
+        "PORT": os.environ.get("DB_PORT", "25060"),
         "OPTIONS": {
             "sslmode": "require",
             "sslrootcert": os.path.join(BASE_DIR, "cert", "ca-certificate.crt"),
@@ -286,11 +286,11 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 #Email SMTP Settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'filmsnation99@gmail.com'
-EMAIL_HOST_PASSWORD = 'iipo pjsw mhjv aumx'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'filmsnation99@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
 
 # Static files (CSS, JavaScript, Images)
@@ -306,17 +306,17 @@ STATICFILES_DIRS = [
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # DigitalOcean Spaces configuration 
-AWS_DEFAULT_ACL = 'public-read'
-AWS_QUERYSTRING_AUTH = False
-AWS_FILE_OVERWRITE = False
-AWS_ACCESS_KEY_ID = 'DO801ZRMXFKTEYBYXUQK'
-AWS_SECRET_ACCESS_KEY = 'p9hW6mweseMZLNpFTdCqjWo1324WVXvCIKLMogKK3Q0'
-AWS_STORAGE_BUCKET_NAME = 'bucket-devserach'
-AWS_S3_REGION_NAME = 'nyc3'
-AWS_S3_CUSTOM_DOMAIN = 'bucket-devserach.nyc3.cdn.digitaloceanspaces.com'
+AWS_DEFAULT_ACL = os.environ.get('AWS_DEFAULT_ACL', 'public-read')
+AWS_QUERYSTRING_AUTH = os.environ.get('AWS_QUERYSTRING_AUTH', 'False').lower() == 'true'
+AWS_FILE_OVERWRITE = os.environ.get('AWS_FILE_OVERWRITE', 'False').lower() == 'true'
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', 'bucket-devserach')
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'nyc3')
+AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN', 'bucket-devserach.nyc3.cdn.digitaloceanspaces.com')
 
-# Fixed endpoint URL - this was incorrect before
-AWS_S3_ENDPOINT_URL = 'https://nyc3.digitaloceanspaces.com'
+# Fixed endpoint URL
+AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', 'https://nyc3.digitaloceanspaces.com')
 
 # Conditional storage configuration based on environment
 if TESTING:
@@ -431,6 +431,3 @@ CKEDITOR_5_CONFIGS = {
 
 CKEDITOR_5_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 CKEDITOR_5_STORAGE_BACKEND = "storages.backends.s3boto3.S3Boto3Storage"
-
-if os.getcwd() == '/app':
-    DEBUG = False
