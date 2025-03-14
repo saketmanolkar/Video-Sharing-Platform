@@ -343,10 +343,10 @@ def stream_video_api(request, pk):
     )
     
     # Determine which version to stream
-    if video.encoded_versions and '360p' in video.encoded_versions:
-        file_key = video.encoded_versions['360p']
-    elif video.encoded_versions and '720p' in video.encoded_versions:
+    if video.encoded_versions and '720p' in video.encoded_versions:
         file_key = video.encoded_versions['720p']
+    elif video.encoded_versions and '360p' in video.encoded_versions:
+        file_key = video.encoded_versions['360p']
     else:
         file_key = video.file.name
     

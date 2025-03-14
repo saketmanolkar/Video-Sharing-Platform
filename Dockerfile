@@ -64,26 +64,6 @@ RUN pip install protobuf==3.20.0 google-api-core==2.8.0
 RUN echo "import TTS; print(dir(TTS)); print('TTS modules available:', [m for m in dir(TTS) if not m.startswith('__')])" > /tmp/test_tts.py && \
     python /tmp/test_tts.py
 
-# # Create the compatibility layer directly in the Dockerfile
-# RUN echo "# Create compatibility layer for different TTS versions" > /app/tts_patch.py && \
-#     echo "import sys" >> /app/tts_patch.py && \
-#     echo "import importlib.util" >> /app/tts_patch.py && \
-#     echo "# Check if TTS.api module exists" >> /app/tts_patch.py && \
-#     echo "if importlib.util.find_spec('TTS.api') is None:" >> /app/tts_patch.py && \
-#     echo "    print('Creating TTS.api compatibility layer')" >> /app/tts_patch.py && \
-#     echo "    # If TTS.api doesn't exist, create it" >> /app/tts_patch.py && \
-#     echo "    import TTS" >> /app/tts_patch.py && \
-#     echo "    import types" >> /app/tts_patch.py && \
-#     echo "    # Create the api module" >> /app/tts_patch.py && \
-#     echo "    TTS.api = types.ModuleType('TTS.api')" >> /app/tts_patch.py && \
-#     echo "    sys.modules['TTS.api'] = TTS.api" >> /app/tts_patch.py && \
-#     echo "    # Create the TTS module" >> /app/tts_patch.py && \
-#     echo "    from TTS.utils.synthesizer import Synthesizer" >> /app/tts_patch.py && \
-#     echo "    TTS.api.TTS = Synthesizer" >> /app/tts_patch.py && \
-#     echo "    print('TTS compatibility layer created successfully')" >> /app/tts_patch.py && \
-#     echo "else:" >> /app/tts_patch.py && \
-#     echo "    print('Using existing TTS.api module')" >> /app/tts_patch.py && \
-#     echo "" >> /app/tts_patch.py
 
 # Copy requirements.txt
 COPY ./requirements.txt /app/

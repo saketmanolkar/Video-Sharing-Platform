@@ -29,9 +29,6 @@ media/
 staticfiles/
 
 # Virtual Environment
-venv/
-ENV/
-env/
 .env
 vhs/
 

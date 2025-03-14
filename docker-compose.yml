@@ -13,10 +13,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - REDIS_URL=redis://redis:6379
-      - REDIS_HOST=redis
-    depends_on:
-      - redis
+      - REDIS_URL=rediss://default:AVNS_VfAUOUeuEylqQuNwZJK@db-caching-nyc3-18707-do-user-18917001-0.k.db.ondigitalocean.com:25061
+      - REDIS_HOST=db-caching-nyc3-18707-do-user-18917001-0.k.db.ondigitalocean.com
+      - REDIS_SSL=true
+      - REDIS_SSL_CERT_REQS=none
     restart: always
     shm_size: 512M
 
@@ -30,20 +30,12 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/mediafiles
     environment:
-      - REDIS_URL=redis://redis:6379
-      - REDIS_HOST=redis
-    depends_on:
-      - redis
-      - web
+      - REDIS_URL=rediss://default:AVNS_VfAUOUeuEylqQuNwZJK@db-caching-nyc3-18707-do-user-18917001-0.k.db.ondigitalocean.com:25061
+      - REDIS_HOST=db-caching-nyc3-18707-do-user-18917001-0.k.db.ondigitalocean.com
+      - REDIS_SSL=true
+      - REDIS_SSL_CERT_REQS=none
     restart: always
-
-  redis:
-    image: redis:7
-    restart: always
-    volumes:
-      - redis_data:/data
 
 volumes:
   static_volume:
   media_volume:
-  redis_data:  # For Redis persistence

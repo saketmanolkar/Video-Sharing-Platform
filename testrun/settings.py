@@ -14,6 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 import os
 import sys
+import ssl  # Add this import at the top with your other imports
 
 # Near the top of the file
 TESTING = 'pytest' in sys.modules or 'test' in sys.argv
@@ -45,7 +46,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "django-insecure-@9lv6_22a)6puq7=rft1fq*ggd)3_2(7@tdri)1-z4lipsklr*"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = 'True'
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -198,14 +199,33 @@ DATABASES = {
 #     }
 # }
 
-# Get Redis URL from environment with fallback to localhost
-REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
+#Get Redis URL from environment with fallback to localhost  
+#REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
 
-# Update Celery Configuration to use REDIS_URL
-CELERY_BROKER_URL = REDIS_URL + '/0'      # Ensure DB 0
-CELERY_RESULT_BACKEND = REDIS_URL + '/0'  # Ensure DB 0
+# Get Redis URL from environment with fallback to the DigitalOcean Redis instance
+REDIS_URL = os.environ.get('REDIS_URL', 'rediss://default:AVNS_VfAUOUeuEylqQuNwZJK@db-caching-nyc3-18707-do-user-18917001-0.k.db.ondigitalocean.com:25061')
 
-# Update CACHES configuration to use REDIS_URL
+# Update Celery Configuration to use REDIS_URL with correct SSL settings
+CELERY_BROKER_URL = REDIS_URL 
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_REDIS_BACKEND_USE_SSL = {
+    'ssl_cert_reqs': ssl.CERT_NONE
+}
+CELERY_BROKER_USE_SSL = {
+    'ssl_cert_reqs': ssl.CERT_NONE
+}
+
+# Add these future-proofing settings for Celery 6.0
+CELERY_BROKER_CONNECTION_RETRY = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = False
+
+# Recommended performance settings
+CELERY_BROKER_POOL_LIMIT = 10
+CELERY_WORKER_PREFETCH_MULTIPLIER = 4  # Allow workers to prefetch multiple tasks
+CELERY_TASK_ACKS_LATE = True  # Only acknowledge tasks after they're completed
+
+# Update CACHES configuration
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
@@ -216,10 +236,11 @@ CACHES = {
                 "max_connections": 10,
                 "socket_timeout": 20,
                 "socket_connect_timeout": 20,
-                "retry_on_timeout": True
+                "retry_on_timeout": True,
+                "ssl_cert_reqs": ssl.CERT_NONE
             },
             "REDIS_CLIENT_CONFIG": {
-                "maxmemory": "4gb",
+                "maxmemory": "900mb",
                 "maxmemory-policy": "allkeys-lru"
             }
         }
@@ -256,10 +277,12 @@ USE_I18N = True
 
 USE_TZ = True
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Frontend development server
-    "http://127.0.0.1:8000",  # Django development server
-]
+#CORS_ALLOWED_ORIGINS = [
+#    "http://localhost:3000",  # Frontend development server
+#    "http://127.0.0.1:8000",  # Django development server
+#]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 #Email SMTP Settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -408,3 +431,6 @@ CKEDITOR_5_CONFIGS = {
 
 CKEDITOR_5_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 CKEDITOR_5_STORAGE_BACKEND = "storages.backends.s3boto3.S3Boto3Storage"
+
+if os.getcwd() == '/app':
+    DEBUG = False
