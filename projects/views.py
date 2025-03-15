@@ -31,17 +31,22 @@ from users.services.follow_services import FollowService
 logger = logging.getLogger(__name__)
 
 def projects(request):
+    # If user is authenticated, prefetch their profile
+    if request.user.is_authenticated:
+        request.user = User.objects.select_related('profile').get(id=request.user.id)
+    
     search_query = request.GET.get('search', '')
+    
+    # Validate query length
+    if len(search_query) > 100:
+        search_query = search_query[:100]  # Truncate to 100 chars
+    
     videos = VideoService.search_videos(search_query)
     
     paged_videos, custom_range = VideoService.get_paginated_videos(
         videos, 
         request.GET.get('page', 1)
     )
-    
-    for video in paged_videos:
-        video.likes_count = VideoService.get_likes_count(video)
-        video.dislikes_count = VideoService.get_dislikes_count(video)
     
     context = {
         'videos': paged_videos, 
@@ -53,22 +58,49 @@ def projects(request):
     
     return render(request, 'projects/projects.html', context)
 
+@login_required(login_url="login-page")
 def project(request, pk):    
     video_service = VideoService()
-    video = video_service.get_video(pk, Video)
     
-    # Add the user to the video object before getting context
-    video.request_user = request.user
+    # Fetch the video with related fields to reduce future queries
+    video = video_service.get_video(
+        pk, 
+        Video, 
+        select_related_fields=['uploader', 'uploader__profile']
+    )
+    
+    # Pre-compute profile-related values to avoid template queries
+    if video and hasattr(video, 'uploader') and hasattr(video.uploader, 'profile'):
+        # Store these values directly to avoid nested lookups in templates
+        context = {
+            'uploader_profile_id': video.uploader.profile.id,
+            'uploader_username': video.uploader.profile.username,
+        }
+    else:
+        context = {
+            'uploader_profile_id': None,
+            'uploader_username': 'Unknown',
+        }
     
     # Get video context (includes cached static data + fresh dynamic data)
-    context = video_service.get_video_context(video, get_video_recommendations)
+    video_context = video_service.get_video_context(video, get_video_recommendations)
+    context.update(video_context)  # Merge with our pre-computed values
     
     # Add video URL to context
     context['video_url'] = ModelService.get_video_url(video)
     
+    # Pre-compute all user-related flags
+    context['is_authenticated'] = request.user.is_authenticated
+    context['user_id'] = request.user.id if request.user.is_authenticated else None
+    context['user_username'] = request.user.username if request.user.is_authenticated else ""
+    
+    # Pre-compute the comparison between request.user and video.uploader
+    context['is_uploader'] = (request.user.id == video.uploader.id) if request.user.is_authenticated else False
+    context['is_not_uploader'] = (request.user.id != video.uploader.id) if request.user.is_authenticated else False
+    
     # Record view if not cached
+    ip_address = UtilityService.get_client_ip(request)
     if request.user.is_authenticated:
-        ip_address = UtilityService.get_client_ip(request)
         view_history = video_service.record_view(video, request.user, ip_address, ViewHistory)
         context['view_history'] = view_history  # Add to context
         # Add fresh following status for authenticated users
@@ -80,15 +112,14 @@ def project(request, pk):
         print(f"Like status: {user_like}")
         context['user_like'] = user_like
     else:
-        ip_address = UtilityService.get_client_ip(request)
         view_history = video_service.record_view(video, None, ip_address, ViewHistory)
         context['view_history'] = view_history  # Add to context
         context['is_following'] = False
         context['user_like'] = None
     
     # Add fresh likes/dislikes counts
-    context['likes_count'] = video_service.get_likes_count(video)
-    context['dislikes_count'] = video_service.get_dislikes_count(video)
+    context['likes_count'] = video_service.get_likes_count_optimized(video)
+    context['dislikes_count'] = video_service.get_dislikes_count_optimized(video)
     
     return render(request, 'projects/single_project.html', context)
 
@@ -190,7 +221,7 @@ def update_project(request, pk):
                     cache.delete(f'video_context_{project.id}')
                     
                     messages.success(request, 'Project updated successfully!')
-                    return redirect('creator-studio', pk=request.user.profile.id)
+                    return redirect('creator-studio')
                     
         except Exception as e:
             # Clear the cache in case of error
@@ -219,7 +250,7 @@ def delete_project(request, pk):
         try:
             project.delete()
             messages.success(request, 'Video deleted successfully!')
-            return redirect('creator-studio', pk=request.user.profile.id)
+            return redirect('creator-studio')
         except Exception as e:
             messages.error(request, f'Error deleting video: {str(e)}')
             return redirect('project', pk=pk)
@@ -228,7 +259,7 @@ def delete_project(request, pk):
         'object': project.title
     })
 
-
+@login_required(login_url="login-page")
 def fun_corner(request):
     # Initialize form and recommendations
     movie_form = MovieRecommendationForm(request.POST if request.method == 'POST' else None)
@@ -282,16 +313,15 @@ def fun_corner(request):
     
     return render(request, 'projects/fun_corner.html', context)
 
+@login_required(login_url="login-page")
 def movie_recommendation(request):
     form = MovieRecommendationForm()
     return render(request, 'projects/movie_rec.html', {'form': form})
 
-@login_required
-def create_playlist(request, pk):
-    profile = get_object_or_404(Profile, id=pk)
-    
-    if request.user != profile.user:
-        return HttpResponseForbidden("You can only create playlists on your own profile")
+@login_required(login_url="login-page")
+def create_playlist(request):
+    # Use current user's profile directly
+    profile = request.user.profile
     
     if request.method == 'POST':
         # Generate unique key for this playlist submission
@@ -304,16 +334,25 @@ def create_playlist(request, pk):
         # Check if this exact playlist was recently submitted
         if form_cache.check_submission(submission_hash):
             messages.warning(request, 'This playlist was already submitted.')
-            return redirect('profile', pk=pk)
+            return redirect('profile', pk=profile.id)
 
         form = CreatePlaylistForm(request.POST)
         video_ids = request.POST.getlist('videos')
         
+        # Validate at least one video is selected
         if not video_ids:
             messages.error(request, 'Please select at least one video for your playlist.')
-            videos = Video.objects.all()
+            videos = Video.objects.filter(uploader=request.user)  # Only show user's videos
             return render(request, 'projects/playlist_form.html', {'form': form, 'videos': videos})
             
+        # Validate video IDs are valid
+        try:
+            for video_id in video_ids:
+                # Check if each video exists
+                video = Video.objects.get(id=video_id)
+        except Video.DoesNotExist:
+            messages.error(request, "One or more selected videos don't exist")
+            return redirect('profile', pk=profile.id)
         if form.is_valid():
             try:
                 # Set cache to prevent duplicate submission
@@ -339,13 +378,13 @@ def create_playlist(request, pk):
                     playlist.save()
                     messages.success(request, 'Playlist created successfully!')
                 
-                return redirect('profile', pk=pk)
+                return redirect('profile', pk=profile.id)
                 
             except Exception as e:
                 # Clear cache if something goes wrong
                 form_cache.clear_submission(submission_hash)
                 messages.error(request, f'Error creating playlist: {str(e)}')
-                videos = Video.objects.all()
+                videos = Video.objects.filter(uploader=request.user)
                 return render(request, 'projects/playlist_form.html', {'form': form, 'videos': videos})
     else:
         form = CreatePlaylistForm()
@@ -357,7 +396,7 @@ def create_playlist(request, pk):
     }
     return render(request, 'projects/playlist_form.html', context)
 
-@login_required
+@login_required(login_url="login-page")
 def update_playlist(request, pk):
     playlist = get_object_or_404(Playlist, id=pk)
     
@@ -465,6 +504,7 @@ def delete_playlist(request, pk):
         'object': playlist.name
     })
 
+@login_required(login_url="login-page")
 def video_status(request, video_id):
     video = get_object_or_404(Video, id=video_id)
     return JsonResponse({

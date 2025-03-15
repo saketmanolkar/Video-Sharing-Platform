@@ -9,6 +9,7 @@ import os
 from django.conf import settings
 from .services.user_services import SpeechService
 from .models import Report
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -101,25 +102,34 @@ def save_session_activity(self, session_id, user_id):
     Async task to save session activity and cleanup
     """
     try:
-        # Get session
+        # Get the current session
         session = UserSession.objects.get(id=session_id)
         activity_cache = SessionActivityCache()
         
         # Get new activity from cache
         new_activity = activity_cache.get_activity_log(user_id, session_id)
         
-        # Merge with existing
+        # Merge with existing activity log
         merged_activity = merge_activity_logs(session.activity_log, new_activity)
         
-        # Save merged data and end session
+        # Save merged data and end the current session
         session.activity_log = merged_activity
         session.end_time = timezone.now()
         session.save()
         
-        # Clear cache
+        # Clear cache for the current session
         activity_cache.clear_activity_cache(user_id, session_id)
-        
+
+        # Close any other active sessions for the user
+        other_sessions = UserSession.objects.filter(user_id=user_id, end_time__isnull=True).exclude(id=session_id)
+        stray_count = 0
+        for other_session in other_sessions:
+            other_session.end_time = timezone.now()  # Just close them
+            other_session.save()
+            stray_count += 1
+
         logger.warning(f"✅ Session activity saved: {session_id}")
+        logger.warning(f"✅ {stray_count} stray sessions closed for user {user_id}")
         return str(session_id)
         
     except Exception as e:
@@ -179,68 +189,246 @@ def save_activity_overflow(self, session_id, user_id):
 @shared_task
 def process_video_stats(user_id):
     video_stats_cache = VideoStatsCache()
-    user_cache_key = f"user_{user_id}"  # Ensure consistent format
-
-    # Retrieve video stats from cache
-    video_stats = video_stats_cache.get_video_stats(user_cache_key)
+    
+    # Get stats using the class's own method to generate the key
+    video_stats = video_stats_cache.get_video_stats(user_id)
 
     if video_stats:
         print("📊 Retrieved video stats from cache:")
         for key, value in video_stats.items():
-            print(f"Key: {key}, Value: {value}")  # Log each retrieved stat
-            video_id, window_id = key.split(':')  # Assuming key format is "video_id:window_id"
+            print(f"Key: {key}, Value: {value}")
+            video_id, window_id = key.split(':')
             
-            # Retrieve the existing ViewHistory entry
-            view_history_entry = ViewHistory.objects.filter(video_id=video_id, window_id=window_id, user_id=user_id).first()
+            view_history_entry = ViewHistory.objects.filter(
+                video_id=video_id, 
+                window_id=window_id, 
+                user_id=user_id
+            ).first()
 
             if view_history_entry:
-                # Update the fields directly
-                view_history_entry.duration_watched = timedelta(seconds=float(value['total_watched']))  # Convert to timedelta
-                view_history_entry.completed = value['is_completed'] == 'True'  # Convert to boolean
-                view_history_entry.save()  # Save the updated entry
-                print(f"🔄 Updated ViewHistory entry for Video ID: {video_id}, Window ID: {window_id}")
+                # Refresh from DB to ensure we have latest state
+                view_history_entry.refresh_from_db()
+                
+                # Update the fields
+                view_history_entry.duration_watched = timedelta(seconds=float(value['total_watched']))
+                view_history_entry.completed = value['is_completed'] == 'True'
+                
+                # Force update to trigger signal
+                view_history_entry.save(
+                    force_update=True, 
+                    update_fields=['duration_watched', 'completed']
+                )
+                print(f"🔄 Updated ViewHistory entry for Video ID: {video_id}, Window ID: {window_id} : {view_history_entry.duration_watched} : {view_history_entry.completed}")
             else:
                 print(f"No ViewHistory entry found for Video ID: {video_id}, Window ID: {window_id}")
 
-    # Invalidate the cached stats
-    video_stats_cache.invalidate(user_cache_key)
+    # Use the same pattern for invalidation as for retrieval
+    video_stats_cache.invalidate(user_id)
     print(f"🗑️ Invalidated cached video stats for user ID: {user_id}")
 
-@shared_task
-def generate_speech_task(username, report_type):
+@shared_task(bind=True, max_retries=3)
+def generate_speech_task(self, username, report_type):
+    """Generate speech and store EVERYTHING in DigitalOcean Spaces only - no local files"""
+    print(f"🔊 STARTING SPEECH GENERATION: User={username}, Type={report_type}")
     try:
-        # Get report first
+        # Debug numpy
+        import sys
+        print(f"Python path: {sys.path}")
+        
+        try:
+            import numpy as np
+            print(f"NumPy version: {np.__version__}")
+            print(f"NumPy location: {np.__file__}")
+            # Create a small array to confirm NumPy works
+            test_arr = np.array([1, 2, 3])
+            print(f"NumPy test array: {test_arr}")
+        except Exception as np_err:
+            print(f"⚠️ NumPy error: {str(np_err)}")
+        
+        # Get report
         report = Report.objects.get(user__username=username)
         
-        # Initialize speech service
-        reports_dir = os.path.join(settings.MEDIA_ROOT, 'reports')
-        speech_service = SpeechService(reports_dir=reports_dir)
+        # Get report content from DO Spaces
+        import requests
+        from io import BytesIO
         
-        # Generate the audio file
-        audio_file_name = speech_service.generate_speech(username, report_type)
+        if report_type == "user":
+            report_url = report.user_report_url
+        else:
+            report_url = report.video_report_url
+            
+        print(f"🔍 Getting report from DO Spaces: {report_url}")
+        response = requests.get(report_url)
+        if response.status_code != 200:
+            print(f"❌ ERROR: Failed to fetch report: {response.status_code}")
+            return None
+            
+        # Process content in memory
+        content = response.text
+        cleaned_content = content.replace('*', '').replace('#', '').replace('/', ' or ')
         
-        if audio_file_name:
-            # Construct the audio file URL
-            audio_file_url = f"/media/reports/{audio_file_name}"
-            now = timezone.now()
-
-            # Simple direct updates with timestamps
-            if report_type == "user":
-                report.user_report_audio_file_url = audio_file_url
-                report.user_report_audio_generated_at = now
-            else:
-                report.video_report_audio_file_url = audio_file_url
-                report.video_report_audio_generated_at = now
+        # UPLOAD CLEANED TEXT TO DO SPACES
+        from custom_storage import upload_file_to_spaces
+        cleaned_filename = f"reports/{username}_{report_type}_cleaned.txt"
+        cleaned_url = upload_file_to_spaces(cleaned_content.encode('utf-8'), cleaned_filename)
+        
+        if not cleaned_url:
+            print("❌ ERROR: Failed to upload cleaned text to DO Spaces")
+            return None
+        
+        print(f"✅ SUCCESS: Uploaded cleaned text to {cleaned_url}")
+        
+        # NEW: Function to split text into manageable chunks
+        def split_into_chunks(text, max_chunk_size=350):
+            import re
+            # Split on sentences (more intelligently than just '.')
+            sentence_endings = r'(?<=[.!?])\s+'
+            sentences = re.split(sentence_endings, text)
             
-            report.audio_is_generated = True
-            report.save()
+            chunks = []
+            current_chunk = ""
             
-            print(f"Updated report for {username} - {report_type}")
-            print(f"Audio URL: {audio_file_url}")
-            print(f"Generated at: {now}")
+            for sentence in sentences:
+                if not sentence.strip():
+                    continue
+                    
+                # Make sure sentence ends with proper punctuation
+                if not sentence.rstrip().endswith(('.', '!', '?')):
+                    sentence = sentence.rstrip() + '.'
+                
+                # If adding this sentence would make chunk too large, start a new chunk
+                if len(current_chunk) + len(sentence) + 1 > max_chunk_size:
+                    if current_chunk:  # Don't add empty chunks
+                        chunks.append(current_chunk)
+                    current_chunk = sentence + " "
+                else:
+                    current_chunk += sentence + " "
             
-            return audio_file_name
+            # Add the last chunk if it has content
+            if current_chunk.strip():
+                chunks.append(current_chunk)
+                
+            print(f"📚 Split content into {len(chunks)} chunks (avg size: {sum(len(c) for c in chunks)/max(len(chunks), 1):.1f} chars)")
+            return chunks
+        
+        # Split the content into chunks
+        chunks = split_into_chunks(cleaned_content)
+        
+        # Import TTS once outside the loop
+        from TTS.api import TTS
+        import os
+        import tempfile
+        import wave
+        from pydub import AudioSegment
+        
+        # Create a temporary directory for all chunk files
+        with tempfile.TemporaryDirectory() as temp_dir:
+            chunk_files = []
+            
+            # Initialize TTS only once
+            try:
+                # Replace Tacotron2 with glow-tts as primary model
+                tts = TTS(model_name="tts_models/en/ljspeech/glow-tts")
+                
+                # Process each chunk (same chunking logic, better model)
+                for i, chunk in enumerate(chunks):
+                    chunk_path = os.path.join(temp_dir, f"chunk_{i}.wav")
+                    print(f"🔊 Processing chunk {i+1}/{len(chunks)} ({len(chunk)} chars)")
+                    
+                    # Generate TTS for this chunk
+                    tts.tts_to_file(text=chunk, file_path=chunk_path)
+                    chunk_files.append(chunk_path)
+                
+                # Combine audio files
+                if not chunk_files:
+                    raise Exception("No audio chunks were generated")
+                
+                # Combine using pydub (much lower memory usage than raw numpy concatenation)
+                combined = AudioSegment.empty()
+                for chunk_file in chunk_files:
+                    audio_segment = AudioSegment.from_wav(chunk_file)
+                    combined += audio_segment
+                
+                # Export combined audio to a temporary file
+                final_temp_path = os.path.join(temp_dir, "final_audio.wav")
+                combined.export(final_temp_path, format="wav")
+                
+                # Read the final combined file
+                with open(final_temp_path, 'rb') as f:
+                    audio_data = f.read()
+                    
+                print(f"✅ Generated combined audio ({len(audio_data)} bytes) from {len(chunks)} chunks")
+                    
+            except Exception as tts_err:
+                print(f"⚠️ TTS with chunking failed: {str(tts_err)}")
+                try:
+                    # Fallback to a different model if glow-tts chunking fails
+                    final_temp_path = os.path.join(temp_dir, "fallback_audio.wav")
+                    tts = TTS(model_name="tts_models/en/ljspeech/vits")  # Try VITS as fallback
+                    tts.tts_to_file(text=cleaned_content[:1000], file_path=final_temp_path)
+                    
+                    with open(final_temp_path, 'rb') as f:
+                        audio_data = f.read()
+                        
+                    print(f"⚠️ Used fallback approach with limited text: {len(audio_data)} bytes")
+                except Exception as tts_err2:
+                    print(f"❌ Both TTS approaches failed: {str(tts_err2)}")
+                    raise Exception(f"TTS generation failed with both approaches: {str(tts_err2)}")
+        
+        # UPLOAD AUDIO TO DO SPACES
+        audio_filename = f"reports/{username}_{report_type}_audio.wav"
+        audio_url = upload_file_to_spaces(audio_data, audio_filename)
+        
+        if not audio_url:
+            print("❌ ERROR: Failed to upload audio to DO Spaces")
+            return None
+            
+        print(f"✅ SUCCESS: Uploaded audio to {audio_url}")
+        
+        # Update report
+        now = timezone.now()
+        if report_type == "user":
+            report.user_report_audio_file_url = audio_url
+            report.user_report_audio_generated_at = now
+        else:
+            report.video_report_audio_file_url = audio_url
+            report.video_report_audio_generated_at = now
+            
+        report.audio_is_generated = True
+        report.save()
+        
+        # Wait 1 second for transaction to complete
+        time.sleep(1)
+        
+        # DELETE TEMP FILE FROM DO SPACES
+        from custom_storage import delete_file_from_spaces
+        deleted = delete_file_from_spaces(cleaned_filename)
+        if deleted:
+            print(f"🗑️ SUCCESS: Deleted temporary cleaned text file from DO Spaces: {cleaned_filename}")
+        else:
+            print(f"⚠️ WARNING: Failed to delete temporary cleaned text file: {cleaned_filename}")
+        
+        # Everything is now ONLY in DO Spaces!
+        print(f"✅ COMPLETED SPEECH GENERATION: User={username}, Type={report_type}")
+        return audio_url
             
     except Exception as e:
-        print(f"Error in speech generation task: {str(e)}")
+        print(f"❌ SPEECH GENERATION FAILED: User={username}, Type={report_type}, Error={str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Retry the task
+        retry_count = self.request.retries
+        print(f"🔄 Retrying task (attempt {retry_count+1}/3)")
+        self.retry(exc=e, countdown=5 * (retry_count + 1))
+        
         return None
+    finally:
+        # Always release the lock when task completes or fails
+        try:
+            from users.services.cache_service import TTSLockCache
+            tts_lock = TTSLockCache()
+            tts_lock.release_global_lock()
+            print(f"🔓 RELEASED TTS LOCK: User={username}, Type={report_type}")
+        except Exception as lock_err:
+            print(f"⚠️ WARNING: Failed to release TTS lock: {str(lock_err)}")

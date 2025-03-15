@@ -1,4 +1,4 @@
-from django.http import JsonResponse, StreamingHttpResponse, HttpResponse, FileResponse
+from django.http import JsonResponse, StreamingHttpResponse, HttpResponse, FileResponse, HttpResponseRedirect
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, renderer_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
@@ -10,7 +10,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.core.cache import cache
 import json, uuid
 from rest_framework.renderers import BaseRenderer, JSONRenderer
@@ -39,6 +39,7 @@ from django.contrib import messages
 from django.views.decorators.cache import cache_control
 from celery import Celery
 from users.tasks import generate_speech_task
+from users.services.cache_service import TTSLockCache
 
 class EventStreamRenderer(BaseRenderer):
     media_type = 'text/event-stream'
@@ -49,6 +50,7 @@ class EventStreamRenderer(BaseRenderer):
         return f"data: {json.dumps(data)}\n\n"
 
 @api_view(['GET'])
+@permission_classes([IsAdminUser])
 def getRoutes(request):
     routes = [
         # Projects
@@ -76,6 +78,21 @@ def getRoutes(request):
         {'POST': '/api/users/token/'},
         {'POST': '/api/users/token/refresh/'},
         {'GET': '/api/users/token-from-session/'},
+        
+        # Video Statistics
+        {'POST': '/api/video-stats/'},
+        
+        # Report Generation
+        {'POST': '/api/generate-report/'},
+        
+        # Speech Generation
+        {'POST': '/api/generate-speech/'},
+        
+        # Audio Serving
+        {'GET': '/api/audio/profile_id/report_type/'},
+        
+        # TTS Status Check
+        {'GET': '/api/check-tts-status/username/'},
     ]
     
     return Response(routes)
@@ -102,7 +119,7 @@ def getProject(request, pk):
         return Response({'error': 'Video not found'}, status=404)
 
 @api_view(['GET', 'POST'])
-@authentication_classes([JWTAuthentication])
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])  # Require authentication
 def api_handle_like(request, pk):
     try:
@@ -287,7 +304,7 @@ def stream_reviews(request, pk):
         return response
 
 @api_view(['POST'])
-@authentication_classes([JWTAuthentication])
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def api_handle_follow(request, pk):
     follow_service = FollowService()
@@ -311,73 +328,95 @@ def api_handle_follow(request, pk):
 
 @api_view(['GET'])
 def stream_video_api(request, pk):
-    def file_iterator(file_path, start=0, length=None, chunk_size=262144):
-        with open(file_path, 'rb') as f:
-            f.seek(start)
-            remaining = length if length is not None else None
-            while True:
-                bytes_length = chunk_size if remaining is None else min(remaining, chunk_size)
-                data = f.read(bytes_length)
-                if not data:
-                    break
-                if remaining is not None:
-                    remaining -= len(data)
-                    if remaining < 0:
-                        data = data[:remaining]
-                yield data
-                if remaining is not None and remaining <= 0:
-                    break
-
+    """Stream video from DigitalOcean Spaces with support for Range requests"""
+    from django.conf import settings
+    import boto3
+    import re
+    
     video = get_object_or_404(Video, id=pk)
     
-    # Prefer 360p for initial load to reduce bandwidth
-    if video.encoded_versions and '360p' in video.encoded_versions:
-        file_path = os.path.join(settings.MEDIA_ROOT, 'videos', video.encoded_versions['360p'])
-    elif video.encoded_versions and '720p' in video.encoded_versions:
-        file_path = os.path.join(settings.MEDIA_ROOT, 'videos', video.encoded_versions['720p'])
+    # Connect to DO Spaces
+    s3 = boto3.client('s3',
+        endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        region_name=settings.AWS_S3_REGION_NAME
+    )
+    
+    # Determine which version to stream
+    if video.encoded_versions and '720p' in video.encoded_versions:
+        file_key = video.encoded_versions['720p']
+    elif video.encoded_versions and '360p' in video.encoded_versions:
+        file_key = video.encoded_versions['360p']
     else:
-        file_path = video.file.path
-
-    if not os.path.exists(file_path):
-        logger.error(f"Video file not found: {file_path}")
-        return Response({"error": "Video file not found"}, status=404)
+        file_key = video.file.name
     
-    file_size = os.path.getsize(file_path)
+    print(f"🎥 Streaming video from DO Spaces - Key: {file_key}")
     
-    range_header = request.META.get('HTTP_RANGE', '').strip()
-    range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
-    
-    
-    if range_match:
-        start = int(range_match.group(1))
-        end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
-        length = end - start + 1
-        
-        print(f"Streaming chunk: {start}-{end} (size: {length})")
-        
-        response = StreamingHttpResponse(
-            file_iterator(file_path, start=start, length=length),
-            status=206,
-            content_type='video/mp4'
+    try:
+        # Get file metadata from DO Spaces
+        file_metadata = s3.head_object(
+            Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+            Key=file_key
         )
         
-        response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
-        response['Accept-Ranges'] = 'bytes'
-        response['Content-Length'] = str(length)
-        # Add caching headers
-        response['Cache-Control'] = 'public, max-age=3600'
-        return response
-    
-    response = StreamingHttpResponse(
-        file_iterator(file_path),
-        content_type='video/mp4'
-    )
-    response['Accept-Ranges'] = 'bytes'
-    response['Content-Length'] = str(file_size)
-    response['Cache-Control'] = 'public, max-age=3600'
-
-    return response
-
+        file_size = file_metadata['ContentLength']
+        content_type = file_metadata.get('ContentType', 'video/mp4')
+        
+        # Check for Range header
+        range_header = request.META.get('HTTP_RANGE', '').strip()
+        range_match = re.match(r'bytes=(\d+)-(\d*)', range_header)
+        
+        if range_match:
+            # Handle partial content request
+            start = int(range_match.group(1))
+            end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
+            length = end - start + 1
+            
+            print(f"📊 Streaming chunk: {start}-{end}/{file_size} (size: {length})")
+            
+            # Get range of bytes from DO Spaces
+            response = s3.get_object(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                Key=file_key,
+                Range=f'bytes={start}-{end}'
+            )
+            
+            # Create streaming response
+            content = response['Body'].read()
+            stream_response = HttpResponse(
+                content,
+                status=206,
+                content_type=content_type
+            )
+            
+            # Set headers for partial content
+            stream_response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+            stream_response['Accept-Ranges'] = 'bytes'
+            stream_response['Content-Length'] = str(length)
+            stream_response['Cache-Control'] = 'public, max-age=3600'
+            
+            return stream_response
+        else:
+            # Redirect to the actual file URL for full content requests
+            # This is more efficient than proxying the entire file
+            file_url = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_key}"
+            
+            # For security, you might want to generate a signed URL instead
+            # signed_url = s3.generate_presigned_url(
+            #     'get_object',
+            #     Params={'Bucket': settings.AWS_STORAGE_BUCKET_NAME, 'Key': file_key},
+            #     ExpiresIn=3600  # URL expires in 1 hour
+            # )
+            
+            print(f"🔄 Redirecting to DO Spaces URL: {file_url}")
+            return HttpResponseRedirect(file_url)
+            
+    except Exception as e:
+        print(f"❌ Error streaming video: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({"error": str(e)}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])  # Only allow admin users to access this debug endpoint
@@ -417,6 +456,7 @@ def api_debug_videos(request):
     return Response({'videos': debug_info})
 
 @csrf_exempt  # Allow all requests
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 @require_http_methods(["POST"])  # Only allow POST
 def update_video_stats(request):
     from projects.models import ViewHistory
@@ -451,11 +491,18 @@ def update_video_stats(request):
         except ValueError as ve:
             return JsonResponse({'error': f'Invalid total_watched value: {total_watched}'}, status=400)
 
+        # Handle user_id with "user_" prefix
+        if isinstance(user_id, str) and user_id.startswith('user_'):
+            user_id = user_id.replace('user_', '')
+            print(f"⚙️ Extracted user ID from prefixed value: {user_id}")
+
         # Get the user object
         try:
-            user = User.objects.get(id=user_id)  # Assuming user_id is the actual user ID
+            user = User.objects.get(id=user_id)  # Now using the numeric ID
         except User.DoesNotExist:
-            return JsonResponse({'error': 'User not found'}, status=404)
+            return JsonResponse({'error': f'User not found with ID: {user_id}'}, status=404)
+        except ValueError:
+            return JsonResponse({'error': f'Invalid user ID format: {user_id}'}, status=400)
 
         # Save the stats to the database
         try:
@@ -477,6 +524,7 @@ def update_video_stats(request):
         return JsonResponse({'error': str(e)}, status=400)
 
 @csrf_exempt
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 def generate_report(request):
     if request.method == "POST":
         try:
@@ -534,6 +582,7 @@ def generate_report(request):
     return JsonResponse({"error": "Invalid request method"}, status=400)
 
 @csrf_exempt
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 @require_http_methods(["POST"])
 def generate_speech(request):
     try:
@@ -552,10 +601,62 @@ def generate_speech(request):
 
         print(f"Username: {username}, Report Type: {report_type}")
 
-        # Get the report for the user
+        # Get the report for the user FIRST and check time-based rate limiting
         try:
             report = Report.objects.get(user__username=username)
             print(f"Report found: {report}")
+            
+            # Check for rate limiting (1 generation per day per report type)
+            now = timezone.now()
+            one_day_ago = now - timezone.timedelta(days=1)
+            
+            print(f"DEBUG TIME CHECK - Current time: {now}")
+            print(f"DEBUG TIME CHECK - One day ago: {one_day_ago}")
+
+            # TIME-BASED RATE LIMITING CHECK - HAPPENS BEFORE ACQUIRING LOCK
+            if report_type == 'user' and report.user_report_audio_generated_at:
+                print(f"DEBUG TIME CHECK - Last user audio generated at: {report.user_report_audio_generated_at}")
+                print(f"DEBUG TIME CHECK - Is recent? {report.user_report_audio_generated_at > one_day_ago}")
+                
+                if report.user_report_audio_generated_at > one_day_ago:
+                    # Generated less than 24 hours ago
+                    time_remaining = 24 - (now - report.user_report_audio_generated_at).total_seconds() / 3600
+                    hours = int(time_remaining)
+                    minutes = int((time_remaining - hours) * 60)
+                    
+                    error_msg = f"Rate limit reached. You can generate user audio again after {hours} hours and {minutes} minutes."
+                    print(f"DEBUG RATE LIMIT: {error_msg}")
+                    
+                    return JsonResponse({
+                        "error": error_msg
+                    }, status=429)  # 429 Too Many Requests
+            
+            elif report_type == 'video' and report.video_report_audio_generated_at:
+                print(f"DEBUG TIME CHECK - Last video audio generated at: {report.video_report_audio_generated_at}")
+                print(f"DEBUG TIME CHECK - Is recent? {report.video_report_audio_generated_at > one_day_ago}")
+                
+                if report.video_report_audio_generated_at > one_day_ago:
+                    # Generated less than 24 hours ago
+                    time_remaining = 24 - (now - report.video_report_audio_generated_at).total_seconds() / 3600
+                    hours = int(time_remaining)
+                    minutes = int((time_remaining - hours) * 60)
+                    
+                    error_msg = f"Rate limit reached. You can generate video audio again after {hours} hours and {minutes} minutes."
+                    print(f"DEBUG RATE LIMIT: {error_msg}")
+                    
+                    return JsonResponse({
+                        "error": error_msg
+                    }, status=429)  # 429 Too Many Requests
+
+            # ONLY TRY TO ACQUIRE GLOBAL LOCK AFTER TIME CHECK PASSES
+            # Check if TTS generation is already in progress
+            tts_lock = TTSLockCache()
+            if not tts_lock.acquire_global_lock():
+                # Could not acquire lock - TTS is already running
+                print("TTS generation is already in progress. Please try again in a few minutes.")
+                return JsonResponse({
+                    "error": "TTS generation is already in progress. Please try again in a few minutes."
+                }, status=409)  # 409 Conflict
 
             # Set audio_is_generated to False before starting
             report.audio_is_generated = False
@@ -573,28 +674,56 @@ def generate_speech(request):
         except Report.DoesNotExist:
             return JsonResponse({"error": "Report not found"}, status=404)
         except Exception as e:
+            # Release the lock if there's an error
+            try:
+                tts_lock.release_global_lock()
+            except:
+                pass
             print(f"Error: {str(e)}")
             return JsonResponse({"error": "Failed to update report."}, status=500)
 
     except Exception as e:
         print(f"Error in generate_speech: {str(e)}")
         return JsonResponse({"error": "Failed to generate speech."}, status=500)
-
+    
 @cache_control(max_age=31536000, public=True, immutable=True)
 def serve_audio(request, profile_id, report_type):
-    from django.utils.http import http_date
     """API endpoint to serve audio files with proper caching"""
+    from django.utils.http import http_date
     
     profile = get_object_or_404(Profile, id=profile_id)
-    filename = f"{profile.user.username}_{report_type}_audio.wav"
-    file_path = os.path.join(settings.MEDIA_ROOT, 'reports', filename)
     
-    print(f"🎵 Serving audio: {filename}")
-    
-    if not os.path.exists(file_path):
-        return HttpResponse(f"Audio file not found: {filename}", status=404)
-        
     try:
+        # Get the report
+        report = Report.objects.get(user=profile.user)
+        
+        # Get the audio URL based on report type
+        if report_type == 'user':
+            audio_url = report.user_report_audio_file_url
+        elif report_type == 'video':
+            audio_url = report.video_report_audio_file_url
+        else:
+            return HttpResponse("Invalid report type", status=400)
+        
+        if not audio_url:
+            return HttpResponse("Audio not found", status=404)
+        
+        # If it's a remote URL, redirect to it
+        if audio_url.startswith('http'):
+            # Add cache control headers to the redirect
+            response = redirect(audio_url)
+            response['Cache-Control'] = 'public, max-age=31536000, immutable'
+            return response
+        
+        # Handle local file path
+        filename = audio_url.split('/')[-1]
+        file_path = os.path.join(settings.MEDIA_ROOT, 'reports', filename)
+        
+        print(f"🎵 Serving local audio: {filename}")
+        
+        if not os.path.exists(file_path):
+            return HttpResponse(f"Audio file not found: {filename}", status=404)
+            
         # Get file modification time for ETag
         stat = os.stat(file_path)
         etag = f'"{stat.st_mtime}"'
@@ -617,11 +746,14 @@ def serve_audio(request, profile_id, report_type):
         response['Access-Control-Max-Age'] = '86400'
         
         return response
+    except Report.DoesNotExist:
+        return HttpResponse("Report not found", status=404)
     except Exception as e:
         print(f"❌ Error serving audio: {str(e)}")
         return HttpResponse("Error serving audio file", status=500)
 
 @require_http_methods(["GET"])
+@authentication_classes([JWTAuthentication, SessionAuthentication])
 def check_tts_status(request, username):
     try:
         report = Report.objects.get(user__username=username)

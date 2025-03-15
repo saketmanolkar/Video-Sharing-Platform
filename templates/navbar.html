@@ -13,7 +13,7 @@
           <div class="toggle-menu__lines"></div>
         </label>
         <ul class="header__menu">
-          <li class="header__menuItem"><a href="{% url 'projects'%}">Videos</a></li>
+          <li class="header__menuItem"><a href="{% url 'projects-list'%}">Videos</a></li>
           {% if user.is_authenticated %} 
           <li class="header__menuItem"><a href="{% url 'profile' user.profile.id %}">My Account</a></li>
           {% endif %}

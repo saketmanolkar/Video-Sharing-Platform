@@ -1,5 +1,11 @@
 {% extends 'main.html' %}
 {% load static %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'styles/components/video_sidebar.css' %}">
+<link rel="stylesheet" href="{% static 'styles/components/video_player.css' %}">
+{% endblock %}
+
 {% block content %}
 
 <main class="checkered-background">
@@ -23,20 +29,21 @@
                         <h2 class="message__subject">{{ video.title }}</h2>
                         <div class="video-stats">
                             <div class="interaction-container">
-                                {% include 'components/video_interaction.html' with video=video size="large" likes_count=likes_count dislikes_count=dislikes_count %}
+                                {% include 'components/video_interaction.html' with video=video size="large" likes_count=likes_count dislikes_count=dislikes_count is_authenticated=is_authenticated is_uploader=is_uploader %}
                             </div>
                             <div class="view-count">{{ video.view_count }}</div>
                         </div>
                     </div>
                     <div class="creator-date-container">
                         <div class="vid-creator">
-                            By <a href="{% url 'profile' video.uploader.id %}">{{ video.uploader.username }}</a>
+                            By <a href="{% url 'profile' uploader_profile_id %}">{{ uploader_username }}</a>
                         </div>
                         <div class="message__date">
                             Uploaded {{ video.created_at|date:"F j, Y" }}
                         </div>
                     </div>
                     
+            
                     <div class="video-tags">
                         {% for tag in video.tags.all %}
                             <span class="tag">{{ tag.name }}</span>
@@ -44,7 +51,10 @@
                     </div>
                     
                     <div class="message__body">
-                        <p>{{ video.description }}</p>
+                        <div class="collapsible-content" id="descriptionContent">
+                            <p>{{ video.description }}</p>
+                        </div>
+                        <button id="showMoreBtn" class="show-more-btn" style="display: none;">Show more</button>
                     </div>
                 </div>
 
@@ -89,7 +99,7 @@
 
             <!-- Right Side Content -->
             <div class="video-sidebar">
-                {% include 'components/video_sidebar.html' %}
+                {% include 'components/video_sidebar.html' with is_authenticated=is_authenticated is_uploader=is_uploader user_id=user_id %}
             </div>
         </div>
 
@@ -99,8 +109,8 @@
 <!-- Add this hidden input to store the initial data -->
 <input type="hidden" 
     id="commentsData" 
-    data-comments='[{% for review in reviews %}{% if review.comment %}{"id":"{{ review.id }}","username":"{{ review.user.username|escapejs }}","comment":"{{ review.comment|escapejs }}","is_owner":{% if review.user == request.user %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}]'
-    data-auth="{{ request.user.is_authenticated|lower }}"
+    data-comments='[{% for review in reviews %}{% if review.comment %}{"id":"{{ review.id }}","username":"{{ review.user.username|escapejs }}","comment":"{{ review.comment|escapejs }}","is_owner":{% if review.user.id == user_id %}true{% else %}false{% endif %}}{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}]'
+    data-auth="{{ is_authenticated|lower }}"
     data-login-url="{% url 'login-page' %}"
     data-csrf="{{ csrf_token }}"
 >
@@ -113,7 +123,7 @@
     const updateReviewUrl = dataElement.dataset.updateReviewUrl;
     const csrfToken = dataElement.dataset.csrf;
     window.initialComments = JSON.parse(dataElement.dataset.comments);
-    window.username = "{{ request.user.username }}";
+    window.username = "{{ user_username }}";
 </script>
   
 
@@ -123,6 +133,79 @@
     <script src="{% static 'js/api_follow.js' %}"></script>
 
 <!-- Include the delete confirmation popup -->
-{% include 'delete_object.html' %}
+{% include 'delete_object.html' with is_authenticated=is_authenticated user_id=user_id %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const descContent = document.getElementById('descriptionContent');
+    const showMoreBtn = document.getElementById('showMoreBtn');
+    
+    // Check if description is too long (over 3 lines)
+    const checkHeight = () => {
+      const lineHeight = parseInt(window.getComputedStyle(descContent).lineHeight);
+      const maxHeight = lineHeight * 3; // 3 lines
+      
+      if (descContent.scrollHeight > maxHeight) {
+        // Description is too long, make it collapsible
+        descContent.style.maxHeight = maxHeight + 'px';
+        descContent.style.overflow = 'hidden';
+        showMoreBtn.style.display = 'block';
+        descContent.classList.add('collapsed');
+      }
+    };
+    
+    // Toggle show more/less
+    showMoreBtn.addEventListener('click', function() {
+      if (descContent.classList.contains('collapsed')) {
+        descContent.style.maxHeight = descContent.scrollHeight + 'px';
+        descContent.classList.remove('collapsed');
+        showMoreBtn.textContent = 'Show less';
+      } else {
+        const lineHeight = parseInt(window.getComputedStyle(descContent).lineHeight);
+        descContent.style.maxHeight = (lineHeight * 3) + 'px';
+        descContent.classList.add('collapsed');
+        showMoreBtn.textContent = 'Show more';
+      }
+    });
+    
+    // Run the check on page load
+    checkHeight();
+  });
+</script>
+
+<style>
+  .collapsible-content {
+    transition: max-height 0.3s ease-out;
+  }
+  
+  .show-more-btn {
+    background: none;
+    border: none;
+    color: #3f8cff;
+    cursor: pointer;
+    padding: 5px 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-top: 5px;
+  }
+  
+  .show-more-btn:hover {
+    text-decoration: underline;
+  }
+  
+  /* Remove shadows from comment rows */
+  .settings__table tr {
+    box-shadow: none !important;
+  }
+  
+  .settings__tableInfo {
+    box-shadow: none !important;
+  }
+  
+  /* Also target any potential container */
+  .comments-list .settings__table {
+    box-shadow: none !important;
+  }
+</style>
 
 {% endblock %}

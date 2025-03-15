@@ -1,0 +1,79 @@
+/* ONLY target the right column with the margin-left: 20% style */
+.column[style*="margin-left: 20%"] {
+  position: relative;
+}
+
+/* Add a stronger white overlay at the bottom of the right column ONLY */
+.column[style*="margin-left: 20%"] .card.project {
+  border: none !important;
+  position: relative;
+  overflow: visible !important;
+}
+
+/* Hide any bottom borders/elements in the right column ONLY */
+.column[style*="margin-left: 20%"] .card.project::after,
+.column[style*="margin-left: 20%"] .card__body::after {
+  display: none !important;
+  background: transparent !important;
+  height: 0 !important;
+}
+
+/* Create a white overlay at the very bottom of right column ONLY */
+.column[style*="margin-left: 20%"] .card.project::before {
+  content: "";
+  position: absolute;
+  bottom: -5px;  
+  left: 0;
+  right: 0;
+  height: 10px;  
+  background: white !important;
+  z-index: 100;
+  border: none !important;
+}
+
+/* Add additional layer to cover any remaining elements */
+.column[style*="margin-left: 20%"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: white !important;
+  z-index: 101;
+}
+
+/* Make the bottom of the page content extend higher to cover any gaps */
+main.checkered-background {
+  padding-bottom: 60px !important;
+  margin-bottom: 0 !important;
+}
+
+/* Keep social links visible */
+.social-links {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 1rem !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: auto !important;
+  position: relative;
+  z-index: 10000;
+}
+
+/* Make the GitHub icon visible */
+.social-icon {
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative;
+  z-index: 10000;
+}
+
+/* Playlists grid styling */
+.playlists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 2rem;
+  padding: 1rem;
+}

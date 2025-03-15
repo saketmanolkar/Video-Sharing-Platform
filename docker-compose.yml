@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: >
+      bash -c "python manage.py migrate &&
+               python manage.py collectstatic --noinput &&
+               gunicorn testrun.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 300 --worker-tmp-dir /dev/shm"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/mediafiles
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+    restart: always
+    shm_size: 512M
+
+  celery:
+    build: .
+    command: >
+      bash -c "python manage.py migrate &&
+               python manage.py collectstatic --noinput &&
+               cd /app && celery -A testrun worker --loglevel=INFO"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/mediafiles
+    env_file:
+      - ./.env
+    restart: always
+
+volumes:
+  static_volume:
+  media_volume:

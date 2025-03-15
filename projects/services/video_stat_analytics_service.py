@@ -12,6 +12,17 @@ class VideoStatisticsService:
             avg_duration=Avg('duration_watched')
         )
         return avg_watch_time['avg_duration']
+    
+    @staticmethod
+    def get_average_watch_time_for_user_videos_denormalized(user):
+        """Get average watch time for all videos uploaded by the user using denormalized fields"""
+        videos = Video.objects.filter(uploader=user).select_related('analytics')
+        
+        total_watch_time = sum(video.analytics.watch_time for video in videos)
+        total_videos = videos.count()
+        
+        # Return as minutes directly
+        return total_watch_time/total_videos if total_videos > 0 else 0
 
     @staticmethod
     def get_average_watch_time_per_video(user):
@@ -34,6 +45,23 @@ class VideoStatisticsService:
                 })
         
         return avg_watch_times
+        
+    @staticmethod
+    def get_average_watch_time_per_video_denormalized(user):
+        """Get average watch time for each individual video uploaded by the user"""
+        avg_watch_times = []
+        videos = Video.objects.filter(uploader=user).select_related('analytics')
+        
+        for video in videos:
+            watch_time = video.analytics.watch_time
+            
+            # Include all videos, use 0 if no watch time
+            avg_watch_times.append({
+                'video_title': video.title,
+                'avg_watch_time': round(watch_time, 2) if watch_time else 0
+            })
+        
+        return avg_watch_times
 
     @staticmethod
     def get_completion_rate_for_user_videos(user):
@@ -44,6 +72,31 @@ class VideoStatisticsService:
         
         completion_rate = (completed_views / total_views) * 100 if total_views > 0 else 0
         return completion_rate
+    
+    @staticmethod
+    def get_completion_rate_for_user_videos_denormalized(user):
+        """Get overall completion rate for all videos uploaded by the user using denormalized fields"""
+        videos = Video.objects.filter(uploader=user).select_related('analytics')
+        
+        total_views = sum(video.analytics.total_views for video in videos)
+        completed_views = sum(video.analytics.completed_views for video in videos)
+        
+        completion_rate = (completed_views / total_views) * 100 if total_views > 0 else 0
+        return completion_rate
+    
+    @staticmethod
+    def get_completion_rate_per_video_denormalized(user):
+        """Get completion rate for each individual video uploaded by the user using denormalized fields"""
+        completion_rates = []
+        videos = Video.objects.filter(uploader=user).select_related('analytics')
+
+        for video in videos:
+            completion_rates.append({
+                'video_title': video.title,
+                'completion_rate': video.analytics.completion_rate
+            })
+
+        return completion_rates
 
     @staticmethod
     def get_completion_rate_per_video(user):

@@ -14,7 +14,7 @@
                 />
             </a>
             <h3>Account Sign Up</h3>
-            <p>Create a new developer account</p>
+            <p>Create a new Account</p>
         </div>
 
         <form method="POST" action="{% url 'register-page' %}" class="form auth__form">
@@ -60,7 +60,7 @@
             <img src="{% static 'images/login_icon.svg' %}" alt="icon" />
           </a>
           <h3>Account Login</h3>
-          <p>Hello Developer, Welcome Back!</p>
+          <p>Hello Anon, Welcome Back!</p>
         </div>
 
         <form id="loginForm" method="POST" class="form auth__form">
@@ -107,6 +107,15 @@ document.addEventListener('DOMContentLoaded', function() {
     if (loginForm) {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
+            
+            // Simple validation
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                alert('Please enter both username and password');
+                return;
+            }
             
             const formData = new FormData(this);
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;

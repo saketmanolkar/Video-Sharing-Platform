@@ -13,12 +13,13 @@ class ProjectsConfig(AppConfig):
         from . import signals
         import projects.signals  # This will import all signals
         
-        # Create necessary directories
-        media_root = settings.MEDIA_ROOT
-        videos_dir = os.path.join(media_root, 'videos')
-        thumbnails_dir = os.path.join(media_root, 'thumbnails')
-        
-        # Create directories if they don't exist
-        os.makedirs(media_root, exist_ok=True)
-        os.makedirs(videos_dir, exist_ok=True)
-        os.makedirs(thumbnails_dir, exist_ok=True)
+        # Only create directories if MEDIA_ROOT is defined and not empty
+        if hasattr(settings, 'MEDIA_ROOT') and settings.MEDIA_ROOT:
+            media_root = settings.MEDIA_ROOT
+            videos_dir = os.path.join(media_root, 'videos')
+            thumbnails_dir = os.path.join(media_root, 'thumbnails')
+            
+            # Create directories if they don't exist
+            os.makedirs(media_root, exist_ok=True)
+            os.makedirs(videos_dir, exist_ok=True)
+            os.makedirs(thumbnails_dir, exist_ok=True)

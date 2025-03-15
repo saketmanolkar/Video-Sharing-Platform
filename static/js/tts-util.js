@@ -161,6 +161,17 @@ function generateSpeech(username, reportType) {
     })
     .then(response => response.json())
     .then(data => {
+        // CHECK FOR ERROR RESPONSE
+        if (data.error) {
+            console.error('❌ API Error:', data.error);
+            localStorage.removeItem(`tts_generating_${reportType}`);
+            updateTTSButton(false, false, null);
+            // Show error to user
+            showMessage(data.error, 'error');
+            return;
+        }
+        
+        // Only set up polling if successful
         statusCheckIntervals[reportType] = setInterval(() => {
             checkTTSStatus(username);
         }, 2000);

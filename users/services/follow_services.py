@@ -2,10 +2,12 @@ import logging
 from django.core.exceptions import ValidationError
 from django.core.cache import cache
 from django.db import transaction
-
+from django.db.models import F
+from users.models import UserActivitySummary
 logger = logging.getLogger(__name__)
 
 class FollowService:
+
     @transaction.atomic
     def follow_user(self, user, user_to_follow):
         try:
@@ -15,33 +17,55 @@ class FollowService:
             if user == user_to_follow:
                 raise ValidationError("You cannot follow yourself.")
             
-            # Immediate database update with transaction
+            # No need for nested transaction - we already have @transaction.atomic decorator
+            # Create follow relationship
             _, created = user.following_set.get_or_create(following=user_to_follow)
             
-            # Clear any cached data
-            cache.delete(f'follow_{user.id}_{user_to_follow.id}')
-            cache.delete(f'followers_count_{user_to_follow.id}')
-            cache.delete(f'following_count_{user.id}')
+            if created:  # Only update counts if new follow
+                # Create summary records if they don't exist
+                UserActivitySummary.objects.get_or_create(user=user_to_follow)
+                UserActivitySummary.objects.get_or_create(user=user)
+                
+                # Use F() to prevent race conditions
+                UserActivitySummary.objects.filter(user=user_to_follow).update(
+                    total_followers=F('total_followers') + 1
+                )
+                UserActivitySummary.objects.filter(user=user).update(
+                    total_following=F('total_following') + 1
+                )
+
+                print(f"👥 User {user.username} followed {user_to_follow.username} and updated denormalized table")
             
             return True, "Successfully followed user."
             
         except Exception as e:
             logger.error(f"Follow error: {str(e)}")
             return False, str(e)
-    
+
     @transaction.atomic
     def unfollow_user(self, user, user_to_unfollow):
         try:
             if not user_to_unfollow:
                 raise ValidationError("User to unfollow does not exist.")
             
-            # Immediate database update with transaction
-            user.following_set.filter(following=user_to_unfollow).delete()
+            # No need for nested transaction - we already have @transaction.atomic decorator
+            # Delete follow relationship
+            deleted = user.following_set.filter(following=user_to_unfollow).delete()[0]
             
-            # Clear any cached data
-            cache.delete(f'follow_{user.id}_{user_to_unfollow.id}')
-            cache.delete(f'followers_count_{user_to_unfollow.id}')
-            cache.delete(f'following_count_{user.id}')
+            if deleted:  # Only update counts if something was deleted
+                # Create summary records if they don't exist
+                UserActivitySummary.objects.get_or_create(user=user_to_unfollow)
+                UserActivitySummary.objects.get_or_create(user=user)
+                
+                # Use F() to prevent race conditions
+                UserActivitySummary.objects.filter(user=user_to_unfollow).update(
+                    total_followers=F('total_followers') - 1
+                )
+                UserActivitySummary.objects.filter(user=user).update(
+                    total_following=F('total_following') - 1
+                )
+
+                print(f"👥 User {user.username} unfollowed {user_to_unfollow.username} and updated denormalized table")
             
             return True, "Successfully unfollowed user."
             
@@ -59,7 +83,13 @@ class FollowService:
             return False
     
     def get_follower_stats(self, profile):
-        return {
-            'followers_count': profile.user.followers_set.count(),
-            'following_count': profile.user.following_set.count()
-        }
+        if hasattr(profile.user, 'activity_summary'):
+            return {
+                'followers_count': profile.user.activity_summary.total_followers,
+                'following_count': profile.user.activity_summary.total_following
+            }
+        else:
+            return {
+                'followers_count': profile.user.followers_set.count(),
+                'following_count': profile.user.following_set.count()
+            }

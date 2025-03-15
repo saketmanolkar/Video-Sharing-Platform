@@ -1,6 +1,10 @@
 {% extends 'main.html' %}
 {% load static %}
 
+{% block styles %}
+<link rel="stylesheet" href="{% static 'styles/components/playlist_preview.css' %}">
+{% endblock %}
+
 {% block content %}
 <main class="checkered-background">
   <section class="creator-studio-header">
@@ -31,7 +35,7 @@
 
   <!-- Playlists Section -->
   <section class="projectsList" style="margin-top: 2rem;">
-    <div class="container">
+    <div class="container container--narrow">
       {% if playlists %}
         <div class="grid grid--three">
           {% for playlist in playlists %}
@@ -44,15 +48,13 @@
     </div>
   </section>
 
-
-
   <!-- Always show separator -->
   <div class="section-separator"></div>
 
   <!-- Videos Section -->
   <section class="projectsList" style="margin-top: 0;">
-    <div class="container">
-      {% include 'components/video_grid.html' with videos=videos %}
+    <div class="container container--narrow">
+      {% include 'components/video_grid_2.html' with videos=videos %}
     </div>
   </section>
 </main>

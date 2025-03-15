@@ -1,118 +1,11 @@
 {% load static %}
 
-<style>
-  /* Using more specific class names to avoid conflicts */
-  .sidebar-container {
-    background: var(--color-sub-lighter);
-    border-radius: 0.7rem;
-    border: 2px solid var(--color-light);
-    padding: 0.8rem;
-    max-width: 450px;
-  }
-
-  .sidebar-video-item {
-    display: flex;
-    gap: 0.6rem;
-    text-decoration: none;
-    margin-bottom: 0.8rem;
-    padding-bottom: 0.8rem;
-    border-bottom: 1px solid var(--color-light);
-  }
-
-  .sidebar-video-item:last-child {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
-  }
-
-  .sidebar-thumbnail {
-    width: 120px;
-    min-width: 120px;
-    height: 70px;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    background: #000;
-    position: relative;
-  }
-
-  .sidebar-thumbnail img {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    transition: transform 0.2s ease-in-out;
-  }
-
-  .sidebar-video-item:hover .sidebar-thumbnail img {
-    transform: translate(-50%, -50%) scale(1.05);
-  }
-
-  .sidebar-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    min-width: 0;
-    height: 70px;
-    padding: 0;
-  }
-
-  .sidebar-title {
-    color: #333;
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin: 0;
-    line-height: 1.2;
-    margin-bottom: 0.2rem;
-  }
-
-  .sidebar-username {
-    color: rgb(88, 99, 109);
-    font-size: 1.5rem;
-    font-weight: 500;
-    margin: 0;
-    line-height: 1.2;
-    margin-bottom: 0.2rem;
-  }
-
-  .sidebar-stats {
-    color: rgb(88, 99, 109);
-    font-size: 1.2rem;
-    font-weight: 400;
-    margin: 0;
-    line-height: 1.2;
-    display: flex;
-    gap: 4px;
-  }
-
-  .sidebar-stats span {
-    color: rgb(88, 99, 109);
-    opacity: 0.8;
-  }
-
-  .sidebar-stats span:not(:last-child)::after {
-    content: "•";
-    margin-left: 4px;
-    margin-right: 4px;
-    opacity: 0.7;
-  }
-
-  /* Adjust the heading size if needed */
-  .devInfo__subtitle {
-    font-size: 1.6rem;
-    margin-bottom: 0.8rem;
-  }
-</style>
-
 <div class="sidebar-container">
   <h3 class="devInfo__subtitle">Recommended Videos</h3>
   {% if recommended_videos %}
     {% for video in recommended_videos %}
       <a href="{% url 'project' video.id %}" class="sidebar-video-item">
-        <div class="sidebar-thumbnail" data-video-url="{% url 'api-stream-video' video.id %}" data-preview-duration="15">
+        <div class="sidebar-thumbnail">
           {% if video.thumbnail %}
             <img src="{{ video.thumbnail.url }}" alt="{{ video.title }}">
           {% else %}

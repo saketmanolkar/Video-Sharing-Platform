@@ -8,9 +8,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         # Define the cutoff time
-        cutoff_time = timezone.now() - timedelta(hours=24)
+        cutoff_time = timezone.now()
         
-        # Find stray sessions older than 24 hours
+        # Find stray sessions 
         stray_sessions = UserSession.objects.filter(
             end_time__isnull=True,
             start_time__lt=cutoff_time

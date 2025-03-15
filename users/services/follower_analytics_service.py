@@ -1,8 +1,6 @@
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count, Sum
-from projects.models import  VideoAnalytics
-from projects.models import Like, Review, ViewHistory, Video
 from users.models import Follow
 from users.services.follow_services import FollowService
 
@@ -13,46 +11,49 @@ class FollowerAnalyticsService:
     def get_follower_analytics(self, user):
         """Get complete follower analytics for a user"""
         
-        # Use existing FollowService for basic stats
-        basic_stats = self.follow_service.get_follower_stats(user.profile)
+        # Get both growth data and 30-day total in one query
+        growth_stats = self.get_growth_data(user)
         
-        # Rename the key to match what we use elsewhere
-        basic_stats['total_followers'] = basic_stats.pop('followers_count')  # Fix the key name
+        basic_stats = {
+            'new_followers_30d': growth_stats['new_followers_30d']
+        }
         
-        # Add 30-day new followers
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        basic_stats['new_followers_30d'] = Follow.objects.filter(
-            following=user,
-            created__gte=thirty_days_ago
-        ).count()
+        # Engagement stats
+        #engagement_stats = self.get_follower_engagement(user)
         
-        # Growth data
-        growth_data = self.get_growth_data(user)
-        
-        # Engagement stats (now includes both likes and dislikes)
-        engagement_stats = self.get_follower_engagement(user)
-        
-        # Get engagement percentages
         follower_percentages = self.get_engagement_breakdown(user)
         
         return {
             **basic_stats,
-            'growth_data': growth_data,
-            **engagement_stats,  # This will now include follower_dislikes
+            'growth_data': growth_stats['growth_data'],
+            #**engagement_stats,
             **follower_percentages
         }
     
     @staticmethod
     def get_growth_data(user):
-        """Get follower growth over time"""
-        return list(Follow.objects.filter(
-            following=user
+        """Get follower growth over time and 30-day total"""
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        
+        # Single query to get both daily growth and 30-day total
+        growth_data = list(Follow.objects.filter(
+            following=user,
+            created__gte=thirty_days_ago
         ).values('created__date').annotate(
             new_followers=Count('id')
         ).order_by('created__date'))
+        
+        # Calculate 30-day total from the same data
+        new_followers_30d = sum(day['new_followers'] for day in growth_data)
+        
+        return {
+            'growth_data': growth_data,
+            'new_followers_30d': new_followers_30d
+        }
     
     @staticmethod
     def get_follower_engagement(user):
+        from projects.models import Like, Review, ViewHistory, Video
         """Get engagement metrics from followers"""
         # Get follower IDs
         follower_ids = Follow.objects.filter(
@@ -84,6 +85,7 @@ class FollowerAnalyticsService:
         }
 
     def get_engagement_breakdown(self, user):
+        from projects.models import Like, Review, ViewHistory, Video
         """Get percentage breakdown and actual numbers for follower vs non-follower engagement"""
         # Get follower IDs (exclude the user)
         follower_ids = Follow.objects.filter(
@@ -141,7 +143,7 @@ class FollowerAnalyticsService:
                     'follower_count': follower_engagement['likes'],
                     'non_follower_count': total_engagement['total_likes'] - follower_engagement['likes'],
                     'follower_percentage': (follower_engagement['likes'] / total_engagement['total_likes'] * 100) if total_engagement['total_likes'] else 0,
-                    'non_follower_percentage': 100 - ((follower_engagement['likes'] / total_engagement['total_likes'] * 100) if total_engagement['total_likes'] else 0)
+                    'non_fol/lower_percentage': 100 - ((follower_engagement['likes'] / total_engagement['total_likes'] * 100) if total_engagement['total_likes'] else 0)
                 },
                 'dislikes': {
                     'total': total_engagement['total_dislikes'],

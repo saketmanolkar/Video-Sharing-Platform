@@ -4,8 +4,26 @@ from django.core.exceptions import ValidationError
 from django.contrib.staticfiles.storage import staticfiles_storage
 import uuid
 from django.contrib.auth import get_user_model
+import time
 
 User = get_user_model()
+
+# Create a function to generate unique paths for profile pictures
+def unique_profile_path(instance, filename):
+    """
+    Generate a unique path for profile pictures to prevent overwriting
+    Format: profiles/username_timestamp_uuid.extension
+    """
+    # Get the file extension
+    ext = filename.split('.')[-1] if '.' in filename else 'jpg'
+    
+    # Generate unique filename components
+    username = instance.user.username if instance.user else 'unknown'
+    timestamp = int(time.time())
+    unique_id = str(uuid.uuid4())[:8]  # First 8 chars of UUID
+    
+    # Return the unique path
+    return f'profiles/{username}_{timestamp}_{unique_id}.{ext}'
 
 class Profile(models.Model):
     id = models.UUIDField(
@@ -20,7 +38,7 @@ class Profile(models.Model):
     bio = models.TextField(blank=True, null=True)
     location = models.CharField(max_length=200, blank=True, null=True)
     profile_pics = models.ImageField(
-        upload_to='profiles/', 
+        upload_to=unique_profile_path,  # Use the custom function
         blank=True, 
         null=True
     )
@@ -168,11 +186,18 @@ class UserActivitySummary(models.Model):
     last_session_date = models.DateTimeField(null=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Follower stats
+    total_followers = models.IntegerField(default=0)
+    total_following = models.IntegerField(default=0)
+    
     class Meta:
         db_table = 'user_activity_summary'
         indexes = [
             models.Index(fields=['user']),
-            models.Index(fields=['last_session_date'])
+            models.Index(fields=['last_session_date']),
+            models.Index(fields=['total_followers']),  # Optional, if you need to query by these
+            models.Index(fields=['total_following']),
+            models.Index(fields=['total_time_spent'])  # Optional, if you need to query by these
         ]
 
     def __str__(self):

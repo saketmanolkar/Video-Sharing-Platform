@@ -7,7 +7,7 @@
     <div class="content-box">
         <div class="formWrapper">
             <div class="backButton-container">
-                <a class="backButton" href="{% if page_type == 'update' %}{% url 'creator-studio' request.user.profile.id %}{% else %}{% url 'projects' %}{% endif %}">&lt;</a>
+                <a class="backButton" href="{% if page_type == 'update' %}{% url 'creator-studio' %} {% else %}{% url 'projects' %}{% endif %}">&lt;</a>
                 <h3 class="formWrapper__subject" style="text-align: center; flex: 1;">
                     {% if page_type == 'update' %}
                         Update Your Video Details
@@ -50,7 +50,7 @@
                                 {% if form.instance.file %}
                                     Current: {{ form.instance.file.name }}
                                 {% else %}
-                                    Choose a video...
+                                    Choose a video (MP4 or MOV only)...
                                 {% endif %}
                             </div>
                         </div>
@@ -68,7 +68,7 @@
                                 {% if form.instance.thumbnail %}
                                     {{ form.instance.thumbnail.name }}
                                 {% else %}
-                                    Choose a thumbnail...
+                                    Choose a thumbnail (JPEG or PNG only)...
                                 {% endif %}
                             </div>
                         </div>
@@ -210,6 +210,11 @@
         background-position: right 1.2rem center;
         background-size: 1.8em;
         padding-right: 3.5rem;
+    }
+    
+    .field-errors {
+        color: #e74c3c;
+        margin-top: 0.5rem;
     }
 </style>
 {% endblock %}

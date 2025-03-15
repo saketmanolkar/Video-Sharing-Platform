@@ -1,0 +1,163 @@
+/* Video.js Base CSS */
+.video-player-container {
+    width: 100%;
+    max-width: 850px;
+    margin: 20px auto 10px;
+    background: #000;
+    border-radius: 0.7rem;
+    overflow: hidden;
+    aspect-ratio: 16/9;
+}
+
+.video-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #000;
+}
+
+.video-js {
+    width: 100% !important;
+    height: 100% !important;
+    background-color: #000;
+}
+
+.video-js .vjs-tech {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain !important;
+}
+
+.video-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;  /* Make padding equal on both sides */
+}
+
+.video-section {
+    width: 100%;
+    margin-bottom: 10px;
+    display: flex;          
+    justify-content: center;  
+    align-items: center;      
+}
+
+/* Video player styles */
+.video-player {
+    width: 100%;
+    max-width: 1000px;  
+    margin: 0 auto;     
+    aspect-ratio: 16/9; 
+    background: #000;   
+    border-radius: 8px; 
+    overflow: hidden;   
+}
+
+.video-js .vjs-poster {
+    background-size: cover;
+    background-position: center center;
+}
+
+/* Processing overlay styles */
+.processing-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 10;
+}
+
+.processing-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Refresh button styles */
+.refresh-btn {
+    margin-top: 20px;
+    padding: 12px 24px;
+    background: #6366f1;  /* Indigo color */
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.refresh-btn:hover {
+    background: #4f46e5;  /* Darker indigo */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.refresh-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.refresh-btn i {
+    font-size: 14px;
+}
+
+/* Loader animation CSS */
+.loader {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.loader .circle {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #6366f1;
+    animation: bounce 0.5s alternate infinite;
+}
+
+.loader .circle:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.loader .circle:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.loader .circle:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+@keyframes bounce {
+    to {
+        transform: translateY(-10px);
+    }
+}

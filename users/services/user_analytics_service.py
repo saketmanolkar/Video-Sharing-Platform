@@ -1,10 +1,11 @@
 from collections import defaultdict, OrderedDict
 from django.utils import timezone
 from datetime import timedelta, datetime
-from users.models import UserSession
+from users.models import UserSession, UserActivitySummary
 import pytz
 from django.contrib.auth import get_user_model
 from users.services.follower_analytics_service import FollowerAnalyticsService
+from django.db import models
 
 User = get_user_model()
 
@@ -12,9 +13,14 @@ class UserAnalyticsService:
     @staticmethod
     def get_user_analytics(user):
         """Get complete user behavior analytics"""
+        # Optimized Query:
         sessions = UserSession.objects.filter(
             user=user,
             start_time__gte=timezone.now() - timedelta(days=30)
+        ).values(
+            'start_time',    # Needed for day/hour
+            'end_time',      # Needed for duration
+            'user_id'        # Needed for filtering
         )
         
         return {
@@ -58,16 +64,15 @@ class UserAnalyticsService:
     @staticmethod
     def _get_heatmap_data(sessions):
         """Transform sessions into day/hour heatmap using local time"""
-        # Step 1: Collect raw data in 24-hour format
         raw_data = defaultdict(lambda: defaultdict(float))
         
         for session in sessions:
-            if session.end_time:
-                local_start = UserAnalyticsService.convert_utc_to_local(session.start_time)
-                local_end = UserAnalyticsService.convert_utc_to_local(session.end_time)
+            if session['end_time']:  # Dictionary access
+                local_start = UserAnalyticsService.convert_utc_to_local(session['start_time'])
+                local_end = UserAnalyticsService.convert_utc_to_local(session['end_time'])
                 
                 day = local_start.strftime('%A')
-                hour_24 = int(local_start.strftime('%H'))  # Keep as 24-hour
+                hour_24 = int(local_start.strftime('%H'))
                 
                 duration = (local_end - local_start).total_seconds() / 60
                 raw_data[day][hour_24] += round(duration, 2)
@@ -93,8 +98,8 @@ class UserAnalyticsService:
         session_count = 0
         
         for session in sessions:
-            if session.end_time:
-                duration = (session.end_time - session.start_time).total_seconds() / 60
+            if session['end_time']:  # Changed from session.end_time
+                duration = (session['end_time'] - session['start_time']).total_seconds() / 60  # Changed access
                 total_time += duration
                 session_count += 1
         
@@ -147,6 +152,17 @@ class UserAnalyticsService:
             return round(sum(active_totals) / len(active_totals), 1)
         
         return 0
+    
+    @staticmethod
+    def get_platform_average_total_time_denormalized():
+        """Calculate average total time spent per user across the platform using denormalized data"""
+       
+        # Calculate average directly from denormalized data
+        avg_time = UserActivitySummary.objects.aggregate(
+            avg_time=models.Avg('total_time_spent')
+        )['avg_time']
+        
+        return round(avg_time or 0, 1)
 
     @staticmethod
     def format_user_data_for_prompt(user):
@@ -155,28 +171,22 @@ class UserAnalyticsService:
             # Get user's activity summary
             activity_summary = user.activity_summary
             
-            # Get last 30 days of sessions for heatmap
-            sessions = UserSession.objects.filter(
-                user=user,
-                start_time__gte=timezone.now() - timedelta(days=30)
-            )
-            
-            # Get heatmap data
-            analytics_service = UserAnalyticsService()
-            heatmap_data = analytics_service._get_heatmap_data(sessions)
+            # Use the optimized get_user_analytics method
+            analytics_data = UserAnalyticsService.get_user_analytics(user)
+            heatmap_data = analytics_data['heatmap_data']
+            time_stats = analytics_data['time_stats']
             
             # Get platform average
-            platform_avg = analytics_service.get_platform_average_total_time()
+            platform_avg = UserAnalyticsService.get_platform_average_total_time_denormalized()
+            follower_analytics_service = FollowerAnalyticsService()
+            follower_metrics = follower_analytics_service.get_follower_analytics(user)
+            new_followers_30d = follower_metrics['new_followers_30d']
             
-            # Get follower analytics
-            follower_service = FollowerAnalyticsService()
-            follower_analytics = follower_service.get_follower_analytics(user)
-            
-            # Extract follower metrics
+            # Get follower metrics directly from activity_summary
             follower_metrics = {
-                'following_count': follower_analytics['following_count'],
-                'new_followers_30d': follower_analytics['new_followers_30d'],
-                'total_followers': follower_analytics['total_followers']
+                'following_count': activity_summary.total_following,
+                'total_followers': activity_summary.total_followers,
+                'new_followers_30d': new_followers_30d
             }
             
             # Format the prompt
@@ -190,12 +200,12 @@ HEATMAP DATA of the last 30 days (Minutes spent per hour):
                 for hour, duration in hours.items():
                     prompt += f"{hour}: {duration} minutes\n"
             
-            # Add summary stats from UserActivitySummary
+            # Add summary stats from UserActivitySummary and time_stats
             prompt += f"""
 OVERALL STATISTICS:
-Total Time Spent: {activity_summary.total_time_spent} minutes
-Average Session Duration: {activity_summary.avg_session_length} minutes
-Number of Sessions: {activity_summary.total_sessions}
+Total Time Spent: {time_stats['total_time']} minutes
+Average Session Duration: {time_stats['avg_session']} minutes
+Number of Sessions: {time_stats['session_count']}
 Count of Visits to {user.username}'s profile by other users: {activity_summary.total_profile_visits}
 Last Active: {activity_summary.last_session_date.strftime('%Y-%m-%d %H:%M')}
 Platform Average Time: {platform_avg} minutes
@@ -226,3 +236,20 @@ and the rest of the report should be the other metrics.
         except Exception as e:
             print(f"Error formatting user data: {str(e)}")
             return None
+
+    @staticmethod
+    def get_user_analytics_all_time(user):
+        """Get complete user behavior analytics for all time (no date filtering)"""
+        # Optimized Query with no time filter:
+        sessions = UserSession.objects.filter(
+            user=user
+        ).values(
+            'start_time',    # Needed for day/hour
+            'end_time',      # Needed for duration
+            'user_id'        # Needed for filtering
+        )
+        
+        return {
+            'heatmap_data': UserAnalyticsService._get_heatmap_data(sessions),
+            'time_stats': UserAnalyticsService._get_time_stats(sessions)
+        }

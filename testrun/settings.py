@@ -13,36 +13,40 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
+import sys
+import ssl  # Add this import at the top with your other imports
+
+# Near the top of the file
+TESTING = 'pytest' in sys.modules or 'test' in sys.argv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 # Add these if not already present
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-VIDEO_UPLOAD_PATH = os.path.join(MEDIA_ROOT, 'videos')
+# MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# VIDEO_UPLOAD_PATH = os.path.join(MEDIA_ROOT, 'videos')
 
-# Create necessary directories
+# # Create necessary directories
+# os.makedirs(VIDEO_UPLOAD_PATH, exist_ok=True)
 
-os.makedirs(VIDEO_UPLOAD_PATH, exist_ok=True)
+# # Create media directories if they don't exist
+# MEDIA_DIRS = [
+#     os.path.join(BASE_DIR, 'media'),
+#     os.path.join(BASE_DIR, 'media', 'videos'),
+#     os.path.join(BASE_DIR, 'media', 'thumbnails'),
+# ]
 
-# Create media directories if they don't exist
-MEDIA_DIRS = [
-    os.path.join(BASE_DIR, 'media'),
-    os.path.join(BASE_DIR, 'media', 'videos'),
-    os.path.join(BASE_DIR, 'media', 'thumbnails'),
-]
-
-for dir_path in MEDIA_DIRS:
-    os.makedirs(dir_path, exist_ok=True)
+# for dir_path in MEDIA_DIRS:
+#     os.makedirs(dir_path, exist_ok=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-@9lv6_22a)6puq7=rft1fq*ggd)3_2(7@tdri)1-z4lipsklr*"
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -68,6 +72,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "debug_toolbar",
+    "storages",
+    'django_ckeditor_5',
 ]
 
 
@@ -162,26 +168,79 @@ WSGI_APPLICATION = "testrun.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": os.environ.get("DB_ENGINE", "django.db.backends.postgresql"),
+        "NAME": os.environ.get("DB_NAME", "defaultdb"),
+        "USER": os.environ.get("DB_USER", "doadmin"),
+        "PASSWORD": os.environ.get("DB_PASSWORD"),  # No default value
+        "HOST": os.environ.get("DB_HOST", "db-postgresql-testrun-do-user-18917001-0.l.db.ondigitalocean.com"),
+        "PORT": os.environ.get("DB_PORT", "25060"),
+        "OPTIONS": {
+            "sslmode": "require",
+            "sslrootcert": os.path.join(BASE_DIR, "cert", "ca-certificate.crt"),
+        }
     }
 }
 
+#DATABASES = {
+#    "default": {
+#        "ENGINE": "django.db.backends.postgresql",
+#        "NAME": "testrun",
+#        "USER": "saketmanolkar",
+#        "PASSWORD": "Clarion67@123",
+#        "HOST": "localhost",
+#        "PORT": "5432",
+#    }
+#}
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
+
+#Get Redis URL from environment with fallback to localhost  
+#REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
+
+# Get Redis URL from environment with fallback to the DigitalOcean Redis instance
+REDIS_URL = os.environ.get('REDIS_URL', 'rediss://default:AVNS_VfAUOUeuEylqQuNwZJK@db-caching-nyc3-18707-do-user-18917001-0.k.db.ondigitalocean.com:25061')
+
+# Update Celery Configuration to use REDIS_URL with correct SSL settings
+CELERY_BROKER_URL = REDIS_URL 
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_REDIS_BACKEND_USE_SSL = {
+    'ssl_cert_reqs': ssl.CERT_NONE
+}
+CELERY_BROKER_USE_SSL = {
+    'ssl_cert_reqs': ssl.CERT_NONE
+}
+
+# Add these future-proofing settings for Celery 6.0
+CELERY_BROKER_CONNECTION_RETRY = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = False
+
+# Recommended performance settings
+CELERY_BROKER_POOL_LIMIT = 10
+CELERY_WORKER_PREFETCH_MULTIPLIER = 4  # Allow workers to prefetch multiple tasks
+CELERY_TASK_ACKS_LATE = True  # Only acknowledge tasks after they're completed
+
+# Update CACHES configuration
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",
+        "LOCATION": REDIS_URL + '/1',
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CONNECTION_POOL_KWARGS": {
                 "max_connections": 10,
                 "socket_timeout": 20,
                 "socket_connect_timeout": 20,
-                "retry_on_timeout": True
+                "retry_on_timeout": True,
+                "ssl_cert_reqs": ssl.CERT_NONE
             },
             "REDIS_CLIENT_CONFIG": {
-                "maxmemory": "4gb",
+                "maxmemory": "900mb",
                 "maxmemory-policy": "allkeys-lru"
             }
         }
@@ -218,18 +277,20 @@ USE_I18N = True
 
 USE_TZ = True
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Frontend development server
-    "http://127.0.0.1:8000",  # Django development server
-]
+#CORS_ALLOWED_ORIGINS = [
+#    "http://localhost:3000",  # Frontend development server
+#    "http://127.0.0.1:8000",  # Django development server
+#]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 #Email SMTP Settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'filmsnation99@gmail.com'
-EMAIL_HOST_PASSWORD = 'iipo pjsw mhjv aumx'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'filmsnation99@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
 
 # Static files (CSS, JavaScript, Images)
@@ -243,6 +304,47 @@ STATICFILES_DIRS = [
 
 # Add this near your other static files settings
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# DigitalOcean Spaces configuration 
+AWS_DEFAULT_ACL = os.environ.get('AWS_DEFAULT_ACL', 'public-read')
+AWS_QUERYSTRING_AUTH = os.environ.get('AWS_QUERYSTRING_AUTH', 'False').lower() == 'true'
+AWS_FILE_OVERWRITE = os.environ.get('AWS_FILE_OVERWRITE', 'False').lower() == 'true'
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', 'bucket-devserach')
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'nyc3')
+AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN', 'bucket-devserach.nyc3.cdn.digitaloceanspaces.com')
+
+# Fixed endpoint URL
+AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', 'https://nyc3.digitaloceanspaces.com')
+
+# Conditional storage configuration based on environment
+if TESTING:
+    # Use local storage for testing
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    
+    # Define video upload path
+    VIDEO_UPLOAD_PATH = os.path.join(MEDIA_ROOT, 'videos')
+    
+    # Create necessary media directories if they don't exist
+    MEDIA_DIRS = [
+        os.path.join(BASE_DIR, 'media'),
+        os.path.join(BASE_DIR, 'media', 'videos'),
+        os.path.join(BASE_DIR, 'media', 'thumbnails'),
+        os.path.join(BASE_DIR, 'media', 'reports'),
+        os.path.join(BASE_DIR, 'media', 'profiles'),
+    ]
+    for dir_path in MEDIA_DIRS:
+        os.makedirs(dir_path, exist_ok=True)
+        
+    # Create video upload path
+    os.makedirs(VIDEO_UPLOAD_PATH, exist_ok=True)
+else:
+    # Use DigitalOcean Spaces in production
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -291,8 +393,6 @@ LOGGING = {
 }
 
 # Celery Configuration
-CELERY_BROKER_URL = 'redis://localhost:6379/0'      # Ensure DB 0
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Ensure DB 0
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -318,4 +418,16 @@ CELERY_WORKER_MAX_MEMORY_PER_CHILD = 50000  # 50MB
 
 INTERNAL_IPS = [
     '127.0.0.1',  # Add your local IP address if needed
+    '*' # Allow all hosts
 ]
+
+# Django CKEditor 5 settings
+CKEDITOR_5_CONFIGS = {
+    'default': {
+        'toolbar': ['heading', '|', 'bold', 'italic', 'link',
+                   'bulletedList', 'numberedList', 'blockQuote', 'imageUpload', ],
+    }
+}
+
+CKEDITOR_5_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+CKEDITOR_5_STORAGE_BACKEND = "storages.backends.s3boto3.S3Boto3Storage"

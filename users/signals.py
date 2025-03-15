@@ -9,13 +9,16 @@ from users.models import UserSession, UserActivitySummary
 from users.services.user_analytics_service import UserAnalyticsService
 import traceback
 from django.utils import timezone
+from django.db import transaction
+from django.utils import timezone
 
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     """Create Profile when User is created"""
-    print('🟢 Creating Profile Signal: New user profile being created')
+    # Only proceed if this is a new user creation
     if created:
+        print('🟢 Creating Profile Signal: New user profile being created')
         Profile = apps.get_model('users', 'Profile')
         Message = apps.get_model('users', 'Message')
         
@@ -56,6 +59,9 @@ def create_user_profile(sender, instance, created, **kwargs):
             recipient_list=[instance.email],
             fail_silently=False,
         )
+        print(f'✨ Welcome email sent to: {instance.username}')
+    else:
+        print(f'⏩ Skipping profile creation for existing user: {instance.username}')
 
 
 @receiver(pre_save, sender='users.Profile')
@@ -110,22 +116,24 @@ def update_user_activity_summary(sender, instance, **kwargs):
                 session_duration = (instance.end_time - instance.start_time).total_seconds() / 60
             
             # Update session owner's summary first
-            owner_summary, created = UserActivitySummary.objects.get_or_create(
-                user=instance.user,
-                defaults={
-                    'total_sessions': 1,
-                    'total_time_spent': session_duration,
-                    'avg_session_length': session_duration,
-                    'last_session_date': timezone.now()
-                }
-            )
-            
-            if not created:
-                owner_summary.total_sessions += 1
-                owner_summary.total_time_spent += session_duration
-                owner_summary.avg_session_length = owner_summary.total_time_spent / owner_summary.total_sessions
-                owner_summary.last_session_date = timezone.now()
-                owner_summary.save()
+            with transaction.atomic():
+                # Use select_for_update to lock the row
+                owner_summary, created = UserActivitySummary.objects.select_for_update().get_or_create(
+                    user=instance.user,
+                    defaults={
+                        'total_sessions': 1,
+                        'total_time_spent': session_duration,
+                        'avg_session_length': session_duration,
+                        'last_session_date': timezone.now()
+                    }
+                )
+                
+                if not created:
+                    owner_summary.total_sessions += 1
+                    owner_summary.total_time_spent += session_duration
+                    owner_summary.avg_session_length = owner_summary.total_time_spent / owner_summary.total_sessions
+                    owner_summary.last_session_date = timezone.now()
+                    owner_summary.save()
             
             print("🔍 Checking profile visits...")
             # Now update profile visit counts for OTHER users this person visited
@@ -147,19 +155,21 @@ def update_user_activity_summary(sender, instance, **kwargs):
                             if visited_user:
                                 print(f"👤 Found visited user: {visited_user.username}")
                                 
-                                visited_summary, created = UserActivitySummary.objects.get_or_create(
-                                    user=visited_user,
-                                    defaults={
-                                        'total_sessions': 0,
-                                        'total_time_spent': 0,
-                                        'avg_session_length': 0,
-                                        'total_profile_visits': 1,
-                                        'last_session_date': timezone.now()
-                                    }
-                                )
-                                if not created:
-                                    visited_summary.total_profile_visits += 1
-                                    visited_summary.save(update_fields=['total_profile_visits'])
+                                with transaction.atomic():
+                                    # Use select_for_update to lock the row
+                                    visited_summary, created = UserActivitySummary.objects.select_for_update().get_or_create(
+                                        user=visited_user,
+                                        defaults={
+                                            'total_sessions': 0,
+                                            'total_time_spent': 0,
+                                            'avg_session_length': 0,
+                                            'total_profile_visits': 1,
+                                            'last_session_date': timezone.now()
+                                        }
+                                    )
+                                    if not created:
+                                        visited_summary.total_profile_visits += 1
+                                        visited_summary.save(update_fields=['total_profile_visits'])
                                 print(f"👀 Added visit to {visited_user.username}'s profile (total: {visited_summary.total_profile_visits})")
                             else:
                                 print(f"⚠️ Could not find user with profile ID: {profile_id}")

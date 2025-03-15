@@ -1,8 +1,13 @@
 from django.forms import ModelForm
 from django import forms
 from .models import Video, Tag, Review, Playlist, PlaylistItem
+from django.utils.html import strip_tags
+from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
+import os
+import mimetypes  # Built-in library, no extra dependencies
 
-class ProjectForm(ModelForm):
+class ProjectForm(forms.ModelForm):
     class Meta:
         model = Video
         fields = ['title', 'description', 'file', 'thumbnail', 'tags', 'privacy_status']
@@ -19,10 +24,12 @@ class ProjectForm(ModelForm):
             'file': forms.FileInput(attrs={
                 'class': 'file-input',
                 'accept': 'video/mp4,video/mov'
+                
             }),
             'thumbnail': forms.FileInput(attrs={
                 'class': 'file-input',
                 'accept': 'image/*'
+                
             }),
             'tags': forms.CheckboxSelectMultiple(attrs={
                 'class': 'tag-checkbox'
@@ -62,11 +69,111 @@ class ProjectForm(ModelForm):
             if name not in ['file', 'thumbnail']:
                 field.widget.attrs.update({'class': 'input'})
     
+    def clean_title(self):
+        title = self.cleaned_data.get('title')
+        if not title:
+            raise forms.ValidationError("Title is required")
+        
+        # Sanitize title - remove HTML tags
+        sanitized_title = strip_tags(title.strip())
+        
+        # Enforce length limits
+        if len(sanitized_title) < 3:
+            raise forms.ValidationError("Title must be at least 3 characters long")
+        if len(sanitized_title) > 100:
+            raise forms.ValidationError("Title must be less than 100 characters")
+            
+        return sanitized_title
+    
+    def clean_description(self):
+        description = self.cleaned_data.get('description')
+        if not description:
+            raise forms.ValidationError("Description is required")
+        
+        # Sanitize description - remove HTML tags
+        sanitized_description = strip_tags(description.strip())
+        
+        # Count words instead of characters
+        word_count = len(sanitized_description.split())
+        
+        # Enforce word limits
+        if word_count < 5:
+            raise forms.ValidationError("Description must be at least 5 words long")
+        if word_count > 100:
+            raise forms.ValidationError("Description must be no more than 100 words")
+            
+        return sanitized_description
+    
+    def clean_file(self):
+        file = self.cleaned_data.get('file')
+        # If we're updating and no new file was provided, return None
+        if not file and self.instance and self.instance.pk:
+            return self.instance.file
+            
+        if file:
+            # Check file size (limit to 2GB)
+            if file.size > 2147483648:  # 2GB in bytes
+                raise forms.ValidationError("File size must be less than 500MB")
+                
+            # Check file extension
+            ext = os.path.splitext(file.name)[1].lower()
+            valid_extensions = ['.mp4', '.mov']
+            if ext not in valid_extensions:
+                raise forms.ValidationError(f"Only {', '.join(valid_extensions)} files are allowed")
+                
+            # Check MIME type using built-in mimetypes library
+            mime_type, encoding = mimetypes.guess_type(file.name)
+            if mime_type:
+                valid_types = ['video/mp4', 'video/quicktime']
+                if mime_type not in valid_types:
+                    raise forms.ValidationError(f"File type {mime_type} is not supported")
+                
+        return file
+        
+    def clean_thumbnail(self):
+        thumbnail = self.cleaned_data.get('thumbnail')
+        # If we're updating and no new thumbnail was provided, return None
+        if not thumbnail and self.instance and self.instance.pk:
+            return self.instance.thumbnail
+            
+        if thumbnail:
+            # Check file size (limit to 25MB)
+            if thumbnail.size > 26214400:  # 25MB in bytes
+                raise forms.ValidationError("Thumbnail size must be less than 5MB")
+                
+            # Check file extension
+            ext = os.path.splitext(thumbnail.name)[1].lower()
+            valid_extensions = ['.jpg', '.jpeg', '.png']
+            if ext not in valid_extensions:
+                raise forms.ValidationError(f"Only {', '.join(valid_extensions)} files are allowed for thumbnails")
+                
+            # Check MIME type using built-in mimetypes library
+            mime_type, encoding = mimetypes.guess_type(thumbnail.name)
+            if mime_type:
+                valid_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+                if mime_type not in valid_types:
+                    raise forms.ValidationError(f"Thumbnail type {mime_type} is not supported")
+                
+        return thumbnail
+    
     def clean_tags(self):
         tags = self.cleaned_data.get('tags')
-        if not tags:
+        if not tags or len(tags) == 0:
             raise forms.ValidationError("Please select at least one tag")
         return tags
+    
+    
+    def clean_privacy_status(self):
+        status = self.cleaned_data.get('privacy_status')
+        valid_statuses = [choice[0] for choice in Video.PRIVACY_CHOICES]
+        
+        if not status:
+            raise forms.ValidationError("Please select a privacy status")
+        
+        if status not in valid_statuses:
+            raise forms.ValidationError("Invalid privacy status selected")
+            
+        return status
         
         
 class ReviewForm(ModelForm):
@@ -187,3 +294,19 @@ class CreatePlaylistForm(forms.ModelForm):
                 }
             )
         }
+    
+    def clean_name(self):
+        name = self.cleaned_data.get('name', '')
+        
+        # Sanitize name - remove HTML tags and trim whitespace
+        sanitized_name = strip_tags(name.strip())
+        
+        # Validate name is not empty
+        if not sanitized_name:
+            raise forms.ValidationError("Playlist name cannot be empty")
+        
+        # Validate name length
+        if len(sanitized_name) > 100:
+            raise forms.ValidationError("Playlist name must be less than 100 characters")
+        
+        return sanitized_name

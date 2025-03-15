@@ -1,11 +1,23 @@
 {% extends 'main.html' %}
 {% load static %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'styles/components/video_grid.css' %}">
+{% endblock %}
+
 {% block content %}
     <main class="projects">
         <section class="hero-section text-center">
           <div class="container container--narrow">
             <div class="hero-section__box">
               <h2>Search for <span>Videos</span></h2>
+              {% if request.user.is_authenticated %}
+                <p style="font-size: 1.57rem; color: #666; margin-bottom: 2rem;"> Hello, {{ request.user.first_name }}! Explore to your heart's content!</p>
+              {% else %}
+                <p style="font-size: 1.57rem; color: #666; margin-bottom: 0rem;"> Hello, Anon! </p>
+                <p style="font-size: 1.57rem; color: #666; margin-bottom: -1rem;"> For testing purposes, you need to have an account to explore the site. Thanks!</p>
+              {% endif %}
+
             </div>
     
             <div class="hero-section__search">

@@ -1,10 +1,20 @@
 {% extends 'main.html' %}
 {% load static %}
 
+{% block styles %}
+<link rel="stylesheet" href="{% static 'styles/components/playlist_preview.css' %}">
+<link rel="stylesheet" href="{% static 'styles/templates/profile_page.css' %}">
+<style>
+  /* Simple solution to push content down when empty */
+  .empty-content-spacer {
+    min-height: 350px; /* Add space when no videos/playlists */
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 {% csrf_token %}
-<!-- <main class="profile-page-pattern"> -->
-<main class="checkered-background">
+<main class="checkered-background" style="min-height: calc(100vh - 80px); display: flex; flex-direction: column; position: relative;">
   <br>
 
   <section class="projectsList" style="margin-top: 0;">
@@ -17,7 +27,7 @@
               <!-- Only show edit button if the profile belongs to the logged-in user -->
               <div class="edit-button-container">
                 {% if request.user == profile.user %}
-                  <a class="edit-button" href="{% url 'update-profile' profile.id %}">
+                  <a class="edit-button" href="{% url 'update-profile'%}">
                     Edit Profile
                   </a>
                 {% elif request.user.is_authenticated %}
@@ -86,7 +96,7 @@
 
                   <!-- Inbox Button -->
                   <div class="profile-action-btn">
-                    <a href="{% url 'creator-studio' profile.id %}" class="profile-btn">
+                    <a href="{% url 'creator-studio' %}" class="profile-btn">
                       <i class="fas fa-video"></i>
                       <span>Creator Studio</span>
                     </a>
@@ -97,9 +107,19 @@
 
                   <!-- Inbox Button -->
                   <div class="profile-action-btn">
-                    <a href="{% url 'analytics' profile.id %}" class="profile-btn">
+                    <a href="{% url 'analytics' %}" class="profile-btn">
                       <i class="fas fa-chart-line"></i>
                       <span>Analytics Hub</span>
+                    </a>
+                  </div>
+
+                  <div class="profile-btn-separator"></div>
+                  
+                  <!-- Settings Button -->
+                  <div class="profile-action-btn">
+                    <a href="{% url 'user-history' %}" class="profile-btn">
+                      <i class="fas fa-history"></i>
+                      <span>Your Viewing History</span>
                     </a>
                   </div>
 
@@ -175,63 +195,55 @@
 
         <!-- Right Column - About & Skills (90%) -->
         <div class="column" style="margin-left: 20%;">
-          <div class="card project" style="min-height: 800px; background: white;">
+          <div class="card project" style="min-height: 110vh; background: white; position: relative;">
             <div class="card__body" style="padding: 4rem;">
               <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 2rem;">{{ profile.user.first_name }}'s Profile Page</h3>
               <p class="project--rating" style="min-height: 100px; font-size: 1.3rem; line-height: 1.8; color: #444; margin-bottom: 4rem;">
-                {{ profile.bio|default:"Type your bio here..." }}
+                {{ profile.bio|default:"No bio provided yet....." }}
               </p>
 
               <!-- Uploaded Videos Section -->
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Uploaded Videos</h3>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; margin-top: -4rem;">
+                <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Videos Preview</h3>
                 <span class="tag tag--pill tag--sub tag--lg">
                   <a href="{% url 'user-videos' profile.id %}" style="text-decoration: none; color: inherit;">
-                    See All Videos ({{ profile.user.uploaded_videos.count }})
+                    See All Videos
                   </a>
                 </span>
               </div>
               {% include 'components/video_preview.html' with videos=videos %}
 
-
               <!-- Playlists Section -->
               <div class="playlist-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
-                  <h3 class="project__title" style="font-size: 2.5rem; margin: 0;">Playlists</h3>
+                  <h3 class="project__title" style="font-size: 2.5rem; margin: 0;">Playlists Preview</h3>
                   <div class="playlist-actions" style="display: flex; gap: 0.5rem;">
                     {% if request.user.profile.id == profile.id and request.user.is_authenticated %}
                       <span class="tag tag--pill tag--sub tag--lg">
-                          <a href="{% url 'create-playlist' profile.id %}" style="text-decoration: none; color: inherit;">
+                          <a href="{% url 'create-playlist' %}" style="text-decoration: none; color: inherit;">
                               +
                           </a>
                       </span>
                     {% endif %}
                       <span class="tag tag--pill tag--sub tag--lg">
                           <a href="{% url 'user-videos' profile.id %}" style="text-decoration: none; color: inherit;">
-                              See All Playlists ({{ profile.user.playlists.count }})
+                              See All Playlists 
                           </a>
                       </span>
                   </div>
               </div>
-              <div class="playlists-grid">
+              <div class="playlists-grid" style="margin-bottom: 3rem;">
                 {% for playlist in playlists %}
                     {% include 'components/playlist_preview.html' with playlist=playlist %}
                 {% empty %}
                   <p>No playlists created yet.</p>
                 {% endfor %}
               </div>
-
-              <!-- Viewing History Section -->
-              {% if user.is_authenticated and user.id == profile.user.id %}
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                  <h3 class="project__title" style="font-size: 2.5rem; margin-bottom: 0;">Viewing History</h3>
-                  <span class="tag tag--pill tag--sub tag--lg">
-                    <a href="{% url 'user-history' profile.id %}" style="text-decoration: none; color: inherit;">
-                      See All History ({{ profile.user.view_history.count }})
-                    </a>
-                  </span>
-                </div>
-                {% include 'components/video_preview.html' with videos=view_history %}
+              
+              {% if not videos %}
+              <!-- Add spacer AFTER playlists but only when there are no videos -->
+              <div class="empty-content-spacer"></div>
               {% endif %}
+              
             </div>
           </div>
         </div>

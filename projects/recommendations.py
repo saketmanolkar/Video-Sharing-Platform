@@ -31,18 +31,18 @@ def get_video_recommendations(video):
         popular_videos = Video.objects.exclude(id=video.id)
         recommended = recommended | popular_videos
         
-        # Apply final ordering after combining
-        return recommended.distinct().order_by('-views', '-created_at')[:5]
+        # Apply final ordering after combining and add select_related for uploader
+        return recommended.distinct().select_related('uploader').order_by('-views', '-created_at')[:5]
         
     except Exception as e:
         logger.error(f"Error getting video recommendations: {str(e)}")
-        # Fallback to recent videos
-        return Video.objects.exclude(id=video.id).order_by('-created_at')[:5]
+        # Fallback to recent videos with select_related
+        return Video.objects.exclude(id=video.id).select_related('uploader').order_by('-created_at')[:5]
 
 def get_trending_videos(max_videos=5):
     """Get trending videos based on views"""
     try:
-        return Video.objects.order_by('-views', '-created_at')[:max_videos]
+        return Video.objects.select_related('uploader').order_by('-views', '-created_at')[:max_videos]
     except Exception as e:
         logger.error(f"Error getting trending videos: {str(e)}")
         return Video.objects.none()
@@ -54,7 +54,7 @@ def get_similar_by_tags(video, max_videos=5):
             tags__in=video.tags.all()
         ).exclude(
             id=video.id
-        ).distinct().order_by('-created_at')[:max_videos]
+        ).select_related('uploader').distinct().order_by('-created_at')[:max_videos]
     except Exception as e:
         logger.error(f"Error getting similar videos by tags: {str(e)}")
         return Video.objects.none()
@@ -62,7 +62,7 @@ def get_similar_by_tags(video, max_videos=5):
 def get_latest_videos(max_videos=5):
     """Get latest uploaded videos"""
     try:
-        return Video.objects.order_by('-created_at')[:max_videos]
+        return Video.objects.select_related('uploader').order_by('-created_at')[:max_videos]
     except Exception as e:
         logger.error(f"Error getting latest videos: {str(e)}")
         return Video.objects.none() 

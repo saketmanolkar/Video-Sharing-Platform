@@ -2739,3 +2739,9 @@ a.project:active {
 .settings__btn {
   white-space: nowrap;
 }
+
+/* Emergency fix for teal bar */
+.checkered-background::after,
+body::after {
+  display: none !important;
+}

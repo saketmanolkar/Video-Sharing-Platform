@@ -29,10 +29,8 @@ media/
 staticfiles/
 
 # Virtual Environment
-venv/
-ENV/
-env/
 .env
+vhs/
 
 # IDE
 .idea/
@@ -43,3 +41,6 @@ env/
 # OS
 .DS_Store
 Thumbs.db 
+
+# Reference
+Reference material/

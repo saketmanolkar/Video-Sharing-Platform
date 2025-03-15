@@ -122,8 +122,18 @@ class VideoStatsCache:
         self.redis = get_redis_connection("default")
     
     @staticmethod
+    def normalize_user_id(user_id):
+        """Convert any user ID format to a consistent format"""
+        # If it's a prefixed string like 'user_1', extract the numeric part
+        if isinstance(user_id, str) and user_id.startswith('user_'):
+            return user_id.replace('user_', '')
+        return str(user_id)  # Otherwise, ensure it's a string
+    
+    @staticmethod
     def get_cache_key(user_id):
-        return f"{VideoStatsCache.FOLDER}:{user_id}"  # Single key for user stats
+        """Get a consistent cache key regardless of user ID format"""
+        normalized_id = VideoStatsCache.normalize_user_id(user_id)
+        return f"{VideoStatsCache.FOLDER}:{normalized_id}"
     
     def set_video_stats(self, user_id, video_id, window_id, stats):
         """Add video stats to cache under a single user key as a hash"""
@@ -139,19 +149,92 @@ class VideoStatsCache:
         }))
         self.redis.expire(cache_key, self.TTL)  # Set TTL for the hash
 
-        logger.info(f"📊 Added video stats for user ID {user_id}: {field_key}.")
+        logger.info(f"📊 Added video stats for user ID {user_id} (normalized: {self.normalize_user_id(user_id)}): {field_key}.")
 
     def get_video_stats(self, user_id):
         """Get all video stats for a user"""
         cache_key = self.get_cache_key(user_id)
         try:
             stats = self.redis.hgetall(cache_key)  # Get all entries in the hash
-            return {key.decode(): json.loads(value) for key, value in stats.items()}  # Decode each entry
+            if stats:
+                logger.info(f"📋 Found {len(stats)} video stats in cache for user {user_id}")
+                return {key.decode(): json.loads(value) for key, value in stats.items()}
+            else:
+                logger.warning(f"📭 No video stats found in cache for user {user_id}")
+                return {}  # Return empty dict instead of None
         except Exception as e:
-            logger.error(f"Failed to get video stats: {str(e)}")
-        return None
+            logger.error(f"❌ Failed to get video stats: {str(e)}")
+            return {}
     
     def invalidate(self, user_id):
         """Invalidate all video stats for a user"""
         cache_key = self.get_cache_key(user_id)
-        self.redis.delete(cache_key)
+        normalized_id = self.normalize_user_id(user_id)
+        result = self.redis.delete(cache_key)
+        logger.info(f"🗑️ Invalidated cached video stats for user ID: {user_id} (normalized: {normalized_id}), result: {result}")
+
+class SessionLockCache:
+    FOLDER = ":1:session"
+    LOCK_TTL = 30  # 30 seconds timeout
+    TASK_TTL = 60  # 60 seconds for task tracking
+    
+    def __init__(self):
+        self.redis = get_redis_connection("default")
+    
+    def get_lock_key(self, user_id):
+        return f"{self.FOLDER}:creation_lock:{user_id}"
+    
+    def get_task_key(self, user_id):
+        return f"{self.FOLDER}:task:{user_id}"
+    
+    def acquire_lock(self, user_id):
+        """Try to acquire session creation lock"""
+        lock_key = self.get_lock_key(user_id)
+        return self.redis.set(
+            lock_key, 
+            "1", 
+            ex=self.LOCK_TTL, 
+            nx=True
+        )
+    
+    def store_task_id(self, user_id, task_id):
+        """Store the session creation task ID"""
+        task_key = self.get_task_key(user_id)
+        self.redis.setex(
+            task_key,
+            self.TASK_TTL,
+            task_id
+        )
+    
+    def get_task_id(self, user_id):
+        """Get stored task ID if exists"""
+        task_key = self.get_task_key(user_id)
+        return self.redis.get(task_key)
+
+class TTSLockCache:
+    """Manages a global TTS generation lock to prevent multiple simultaneous generations"""
+    FOLDER = ":1:tts"
+    LOCK_TTL = 900  # 15 minutes timeout (should be longer than typical TTS generation)
+    
+    def __init__(self):
+        self.redis = get_redis_connection("default")
+    
+    def get_global_lock_key(self):
+        """Get the key for the global TTS lock"""
+        return f"{self.FOLDER}:global_lock"
+    
+    def acquire_global_lock(self):
+        """Try to acquire the global TTS lock
+        Returns True if the lock was acquired, False otherwise"""
+        lock_key = self.get_global_lock_key()
+        return self.redis.set(
+            lock_key, 
+            "1", 
+            ex=self.LOCK_TTL,  # Expires after 15 minutes
+            nx=True            # Only set if key doesn't exist
+        )
+    
+    def release_global_lock(self):
+        """Release the global TTS lock"""
+        lock_key = self.get_global_lock_key()
+        return self.redis.delete(lock_key)

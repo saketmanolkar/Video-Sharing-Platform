@@ -350,6 +350,11 @@ function initializeHeatmapChart(chartData) {
         heatmapChart.destroy();
     }
 
+    if (!chartData || !chartData.activity_data) {
+        console.log('No activity data for heatmap');
+        return;
+    }
+
     const activityData = chartData.activity_data;
     
     const hours = [
@@ -371,8 +376,9 @@ function initializeHeatmapChart(chartData) {
                     }))
                 ),
                 pointStyle: 'rect',
-                pointRadius: 8,  // Increased point size
-                backgroundColor: context => {
+                pointRadius: 8,
+                backgroundColor: function(context) {
+                    if (!context.raw) return 'rgba(33, 150, 243, 0.4)';
                     const value = context.raw.v;
                     return value > 30 ? 'rgba(33, 150, 243, 0.9)' : 'rgba(33, 150, 243, 0.4)';
                 },
@@ -453,9 +459,18 @@ function initializeHeatmapChart(chartData) {
 // Move this outside as a separate function
 function initializeFollowerCharts(followerData) {
     const pieChartOptions = {
-        responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 1.5,
+        responsive: false,
+        maintainAspectRatio: false,
+        width: 172,  // Match container width
+        height: 114, // Match container height
+        layout: {
+            padding: {
+                top: 0,
+                right: 0,
+                bottom: 0,  // Exact legend height from debug
+                left: 0
+            }
+        },
         plugins: {
             legend: {
                 position: 'bottom',
@@ -469,8 +484,66 @@ function initializeFollowerCharts(followerData) {
                     font: { size: 12 }
                 }
             }
+        },
+        animation: {
+            onComplete: function(animation) {
+                const chart = animation.chart;
+                const canvas = chart.canvas;
+                const chartArea = chart.chartArea;
+                const container = canvas.parentNode;
+
+                console.log(`${canvas.id} detailed dimensions:`, {
+                    // Canvas properties
+                    canvas: {
+                        width: canvas.width,
+                        height: canvas.height,
+                        style: {
+                            width: canvas.style.width,
+                            height: canvas.style.height
+                        }
+                    },
+                    // Chart area (where the actual pie is drawn)
+                    chartArea: {
+                        top: chartArea.top,
+                        right: chartArea.right,
+                        bottom: chartArea.bottom,
+                        left: chartArea.left,
+                        width: chartArea.width,
+                        height: chartArea.height
+                    },
+                    // Container dimensions
+                    container: {
+                        width: container.offsetWidth,
+                        height: container.offsetHeight,
+                        clientWidth: container.clientWidth,
+                        clientHeight: container.clientHeight
+                    },
+                    // Computed ratios
+                    ratios: {
+                        aspectRatio: canvas.width / canvas.height,
+                        chartAreaRatio: chartArea.width / chartArea.height,
+                        containerRatio: container.offsetWidth / container.offsetHeight
+                    },
+                    // Legend space
+                    legend: {
+                        position: chart.options.plugins.legend.position,
+                        height: chart.legend.height,
+                        width: chart.legend.width
+                    }
+                });
+            }
         }
     };
+
+    // Add CSS to force container size
+    const pieCharts = ['commentsPie', 'dislikesPie', 'likesPie', 'viewsPie'];
+    pieCharts.forEach(chartId => {
+        const canvas = document.getElementById(chartId);
+        if (canvas) {
+            canvas.style.width = '172px';
+            canvas.style.height = '114px';
+        }
+    });
 
     // Comments Distribution
     new Chart(document.getElementById('commentsPie'), {

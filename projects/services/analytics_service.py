@@ -1,7 +1,8 @@
 from django.db.models.functions import TruncDay, TruncHour, ExtractHour, ExtractIsoWeekDay
-from django.db.models import Count, F
+from django.db.models import Count, F, Sum
 from django.utils import timezone
 from datetime import timedelta
+from users.services.follower_analytics_service import FollowerAnalyticsService
 
 class AnalyticsService:
     # Existing view methods
@@ -77,34 +78,86 @@ class AnalyticsService:
             'labels': [video.title for video in videos],
             'data': [video.analytics.total_comments if hasattr(video, 'analytics') else 0 for video in videos]
         }
+    
+    @staticmethod
+    def get_watch_time_data(videos):
+        """Get watch time data for chart"""
+        return [
+            {
+                'video_title': video.title,
+                'avg_watch_time': round(video.analytics.watch_time, 2) if hasattr(video, 'analytics') else 0
+            }
+            for video in videos
+        ]
 
     @staticmethod
+    def get_completion_rate_data(videos):
+        """Get completion rate data for user"""
+        return [
+            {
+                'video_title': video.title,
+                'completion_rate': round(video.analytics.completion_rate, 2) if hasattr(video, 'analytics') else 0
+            }
+            for video in videos
+        ]
+    
+    @staticmethod
+    def get_avg_completion_rate_for_user_data(videos):
+        """Get average completion rate data for user"""
+        total_views = sum(video.analytics.total_views for video in videos)
+        completed_views = sum(video.analytics.completed_views for video in videos)
+        
+        completion_rate = (completed_views / total_views) * 100 if total_views > 0 else 0
+        return round(completion_rate, 2)
+    
+    @staticmethod
+    def get_avg_watch_time_for_user_data(videos):
+        """Get average watch time data for user"""
+        total_watch_time = sum(video.analytics.watch_time for video in videos)
+        return round(total_watch_time / len(videos), 2) if len(videos) > 0 else 0
+    
+    @staticmethod
     def get_total_views_data(videos):
-        """Get total views data for chart"""
-        return {
-            'labels': [video.title for video in videos],
-            'data': [video.analytics.total_views if hasattr(video, 'analytics') else 0 for video in videos]
-        }
+        """Get total views data without additional DB query"""
+        return [
+            {
+                'video_title': video.title,
+                'total_views': video.analytics.total_views if hasattr(video, 'analytics') else 0
+            }
+            for video in videos
+        ]
 
     @staticmethod
     def get_peak_viewing_hour(user_videos, days=30):
-        """Get peak viewing hour across all user videos by comparing hourly distributions"""
-        hourly_totals = {i: 0 for i in range(24)}
+        """Get peak viewing hour across all user videos in a single query"""
+        from django.db.models.functions import ExtractHour
         
-        # Get hourly distribution for each video and aggregate
-        for video in user_videos:
-            hourly_views = AnalyticsService.get_views_by_hour(video, days)
-            for view in hourly_views:
-                hour = view['hour']
-                count = view['count']
-                hourly_totals[hour] += count
+        # Get all hourly views in one query
+        hourly_totals = user_videos.filter(
+            views_history__viewed_at__gte=timezone.now() - timedelta(days=days)
+        ).annotate(
+            hour=ExtractHour('views_history__viewed_at')
+        ).values('hour').annotate(
+            count=Count('views_history')  # Changed from Sum to Count
+        ).order_by('hour')
         
+        # Convert to dict for easy lookup
+        hour_dict = {
+            i: 0 for i in range(24)  # Initialize all hours to 0
+        }
         
+        # Fill in actual values
+        for entry in hourly_totals:
+            if entry['hour'] is not None:  # Handle possible NULL values
+                hour_dict[entry['hour']] = entry['count'] or 0
         
-        # Find all hours with maximum views
-        max_views = max(hourly_totals.values())
-        peak_hours = [hour for hour, views in hourly_totals.items() if views == max_views]
+        # If no views, return None
+        if max(hour_dict.values()) == 0:
+            return None
         
+        # Find peak hours
+        max_views = max(hour_dict.values())
+        peak_hours = [hour for hour, views in hour_dict.items() if views == max_views]
         
         def format_hour(hour):
             """Helper function to correctly format hour in 12-hour format"""
@@ -117,11 +170,10 @@ class AnalyticsService:
             else:
                 return f"{hour - 12} PM"
         
-        # If there are ties, take up to 2 earliest hours
+        # Format output
         if len(peak_hours) == 1:
             return format_hour(peak_hours[0])
         else:
-            # Sort and take first two peak hours
             peak_hours = sorted(peak_hours)[:2]
             return f"{format_hour(peak_hours[0])} & {format_hour(peak_hours[1])}"
 
@@ -158,31 +210,37 @@ class AnalyticsService:
 
     @staticmethod
     def get_peak_viewing_day(user_videos, days=30):
-        """Get peak viewing day(s) across all user videos"""
-        weekday_totals = {
-            1: 0,  # Monday
-            2: 0,  # Tuesday
-            3: 0,  # Wednesday
-            4: 0,  # Thursday
-            5: 0,  # Friday
-            6: 0,  # Saturday
-            7: 0   # Sunday
+        """Get peak viewing day(s) across all user videos in a single query"""
+        from django.db.models import Count
+        from django.db.models.functions import ExtractIsoWeekDay
+        
+        # Get all weekday views in one query
+        weekday_totals = user_videos.filter(
+            views_history__viewed_at__gte=timezone.now() - timedelta(days=days)
+        ).annotate(
+            weekday=ExtractIsoWeekDay('views_history__viewed_at')  # 1=Monday, 7=Sunday
+        ).values('weekday').annotate(
+            count=Count('views_history')
+        ).order_by('weekday')
+        
+        # Initialize weekday totals
+        day_dict = {
+            i: 0 for i in range(1, 8)  # 1=Monday to 7=Sunday
         }
         
-        # Get weekly distribution for each video and aggregate
-        for video in user_videos:
-            weekday_views = AnalyticsService.get_views_by_weekday(video, days)
-            for view in weekday_views:
-                weekday = view['weekday']
-                count = view['count']
-                weekday_totals[weekday] += count
+        # Fill in actual values
+        for entry in weekday_totals:
+            if entry['weekday'] is not None:
+                day_dict[entry['weekday']] = entry['count'] or 0
         
-      
+        # If no views, return None
+        if max(day_dict.values()) == 0:
+            return None
         
-        # Find all days with maximum views
-        max_views = max(weekday_totals.values())
-        peak_days = [day for day, views in weekday_totals.items() if views == max_views]
-   
+        # Find peak days
+        max_views = max(day_dict.values())
+        peak_days = [day for day, views in day_dict.items() if views == max_views]
+        
         # Day name mapping
         day_mapping = {
             1: 'Monday',
@@ -194,11 +252,10 @@ class AnalyticsService:
             7: 'Sunday'
         }
         
-        # Return up to 2 peak days
+        # Format output
         if len(peak_days) == 1:
             return day_mapping[peak_days[0]]
         else:
-            # Sort and take first two peak days
             peak_days = sorted(peak_days)[:2]
             return f"{day_mapping[peak_days[0]]} & {day_mapping[peak_days[1]]}"
 
@@ -229,13 +286,13 @@ class VideoReportService:
             prompt += f"ENGAGEMENT BREAKDOWN FOR ALL OF {user.username}'S VIDEOS:\n"
 
             # Add engagement breakdown to the prompt
-            for metric, data in engagement_breakdown['engagement_breakdown'].items():
+            for metric, data in engagement_breakdown.get('engagement_breakdown', {}).items():
                 prompt += f"\n{metric.capitalize()}:\n"
-                prompt += f"  Total: {data['total']}\n"
-                prompt += f"  Follower Count: {data['follower_count']}\n"
-                prompt += f"  Non-Follower Count: {data['non_follower_count']}\n"
-                prompt += f"  Follower Percentage: {data['follower_percentage']:.2f}%\n"
-                prompt += f"  Non-Follower Percentage: {data['non_follower_percentage']:.2f}%\n"
+                for key, value in data.items():
+                    if isinstance(value, float):
+                        prompt += f"  {key.replace('_', ' ').title()}: {value:.2f}%\n"
+                    else:
+                        prompt += f"  {key.replace('_', ' ').title()}: {value}\n"
 
             # Get average watch time for each video
             avg_watch_times = VideoStatisticsService.get_average_watch_time_per_video(user)
@@ -325,7 +382,21 @@ Views Over Days for '{stats['title']}':
             prompt += "-----------------------------------------\n"
             prompt += "\n"
             # End of the prompt
-            prompt += "Please analyze the data above to derive additional insights and trends."
+            prompt += f"""
+In the report, give insights about the following metrics:
+- Peak Viewing Day 
+- Peak Viewing Hour   
+- Completion Rate 
+- Average Watch Time 
+- Engagement Breakdown 
+- Overall Statistics 
+- Views Over Days 
+- Views Distribution Over Hours 
+- View Distribution Over a Week 
+
+Make sure to give insights in this order only, no exceptions.
+
+"""
 
             return prompt
             

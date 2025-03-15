@@ -421,11 +421,15 @@ function hideTooltip() {
 }
 
 function switchView(view) {
-    // Update button states
+    // Check if trying to view video data with no videos
+    if (view === 'videoData' && parseInt('{{ videos_count}}') === 0) {
+        showMessage('Upload some videos to see your video data analytics', 'error');
+        return;
+    }
+    // Rest of the existing switchView code
     document.getElementById('userDataBtn').classList.toggle('active', view === 'userData');
     document.getElementById('videoDataBtn').classList.toggle('active', view === 'videoData');
     
-    // Show/hide sections
     document.getElementById('userDataSection').style.display = view === 'userData' ? 'block' : 'none';
     document.getElementById('videoDataSection').style.display = view === 'videoData' ? 'block' : 'none';
 }
@@ -475,8 +479,16 @@ function openReportModal(reportType) {
     });
 }
 
-// Modify generateNewReport to refresh the modal after success
+// Modify generateNewReport to check TTS status first
 function generateNewReport(reportType) {
+    // Check if TTS is generating for THIS specific report type only
+    const isTTSGenerating = getGeneratingState(reportType);
+
+    if (isTTSGenerating) {
+        showMessage(`Please wait until the current Text-to-Speech generation for ${reportType} report is complete.`, 'error');
+        return;
+    }
+
     if (isGeneratingReport) {
         showMessage("Please wait until the current report is generated.", 'error');
         return;
@@ -502,8 +514,8 @@ function generateNewReport(reportType) {
             showMessage(data.error, 'error');
         } else if (data.message) {
             showMessage(data.message, 'success');
-            // Refresh the modal content after successful generation
-            setTimeout(() => refreshReportModal(reportType), 1000);
+            // Open the modal automatically after successful generation
+            openReportModal(reportType);
         }
     })
     .catch(error => {
@@ -610,6 +622,30 @@ function closeReportModal(event) {
     // Clear the content when closing
     document.getElementById('reportContent').innerHTML = '';
     console.log('Closing report modal');
+}
+
+// Update checkTTSStatus to handle buttons independently
+function checkTTSStatus(username) {
+    fetch(`/api/check-tts-status/${username}/`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Full API Response:', data);
+
+            // Update report generation buttons based on TTS status
+            const reportButtons = document.querySelectorAll('.dropdown-item');
+            reportButtons.forEach(button => {
+                if (button.textContent.includes('Generate New Report')) {
+                    const reportType = button.closest('.dropdown-content').id === 'userDropdown' ? 'user' : 'video';
+                    // Only disable if THIS report type is generating
+                    const isThisTypeGenerating = getGeneratingState(reportType);
+                    button.disabled = isThisTypeGenerating;
+                    button.style.opacity = isThisTypeGenerating ? '0.5' : '1';
+                    button.style.cursor = isThisTypeGenerating ? 'not-allowed' : 'pointer';
+                }
+            });
+
+            // Rest of your existing checkTTSStatus code...
+        });
 }
 </script>
 

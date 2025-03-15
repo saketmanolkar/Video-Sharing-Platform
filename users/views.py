@@ -9,31 +9,21 @@ from django.views.decorators.csrf import csrf_protect
 from .forms import CustomUserCreationForm
 from django.contrib.auth.decorators import login_required
 from .forms import ProfileForm, MessageForm
-from django.http import JsonResponse, HttpResponseForbidden, HttpResponse, FileResponse
-from django.core.exceptions import ValidationError
+from django.http import JsonResponse, Http404
 from django.contrib.auth.forms import PasswordChangeForm
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.middleware.csrf import get_token
 from django.views.decorators.http import require_POST
 from .services.cache_service import ProfileCache
-from django.core.cache import cache
 from projects.services.cache_service import VideoContextCache,FormSubmissionCache
 import hashlib
 from projects.services.video_services import VideoService
-from django.utils import timezone
 from .models import UserSession
-from django_redis import get_redis_connection
-from .services.cache_service import SessionActivityCache
 from django.contrib.auth.models import User
 from django.contrib.auth import logout
 from .tasks import save_session_activity
 from users.tasks import save_session_activity , process_video_stats
 import logging
-from datetime import timedelta
-from pprint import pprint
-from projects.models import ViewHistory
-from .services.cache_service import VideoStatsCache
-import requests
 from django.conf import settings as django_settings
 import os
 from django.views.decorators.cache import cache_control
@@ -41,29 +31,23 @@ from django.urls import reverse
 
 logger = logging.getLogger(__name__)
 
-@login_required
-def creator_studio(request, pk):
+@login_required(login_url="login-page")
+def creator_studio(request):
+    profile = request.user.profile
     profile_service = ProfileService()
-    profile = profile_service.get_profile(pk, Profile)
     
-    if request.user != profile.user:
-        messages.error(request, "You don't have permission to access this creator studio")
-        return redirect('profile', pk=pk)
-
-    context = profile_service.get_creator_studio_data(pk, Profile)
+    # Use the optimized function
+    context = profile_service.get_creator_studio_data_optimized(profile.id, Profile)
     return render(request, "users/creator_studio.html", context)
 
-@login_required
-def analytics(request, pk):
+@login_required(login_url="login-page")
+def analytics(request):
+    # Use current user's profile directly
+    profile = request.user.profile
     profile_service = ProfileService()
-    profile = profile_service.get_profile(pk, Profile)
     
-    # Check if the requested profile matches current user
-    if request.user.profile != profile:
-        messages.error(request, "You don't have permission to access this analytics")
-        return redirect('profile', pk=pk)
-    
-    context = profile_service.get_analytics_data(pk, Profile)
+    # Get analytics data for user's own profile
+    context = profile_service.get_analytics_data(profile)
     
     return render(request, 'users/analytics.html', context)
 
@@ -86,35 +70,37 @@ def profile(request, pk):
     
     return render(request, "users/profile.html", context)
 
-@login_required
-def update_profile(request, pk):
+@login_required(login_url="login-page")
+def update_profile(request):
+    # Use the logged-in user's profile directly
+    profile = request.user.profile
     profile_service = ProfileService()
     profile_cache = ProfileCache()
     video_context_cache = VideoContextCache()
     form_cache = FormSubmissionCache()
-    profile = profile_service.get_profile(pk, Profile)
-    
-    if request.user != profile.user:
-        messages.error(request, "You don't have permission to edit this profile")
-        return redirect('profile', pk=pk)
     
     if request.method == 'POST':
-        # Generate hash from form data like other views
+        # Generate hash from form data
         form_data = str(request.POST) + str(request.FILES)
         submission_hash = hashlib.md5(form_data.encode()).hexdigest()
         
         if form_cache.check_submission(submission_hash):
             messages.warning(request, "Form was already submitted")
-            return redirect('profile', pk=pk)
+            return redirect('profile', pk=profile.id)
             
         # Mark as submitted
         form_cache.set_submission(submission_hash)
         
         try:
-            # Get all user fields
-            username = request.POST.get('username')
-            first_name = request.POST.get('first_name')
-            last_name = request.POST.get('last_name')
+            # Get all user fields - Handle None values safely
+            username = request.POST.get('username') or ''
+            username = username.strip()
+            
+            first_name = request.POST.get('first_name') or ''
+            first_name = first_name.strip()
+            
+            last_name = request.POST.get('last_name') or ''
+            last_name = last_name.strip()
             
             if not username or not first_name:
                 form_cache.clear_submission(submission_hash)
@@ -200,28 +186,23 @@ def user_videos(request, pk):
     context = profile_service.get_user_videos(pk, Profile, search_query)
     return render(request, "users/user_video.html", context)
 
-@login_required
-def user_history(request, pk):
-    # Get the profile first
-    profile = get_object_or_404(Profile, id=pk)
+@login_required(login_url="login-page")
+def user_history(request):
+    # Use the logged-in user's profile directly
+    profile = request.user.profile
     
-    # Check if the user owns this profile
-    if request.user != profile.user:
-        messages.error(request, "You don't have permission to view this history")
-        return redirect('profile', pk=pk)
-    
-    # If authorized, proceed with getting the history
+    # Get the user's view history
     profile_service = ProfileService()
-    history_data = profile_service.get_user_history(pk, Profile)
+    history_data = profile_service.get_user_history(profile)
 
-    # Add pagination similar to projects view
+    # Add pagination
     paged_history, custom_range = VideoService.get_paginated_videos(
         history_data['history_videos'],
         request.GET.get('page', 1)
     )
 
     context = {
-        'profile': history_data['profile'],
+        'profile': profile,
         'view_history': paged_history,
         'custom_range': custom_range
     }
@@ -229,8 +210,6 @@ def user_history(request, pk):
     return render(request, "users/view_history.html", context)
 
 def login_user(request):
-
-    
     if request.COOKIES.get('show_timeout') == 'true':
         print("Found timeout cookie, showing message")
         messages.error(request, 'Session expired due to inactivity')
@@ -253,8 +232,17 @@ def login_user(request):
         form_cache.set_submission(submission_hash)
         
         try:
-            username = request.POST.get("username").lower()
-            password = request.POST.get("password")
+            # Basic sanitization - just trim whitespace and lowercase
+            username = request.POST.get("username", "").strip().lower()
+            password = request.POST.get("password", "")
+            
+            # Simple validation - just check if they exist
+            if not username or not password:
+                form_cache.clear_submission(submission_hash)
+                return JsonResponse({
+                    'message': 'Username and password are required'
+                }, status=400)
+            
             user = authenticate(request, username=username, password=password)
             
             if user is not None:
@@ -268,13 +256,13 @@ def login_user(request):
                     'message': 'Login successful'
                 })
             else:
-                form_cache.clear_submission(submission_hash)  # Clear on failed login
+                form_cache.clear_submission(submission_hash)
                 return JsonResponse({
                     'message': 'Invalid username or password'
                 }, status=400)
                 
         except Exception as e:
-            form_cache.clear_submission(submission_hash)  # Clear on error
+            form_cache.clear_submission(submission_hash)
             print(f"Login error: {e}")
             return JsonResponse({
                 'message': 'An error occurred during login'
@@ -283,6 +271,7 @@ def login_user(request):
     get_token(request)
     return render(request, "users/login_register.html", {"page": "login_page"})
 
+@login_required(login_url="login-page")
 def logout_user(request):
     if request.user.is_authenticated:
         active_session = UserSession.objects.filter(
@@ -343,7 +332,8 @@ def register_user(request):
             form = CustomUserCreationForm(request.POST)
             if form.is_valid():
                 user = form.save(commit=False)
-                user.username = user.username.lower()
+                # Sanitizing username (already validated by Django's form)
+                user.username = user.username.lower().strip()
                 user.save()
                 
                 # Generate JWT tokens
@@ -352,10 +342,13 @@ def register_user(request):
                 request.session['temp_refresh_token'] = str(refresh)
                 
                 login(request, user)
-                return redirect('update-profile', pk=user.profile.id)
+                return redirect('update-profile')
             else:
                 form_cache.clear_submission(submission_hash)
-                messages.error(request, "An error occurred during registration")
+                # Display more specific form errors
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f"{field}: {error}")
                 
         except Exception as e:
             form_cache.clear_submission(submission_hash)
@@ -379,6 +372,7 @@ def inbox(request):
     }
     return render(request, "users/inbox.html", context)
 
+@login_required(login_url="login-page")
 def view_message(request,pk):
     profile = request.user.profile
     message=profile.messages.get(id=pk) 
@@ -391,12 +385,12 @@ def view_message(request,pk):
     return render(request, "users/message.html", context)
 
 def create_message(request, pk):
-    recipient = Profile.objects.get(id=pk)
+    recipient = get_object_or_404(Profile, id=pk)
     form = MessageForm()
 
     try:
         sender = request.user.profile
-    except Profile.DoesNotExist:
+    except AttributeError:  # For anonymous users who don't have a profile
         sender = None
     
     if request.method == "POST":
@@ -413,26 +407,39 @@ def create_message(request, pk):
         form_cache.set_submission(submission_hash)
         
         try:
-            form = MessageForm(request.POST)
+            form_data = request.POST.copy()
+            
+            # For authenticated users, pre-fill name and email from their profile
+            if sender:
+                form_data['name'] = sender.name
+                form_data['email'] = sender.email
+            
+            form = MessageForm(form_data)
             if form.is_valid():
                 message = form.save(commit=False)
                 message.sender = sender
                 message.recipient = recipient
                 
+                # Set name and email based on authentication status
                 if sender:
                     message.name = sender.name
                     message.email = sender.email
+                else:
+                    message.name = form.cleaned_data['name']
+                    message.email = form.cleaned_data['email']
                 
                 message.save()
                 messages.success(request, "Message sent successfully")
                 return redirect('profile', pk=recipient.id)
             else:
                 form_cache.clear_submission(submission_hash)
-                messages.error(request, "An error occurred during message creation")
+                # More specific error handling
+                error_msg = "Please correct the errors below."
+                messages.error(request, error_msg)
                 
         except Exception as e:
             form_cache.clear_submission(submission_hash)
-            messages.error(request, str(e))
+            messages.error(request, f"An error occurred: {str(e)}")
             
     context = {
         'recipient': recipient,
@@ -440,7 +447,7 @@ def create_message(request, pk):
     }
     return render(request, "users/message_form.html", context)
 
-@login_required
+@login_required(login_url="login-page") 
 def settings(request):
     if request.method == 'POST':
         form_cache = FormSubmissionCache()
@@ -480,87 +487,158 @@ def settings(request):
     return render(request, 'users/settings.html', context)
 
 @require_POST
+@login_required(login_url="login-page")
 def clear_temp_tokens(request):
     if 'temp_access_token' in request.session:
         del request.session['temp_access_token']
         del request.session['temp_refresh_token']
     return JsonResponse({'status': 'success'})
 
+@login_required(login_url="login-page")
 @cache_control(max_age=3600, public=True)
 def report(request, pk):
-    profile = get_object_or_404(Profile, id=pk)
-    report_type = request.GET.get('report_type')
+    try:
+        profile = get_object_or_404(Profile, id=pk)
+        report_type = request.GET.get('report_type')
 
-    # Initialize variables
-    report_url = None
-    file_content = None
-    audio_url = None
-    audio_generated_at = None
+        if not report_type:
+            return render(request, 'users/report.html', {
+                'error': 'Report type is required',
+                'profile': profile,
+                'report_exists': False  # Add this flag
+            }, status=400)
 
-    # Check the report type and fetch the corresponding report URL and audio URL
-    if report_type == 'user':
-        report = get_object_or_404(Report, user=profile.user)
-        created_at = report.user_report_generated_at
-        report_url = report.user_report_url
-        audio_url = report.user_report_audio_file_url
-        audio_generated_at = report.user_report_audio_generated_at
-        audio_is_generated = report.audio_is_generated
-
-    elif report_type == 'video':
-        report = get_object_or_404(Report, user=profile.user)
-        print(f"DEBUG: Raw audio URL from DB: {report.video_report_audio_file_url}")
-        print(f"DEBUG: Audio generated at: {report.video_report_audio_generated_at}")
-        created_at = report.video_report_generated_at
-        report_url = report.video_report_url
-        audio_url = report.video_report_audio_file_url
-        audio_generated_at = report.video_report_audio_generated_at
-        audio_is_generated = report.audio_is_generated
-    else:
-        messages.error(request, "Invalid report type")
-
-    # Modify the report URL to be web-accessible
-    if report_url and not report_url.startswith('http'):
-        report_url = f"{django_settings.MEDIA_URL}reports/{report_url.split('/')[-1]}"
-        
-        # Read the file content
-        file_path = os.path.join(django_settings.MEDIA_ROOT, 'reports', report_url.split('/')[-1])
         try:
-            with open(file_path, 'r') as file:
-                file_content = file.read()
-        except Exception as e:
-            print(f"Error reading file: {e}")
-            file_content = "Error reading file content"
+            report = Report.objects.get(user=profile.user)
+            
+            # Check if this specific report type exists
+            if report_type == 'user':
+                if not report.user_report_url:  # If no user report exists
+                    return render(request, 'users/report.html', {
+                        'profile': profile,
+                        'report_type': report_type,
+                        'report_exists': False  # Add this flag
+                    })
+                created_at = report.user_report_generated_at
+                report_url = report.user_report_url
+                audio_url = report.user_report_audio_file_url
+                audio_generated_at = report.user_report_audio_generated_at
+                audio_is_generated = report.audio_is_generated
 
-    # Handle audio URL with cache busting
-    if audio_url and not audio_url.startswith('http'):
-        # Clean up the cache buster to be a single integer
-        cache_buster = int(audio_generated_at.timestamp()) if audio_generated_at else ''
-        clean_filename = audio_url.split('/')[-1]
-        # Use the serve_audio URL pattern instead of direct media URL
-        audio_url = reverse('serve_audio', kwargs={
-            'profile_id': pk,
+            elif report_type == 'video':
+                if not report.video_report_url:  # If no video report exists
+                    return render(request, 'users/report.html', {
+                        'profile': profile,
+                        'report_type': report_type,
+                        'report_exists': False  # Add this flag
+                    })
+                created_at = report.video_report_generated_at
+                report_url = report.video_report_url
+                audio_url = report.video_report_audio_file_url
+                audio_generated_at = report.video_report_audio_generated_at
+                audio_is_generated = report.audio_is_generated
+            else:
+                return render(request, 'users/report.html', {
+                    'profile': profile,
+                    'report_exists': False  # Add this flag
+                }, status=400)
+
+        except Report.DoesNotExist:
+            return render(request, 'users/report.html', {
+                'profile': profile,
+                'report_exists': False,
+            })
+
+        # Get content from the report URL - handling both local and remote URLs
+        file_content = ""
+        if report_url:
+            try:
+                if report_url.startswith('http'):
+                    # Remote URL (DigitalOcean Spaces) - use requests to fetch content
+                    import requests
+                    response = requests.get(report_url)
+                    if response.status_code == 200:
+                        file_content = response.text
+                    else:
+                        print(f"Error fetching remote file: HTTP {response.status_code}")
+                        file_content = f"Error fetching report: HTTP {response.status_code}"
+                else:
+                    # Local file - read from filesystem
+                    report_url = f"{django_settings.MEDIA_URL}reports/{report_url.split('/')[-1]}"
+                    file_path = os.path.join(django_settings.MEDIA_ROOT, 'reports', report_url.split('/')[-1])
+                    with open(file_path, 'r') as file:
+                        file_content = file.read()
+            except Exception as e:
+                print(f"Error reading file: {e}")
+                file_content = f"Error reading file content: {str(e)}"
+
+        # Handle audio URL with cache busting
+        if audio_url and not audio_url.startswith('http'):
+            # Clean up the cache buster to be a single integer
+            cache_buster = int(audio_generated_at.timestamp()) if audio_generated_at else ''
+            clean_filename = audio_url.split('/')[-1]
+            # Use the serve_audio URL pattern instead of direct media URL
+            audio_url = reverse('serve_audio', kwargs={
+                'profile_id': pk,
+                'report_type': report_type
+            }) + f'?v={cache_buster}'
+            print(f"🎵 Clean audio URL: {audio_url}")
+
+        context = {
+            'profile': profile,
+            'report_type': report_type,
+            'report_file_url': report_url,
+            'file_content': file_content,
+            'created_at': created_at,
+            'audio_url': audio_url,
+            'audio_generated_at': audio_generated_at,
+            'audio_is_generated': audio_is_generated,
+            'has_audio': bool(audio_url),
+            'report_exists': True,
             'report_type': report_type
-        }) + f'?v={cache_buster}'
-        print(f"🎵 Clean audio URL: {audio_url}")
+        }
 
-    context = {
-        'profile': profile,
-        'report_type': report_type,
-        'report_file_url': report_url,
-        'file_content': file_content,
-        'created_at': created_at,
-        'audio_url': audio_url,
-        'audio_generated_at': audio_generated_at,
-        'audio_is_generated': audio_is_generated,
-        'has_audio': bool(audio_url)
-    }
+        response = render(request, 'users/report.html', context)
+        
+        # Add strong caching headers for audio files
+        if audio_url:
+            response['Cache-Control'] = 'public, max-age=31536000, immutable'  # Cache for 1 year
+            response['Expires'] = 'Thu, 31 Dec 2037 23:55:55 GMT'
+            print("📦 Added strong caching headers for audio")
 
-    response = render(request, 'users/report.html', context)
+        return response
+
+    except Http404:
+        messages.error(request, "Profile not found")
+        return render(request, 'users/report.html', {
+            'error': 'Profile not found'
+        }, status=404)
+    except Exception as e:
+        messages.error(request, f"An error occurred: {str(e)}")
+        return render(request, 'users/report.html', {
+            'error': 'An unexpected error occurred'
+        }, status=500)
+
+@login_required(login_url="login-page")
+def delete_message(request, pk):
+    # Get the message and verify ownership
+    profile = request.user.profile
+    message = get_object_or_404(Message, id=pk)
     
-    # Add strong caching headers for audio files
-    if audio_url:
-        response['Cache-Control'] = 'public, max-age=31536000, immutable'  # Cache for 1 year
-        response['Expires'] = 'Thu, 31 Dec 2037 23:55:55 GMT'
-        print("📦 Added strong caching headers for audio")
-
-    return response
+    # Check if the logged-in user is the message recipient
+    if message.recipient != profile:
+        messages.error(request, "You don't have permission to delete this message.")
+        return redirect('inbox')
+    
+    if request.method == 'POST':
+        try:
+            message.delete()
+            messages.success(request, 'Message deleted successfully!')
+            return redirect('inbox')
+        except Exception as e:
+            messages.error(request, f'Error deleting message: {str(e)}')
+            return redirect('view-message', pk=pk)
+    
+    return render(request, 'delete_object.html', {
+        'object': f"message from {message.name}"
+    })

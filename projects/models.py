@@ -9,17 +9,10 @@ from django.core.files import File
 import json
 import logging
 from django.utils import timezone
-from PIL import Image
-import io
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from projects.utils import add_black_bars
-from django.utils.text import slugify
-from datetime import datetime
-from django.templatetags.static import static
-from .services.media_servies import ModelService
 from .services.video_services import VideoService
 from django.core.exceptions import ValidationError
 from django_redis import get_redis_connection
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +71,7 @@ class Video(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     encoded_versions = models.JSONField(default=dict, blank=True)
+    processed = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']
@@ -133,10 +127,14 @@ class Video(models.Model):
 
 class Review(models.Model):
     video = models.ForeignKey(
-        Video, 
-        on_delete=models.CASCADE,
+        'Video', 
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True,
         related_name='reviews'
     )
+    deleted_video_title = models.CharField(max_length=255, blank=True, null=True)
+    deleted_video_id = models.UUIDField(null=True, blank=True)
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -230,10 +228,14 @@ class PlaylistItem(models.Model):
 
 class Like(models.Model):
     video = models.ForeignKey(
-        Video, 
-        on_delete=models.CASCADE,
+        'Video', 
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True,
         related_name='likes'
     )
+    deleted_video_title = models.CharField(max_length=255, blank=True, null=True)
+    deleted_video_id = models.UUIDField(null=True, blank=True)
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -295,14 +297,18 @@ class ViewHistory(models.Model):
         blank=True
     )
     video = models.ForeignKey(
-        Video,
-        on_delete=models.CASCADE,
+        'Video',
+        on_delete=models.SET_NULL,  # Instead of CASCADE
+        null=True,                  # Allow null for deleted videos
+        blank=True,
         related_name='views_history'
     )
+    deleted_video_title = models.CharField(max_length=255, blank=True, null=True)
+    deleted_video_id = models.UUIDField(null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     viewed_at = models.DateTimeField(auto_now_add=True)
 
-    duration_watched = models.DurationField(null=True, blank=True)  
+    duration_watched = models.DurationField(null=True, blank=True, default=timedelta(seconds=0))  
     completed = models.BooleanField(default=False)             
 
     class Meta:
@@ -336,9 +342,15 @@ class VideoAnalytics(models.Model):
     last_24h_views = models.IntegerField(default=0)
     last_7d_views = models.IntegerField(default=0)
     last_30d_views = models.IntegerField(default=0)
-    
+
+    # New Metrics
+    watch_time = models.FloatField(default=0)  # Total watch time in minutes
+    completion_rate = models.FloatField(default=0)  # Completion rate as a percentage
+
     # Meta Information
     updated_at = models.DateTimeField(auto_now=True)
+
+    completed_views = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return f"{self.uploader.username} - {self.title}"

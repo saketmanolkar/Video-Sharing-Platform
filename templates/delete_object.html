@@ -168,6 +168,10 @@ function showDeleteConfirmation(itemId, itemName, itemType) {
         // For playlists, use regular form submission
         form.action = `/delete-playlist/${itemId}/`;
         form.onsubmit = null;
+    } else if (itemType === 'Message') {
+        // For messages, use regular form submission with users prefix
+        form.action = `/users/delete-message/${itemId}/`;
+        form.onsubmit = null;
     } else {
         // For comments, use API deletion
         form.action = '#';
