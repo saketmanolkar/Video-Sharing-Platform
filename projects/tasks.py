@@ -11,12 +11,23 @@ from redis.lock import Lock
 import tempfile
 import requests
 from django.conf import settings
+import urllib.parse
 
 logger = getLogger(__name__)
 
-# Get Redis host from environment or use 'redis' for Docker
-redis_host = os.environ.get('REDIS_HOST', 'redis')
-redis_client = Redis(host=redis_host, port=6379, db=0)
+# Parse the REDIS_URL to extract components
+parsed_url = urllib.parse.urlparse(settings.REDIS_URL)
+
+# Create Redis client with proper configuration
+redis_client = Redis(
+    host=parsed_url.hostname,
+    port=parsed_url.port,  # This will be 25061 from your URL
+    username=parsed_url.username,
+    password=parsed_url.password,
+    db=0,
+    ssl=parsed_url.scheme == 'rediss',
+    ssl_cert_reqs=None
+)
 
 
 @shared_task(bind=True)
