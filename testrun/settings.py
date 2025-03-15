@@ -285,9 +285,14 @@ USE_TZ = True
 CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://*',
-    'http://*'
+    'https://testrun-app-wkegr.ondigitalocean.app',  # Your exact domain
+    'https://*.ondigitalocean.app',                  # All ondigitalocean.app subdomains
+    'http://localhost:8000',                         # Local development
+    'http://127.0.0.1:8000'                          # Local development
 ]
+
+# Add this line to completely disable CSRF protection (ONLY FOR DEVELOPMENT!)
+CSRF_COOKIE_SECURE = False
 
 #Email SMTP Settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
