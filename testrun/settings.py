@@ -284,6 +284,11 @@ USE_TZ = True
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://*',
+    'http://*'
+]
+
 #Email SMTP Settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
