@@ -218,12 +218,12 @@ class UserReportService:
             report.user_report_url = report_url
             report.user_report_generated_at = datetime.now()
             report.user_report_audio_file_url = None
-            report.user_report_audio_generated_at = None
+            #report.user_report_audio_generated_at = None
         elif report_type == 'video':
             report.video_report_url = report_url
             report.video_report_generated_at = datetime.now()
             report.video_report_audio_file_url = None
-            report.video_report_audio_generated_at = None
+            #report.video_report_audio_generated_at = None
         
         # Handle audio file cleanup in both environments
         if settings.TESTING:

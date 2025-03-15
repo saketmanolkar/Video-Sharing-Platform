@@ -210,3 +210,31 @@ class SessionLockCache:
         """Get stored task ID if exists"""
         task_key = self.get_task_key(user_id)
         return self.redis.get(task_key)
+
+class TTSLockCache:
+    """Manages a global TTS generation lock to prevent multiple simultaneous generations"""
+    FOLDER = ":1:tts"
+    LOCK_TTL = 900  # 15 minutes timeout (should be longer than typical TTS generation)
+    
+    def __init__(self):
+        self.redis = get_redis_connection("default")
+    
+    def get_global_lock_key(self):
+        """Get the key for the global TTS lock"""
+        return f"{self.FOLDER}:global_lock"
+    
+    def acquire_global_lock(self):
+        """Try to acquire the global TTS lock
+        Returns True if the lock was acquired, False otherwise"""
+        lock_key = self.get_global_lock_key()
+        return self.redis.set(
+            lock_key, 
+            "1", 
+            ex=self.LOCK_TTL,  # Expires after 15 minutes
+            nx=True            # Only set if key doesn't exist
+        )
+    
+    def release_global_lock(self):
+        """Release the global TTS lock"""
+        lock_key = self.get_global_lock_key()
+        return self.redis.delete(lock_key)

@@ -9,6 +9,7 @@ import os
 from django.conf import settings
 from .services.user_services import SpeechService
 from .models import Report
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -396,7 +397,8 @@ def generate_speech_task(self, username, report_type):
         report.audio_is_generated = True
         report.save()
         
-        print(f"✅ SUCCESS: Updated report with audio URL: {audio_url}")
+        # Wait 1 second for transaction to complete
+        time.sleep(1)
         
         # DELETE TEMP FILE FROM DO SPACES
         from custom_storage import delete_file_from_spaces
@@ -421,3 +423,12 @@ def generate_speech_task(self, username, report_type):
         self.retry(exc=e, countdown=5 * (retry_count + 1))
         
         return None
+    finally:
+        # Always release the lock when task completes or fails
+        try:
+            from users.services.cache_service import TTSLockCache
+            tts_lock = TTSLockCache()
+            tts_lock.release_global_lock()
+            print(f"🔓 RELEASED TTS LOCK: User={username}, Type={report_type}")
+        except Exception as lock_err:
+            print(f"⚠️ WARNING: Failed to release TTS lock: {str(lock_err)}")

@@ -39,6 +39,7 @@ from django.contrib import messages
 from django.views.decorators.cache import cache_control
 from celery import Celery
 from users.tasks import generate_speech_task
+from users.services.cache_service import TTSLockCache
 
 class EventStreamRenderer(BaseRenderer):
     media_type = 'text/event-stream'
@@ -600,10 +601,62 @@ def generate_speech(request):
 
         print(f"Username: {username}, Report Type: {report_type}")
 
-        # Get the report for the user
+        # Get the report for the user FIRST and check time-based rate limiting
         try:
             report = Report.objects.get(user__username=username)
             print(f"Report found: {report}")
+            
+            # Check for rate limiting (1 generation per day per report type)
+            now = timezone.now()
+            one_day_ago = now - timezone.timedelta(days=1)
+            
+            print(f"DEBUG TIME CHECK - Current time: {now}")
+            print(f"DEBUG TIME CHECK - One day ago: {one_day_ago}")
+
+            # TIME-BASED RATE LIMITING CHECK - HAPPENS BEFORE ACQUIRING LOCK
+            if report_type == 'user' and report.user_report_audio_generated_at:
+                print(f"DEBUG TIME CHECK - Last user audio generated at: {report.user_report_audio_generated_at}")
+                print(f"DEBUG TIME CHECK - Is recent? {report.user_report_audio_generated_at > one_day_ago}")
+                
+                if report.user_report_audio_generated_at > one_day_ago:
+                    # Generated less than 24 hours ago
+                    time_remaining = 24 - (now - report.user_report_audio_generated_at).total_seconds() / 3600
+                    hours = int(time_remaining)
+                    minutes = int((time_remaining - hours) * 60)
+                    
+                    error_msg = f"Rate limit reached. You can generate user audio again after {hours} hours and {minutes} minutes."
+                    print(f"DEBUG RATE LIMIT: {error_msg}")
+                    
+                    return JsonResponse({
+                        "error": error_msg
+                    }, status=429)  # 429 Too Many Requests
+            
+            elif report_type == 'video' and report.video_report_audio_generated_at:
+                print(f"DEBUG TIME CHECK - Last video audio generated at: {report.video_report_audio_generated_at}")
+                print(f"DEBUG TIME CHECK - Is recent? {report.video_report_audio_generated_at > one_day_ago}")
+                
+                if report.video_report_audio_generated_at > one_day_ago:
+                    # Generated less than 24 hours ago
+                    time_remaining = 24 - (now - report.video_report_audio_generated_at).total_seconds() / 3600
+                    hours = int(time_remaining)
+                    minutes = int((time_remaining - hours) * 60)
+                    
+                    error_msg = f"Rate limit reached. You can generate video audio again after {hours} hours and {minutes} minutes."
+                    print(f"DEBUG RATE LIMIT: {error_msg}")
+                    
+                    return JsonResponse({
+                        "error": error_msg
+                    }, status=429)  # 429 Too Many Requests
+
+            # ONLY TRY TO ACQUIRE GLOBAL LOCK AFTER TIME CHECK PASSES
+            # Check if TTS generation is already in progress
+            tts_lock = TTSLockCache()
+            if not tts_lock.acquire_global_lock():
+                # Could not acquire lock - TTS is already running
+                print("TTS generation is already in progress. Please try again in a few minutes.")
+                return JsonResponse({
+                    "error": "TTS generation is already in progress. Please try again in a few minutes."
+                }, status=409)  # 409 Conflict
 
             # Set audio_is_generated to False before starting
             report.audio_is_generated = False
@@ -621,12 +674,18 @@ def generate_speech(request):
         except Report.DoesNotExist:
             return JsonResponse({"error": "Report not found"}, status=404)
         except Exception as e:
+            # Release the lock if there's an error
+            try:
+                tts_lock.release_global_lock()
+            except:
+                pass
             print(f"Error: {str(e)}")
             return JsonResponse({"error": "Failed to update report."}, status=500)
 
     except Exception as e:
         print(f"Error in generate_speech: {str(e)}")
         return JsonResponse({"error": "Failed to generate speech."}, status=500)
+    
 @cache_control(max_age=31536000, public=True, immutable=True)
 def serve_audio(request, profile_id, report_type):
     """API endpoint to serve audio files with proper caching"""
