@@ -16,7 +16,7 @@
     </div>
     
     <div class="interaction-group">
-        <button class="interaction-btn like-btn {% if user_like and user_like.is_like %}active{% endif %}" 
+        <button class="interaction-btn api-like-btn {% if user_like and user_like.is_like %}active{% endif %}" 
                 data-video-id="{{ video.id }}" 
                 data-action="like">
             <i class="fas fa-thumbs-up"></i>
@@ -25,7 +25,7 @@
     </div>
     
     <div class="interaction-group">
-        <button class="interaction-btn dislike-btn {% if user_like and user_like.is_like == False %}active{% endif %}" 
+        <button class="interaction-btn api-dislike-btn {% if user_like and user_like.is_like == False %}active{% endif %}" 
                 data-video-id="{{ video.id }}" 
                 data-action="dislike">
             <i class="fas fa-thumbs-down"></i>

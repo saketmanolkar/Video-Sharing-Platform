@@ -7,7 +7,24 @@
     <div class="container container--narrow">
       <div class="creator-studio-header__content">
         <h2>{{ profile.name }}'s <span>Videos</span></h2>
-        <p>All Videos & Playlists by {{ profile.username }}</p>
+        <p>Videos & Playlists by {{ profile.username }}</p>
+      </div>
+      
+      <!-- Added Search Box Here -->
+      <div class="hero-section__search">
+        <form class="form" action="" method="get">
+            <div class="form__field">
+                <input 
+                    class="input input--text" 
+                    id="formInput#search" 
+                    type="text" 
+                    name="search"
+                    placeholder="Search for {{ profile.username }}'s Videos & Playlists by title, description, tags" 
+                    value="{{ search_query }}"
+                />
+            </div>
+            <input class="btn btn--sub btn--lg" type="submit" value="Search" />
+        </form>
       </div>
     </div>
   </section>
@@ -15,39 +32,45 @@
   <!-- Playlists Section -->
   <section class="projectsList" style="margin-top: 2rem;">
     <div class="container">
-      <div class="grid grid--three">
+      {% if playlists %}
+        <div class="grid grid--three">
           {% for playlist in playlists %}
-              <div class="column">
-                  {% include 'components/playlist_preview.html' with playlist=playlist %}
-              </div>
-          {% empty %}
-              <p>No playlists created yet.</p>
+            <div class="column">
+              {% include 'components/playlist_preview.html' with playlist=playlist %}
+            </div>
           {% endfor %}
-      </div>
+        </div>
+      {% endif %}
     </div>
   </section>
-  <div class="section-separator" ></div>
 
+
+
+  <!-- Always show separator -->
+  <div class="section-separator"></div>
+
+  <!-- Videos Section -->
   <section class="projectsList" style="margin-top: 0;">
     <div class="container">
       {% include 'components/video_grid.html' with videos=videos %}
     </div>
   </section>
 </main>
+
+<!-- Your existing styles remain unchanged -->
 <style>
   .section-separator {
       max-width: 1200px;
       margin: -5rem auto 3rem;
-      height: 2px;  /* Thinner line */
+      height: 2px;
       background: linear-gradient(to right, 
           transparent, 
           var(--color-main), 
           transparent
-      );  /* Gradient fade effect */
-      opacity: 0.8;  /* Subtle opacity */
+      );
+      opacity: 0.8;
   }
 
-  /* Add these styles to remove blue highlight */
   .column {
       background: transparent;
       outline: none;

@@ -2,6 +2,18 @@
 {% load static %}
 
 {% block content %}
+<style>
+    .checkered-background {
+        min-height: calc(100vh - 80px); /* Adjust if needed based on your header height */
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .projectsList {
+        flex: 1;
+    }
+</style>
+
 <main class="checkered-background">
   <section class="creator-studio-header">
     <div class="container container--narrow">
@@ -14,8 +26,9 @@
 
   <section class="projectsList" style="margin-top: 0;">
     <div class="container">
-      {% include 'components/video_grid.html' with videos=history_videos %}
+      {% include 'components/video_grid.html' with videos=view_history %}
     </div>
   </section>
+  {% include 'pagination.html' with queryset=view_history custom_range=custom_range %}
 </main>
 {% endblock %}

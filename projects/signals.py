@@ -9,90 +9,70 @@ import logging
 from django.conf import settings
 from django.core.cache import cache
 from django.dispatch import receiver
-from .models import Video, Review, Like, VideoAnalytics, ViewHistory
+from .models import Video, Review, Like, VideoAnalytics, ViewHistory, Playlist
 from .services.video_services import VideoService
 from django.db import transaction
+from django.db.transaction import on_commit
+from django.db import models
+from django.contrib.auth.models import User
 
 logger = logging.getLogger(__name__)
 
-@receiver(pre_save, sender=Video)
-def handle_video_encoding(sender, instance, **kwargs):
-    """Handle video encoding for new uploads"""
-    cache_key = f'encoding_{instance.pk}'
+@receiver(post_save, sender=Video)
+def handle_video_encoding(sender, instance, created, **kwargs):
+    """Queue video encoding for new uploads AND updates"""
     
-    # Skip if already processing
-    if cache.get(cache_key):
+    # Process if new video OR file changed
+    if not (created or getattr(instance, '_file_changed', False)):
+        print("⏩ Skipping - no video changes")
         return
         
-    if not instance.encoded_versions and instance.file:
-        try:
-            cache.set(cache_key, True, timeout=300)
-            
-            if not hasattr(instance.file, 'path') or not os.path.exists(instance.file.path):
-                print("⚠️ File not accessible yet")
-                cache.delete(cache_key)
-                return
-                
-            print('🎥 Starting video encoding...')
-            
-            input_path = instance.file.path
-            print(f"📁 Input path: {input_path}")
-            
-            # Generate base output name
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            base_name = slugify(os.path.splitext(os.path.basename(instance.file.name))[0])
-            
-            # Ensure videos directory exists
-            videos_dir = os.path.join(settings.MEDIA_ROOT, 'videos')
-            os.makedirs(videos_dir, exist_ok=True)
-            
-            encoded_versions = {}
-            
-            # Encode versions
-            for quality in [('720p', '720'), ('360p', '360')]:
-                version, size = quality
-                print(f"🎬 Encoding {version}...")
-                output_name = f"{base_name}_{timestamp}_{version}.mp4"
-                output_path = os.path.join(videos_dir, output_name)
-                
-                if encode_video(input_path, output_path, size):
-                    encoded_versions[version] = output_name
-                    print(f"✨ Encoded successfully: {output_name}")
-            
-            if encoded_versions:
-                instance.encoded_versions = encoded_versions
-                # Update main file to point to 720p version
-                instance.file.name = f"videos/{encoded_versions['720p']}"
-                print(f"✨ Video processing complete")
-                
-            instance._encoding_done = True
-            
-        except Exception as e:
-            logger.error(f'❌ Error encoding video: {str(e)}')
-            cache.delete(cache_key)
-
-@receiver(pre_save, sender=Video)
-def handle_thumbnail_processing(sender, instance, **kwargs):
-    """Handle thumbnail processing separately"""
-    cache_key = f'thumbnail_processed_{instance.pk}'
+    print("✅ Video changes detected - proceeding")
     
-    # Skip if already processed
-    if cache.get(cache_key) or getattr(instance, '_thumbnail_processed', False):
+    if not instance.file:
+        print("❌ No video file to process")
+        return
+        
+    def queue_video_task():
+        from .tasks import process_video_task
+        task = process_video_task.delay(str(instance.pk))
+        print(f"🎯 Queued video task: {task.id}")
+    
+    print("🔄 Waiting for transaction...")
+    transaction.on_commit(queue_video_task)
+
+@receiver(post_save, sender=Video)
+def handle_thumbnail_processing(sender, instance, created, **kwargs):
+    """Queue thumbnail processing for new and updated thumbnails"""
+    
+    print("\n🔍 DEBUG: Signal Triggered")
+    print(f"Created: {created}")
+    print(f"Has thumbnail: {bool(instance.thumbnail)}")
+    print(f"Thumbnail changed: {getattr(instance, '_thumbnail_changed', False)}")
+    
+    # Process if new video OR thumbnail changed
+    if not (created or getattr(instance, '_thumbnail_changed', False)):
+        print("⏩ Skipping - no changes")
+        return
+        
+    print("✅ Changes detected - proceeding")
+    
+    if not instance.thumbnail:
+        print("❌ No thumbnail to process")
         return
         
     try:
-        if instance.thumbnail:
-            print('🖼️ Processing thumbnail...')
-            # Force processing even for square images
-            processed_thumbnail = add_black_bars(instance.thumbnail)
-            if processed_thumbnail:
-                instance.thumbnail = processed_thumbnail
-                instance._thumbnail_processed = True
-                cache.set(cache_key, True, timeout=3600)
-                print('✨ Thumbnail processing complete')
-                
+        def queue_task():
+            from projects.tasks import process_thumbnail_task
+            print("🎯 About to queue task...")
+            task = process_thumbnail_task.delay(str(instance.pk))
+            print(f"✨ Task queued! ID: {task.id}")
+            
+        print("🔄 Committing transaction...")
+        transaction.on_commit(queue_task)
+            
     except Exception as e:
-        logger.error(f'❌ Error processing thumbnail: {str(e)}')
+        print(f"❌ Error in signal: {str(e)}")
 
 @receiver(pre_delete, sender=Video)
 def cleanup_files(sender, instance, **kwargs):
@@ -224,3 +204,42 @@ def handle_video_update(sender, instance, created, **kwargs):
             logger.info(f"✅ Updated analytics title for video: {instance.title}")
     except Exception as e:
         logger.error(f"❌ Error updating video analytics: {str(e)}")
+
+@receiver(pre_delete, sender=Video)
+def cleanup_empty_playlists(sender, instance, **kwargs):
+    """
+    When a video is about to be deleted:
+    1. Get playlist IDs BEFORE cascade happens
+    2. Delete playlists that will become empty
+    """
+    try:
+        # Get playlists that only contain this video
+        playlist_ids = list(instance.playlist_items.values_list('playlist_id', flat=True))
+        print(f"🎯 Found playlists before delete: {playlist_ids}")
+        
+        if playlist_ids:
+            # Find playlists that only have this one video
+            playlists_to_delete = Playlist.objects.filter(
+                id__in=playlist_ids
+            ).annotate(
+                video_count=models.Count('items')
+            ).filter(video_count=1)
+            
+            count = playlists_to_delete.count()
+            if count > 0:
+                print(f"🗑️ Deleting {count} playlists that will be empty")
+                playlists_to_delete.delete()
+                
+    except Exception as e:
+        print(f"❌ Error in cleanup: {str(e)}")
+
+@receiver(pre_delete, sender=User)
+def modify_username_in_view_history_on_delete(sender, instance, **kwargs):
+    """Store both IP and deleted username in ip_address field in ViewHistory upon user deletion"""
+    views = ViewHistory.objects.filter(user=instance)
+    
+    for view in views:
+        original_ip = view.ip_address or "No IP"
+        view.user = None
+        view.ip_address = f"IP:{original_ip} | User:{instance.username}*DELETED*"
+        view.save()

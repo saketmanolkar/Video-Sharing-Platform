@@ -13,7 +13,7 @@ admin.site.register(PlaylistItem)
 
 @admin.register(ViewHistory)
 class ViewHistoryAdmin(admin.ModelAdmin):
-    list_display = ['get_viewer', 'video', 'viewed_at', 'ip_address']
+    list_display = ['get_viewer', 'video', 'viewed_at', 'ip_address', 'duration_watched','completed']
     readonly_fields = ['viewed_at']
     list_filter = ['viewed_at']
     search_fields = ['user__username', 'video__title', 'ip_address']

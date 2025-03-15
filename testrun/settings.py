@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 import os
 
@@ -43,7 +44,12 @@ SECRET_KEY = "django-insecure-@9lv6_22a)6puq7=rft1fq*ggd)3_2(7@tdri)1-z4lipsklr*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*']  # During testing only
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+    '*',  # This will allow all hosts - only use during development!
+]
 
 
 # Application definition
@@ -58,9 +64,62 @@ INSTALLED_APPS = [
 
     "projects.apps.ProjectsConfig",
     "users.apps.UsersConfig",
+
+    "rest_framework",
+    "corsheaders",
+    "debug_toolbar",
 ]
 
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "UPDATE_LAST_LOGIN": False,
+
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "VERIFYING_KEY": "",
+    "AUDIENCE": None,
+    "ISSUER": None,
+    "JSON_ENCODER": None,
+    "JWK_URL": None,
+    "LEEWAY": 0,
+
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+    "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
+
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "TOKEN_TYPE_CLAIM": "token_type",
+    "TOKEN_USER_CLASS": "rest_framework_simplejwt.models.TokenUser",
+
+    "JTI_CLAIM": "jti",
+
+    "SLIDING_TOKEN_REFRESH_EXP_CLAIM": "refresh_exp",
+    "SLIDING_TOKEN_LIFETIME": timedelta(minutes=5),
+    "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
+
+    "TOKEN_OBTAIN_SERIALIZER": "rest_framework_simplejwt.serializers.TokenObtainPairSerializer",
+    "TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSerializer",
+    "TOKEN_VERIFY_SERIALIZER": "rest_framework_simplejwt.serializers.TokenVerifySerializer",
+    "TOKEN_BLACKLIST_SERIALIZER": "rest_framework_simplejwt.serializers.TokenBlacklistSerializer",
+    "SLIDING_TOKEN_OBTAIN_SERIALIZER": "rest_framework_simplejwt.serializers.TokenObtainSlidingSerializer",
+    "SLIDING_TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSlidingSerializer",
+}
+
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -69,6 +128,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+
+    'users.middleware.UserSessionMiddleware', #Custom Middleware
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = "testrun.urls"
@@ -106,6 +168,26 @@ DATABASES = {
 }
 
 
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {
+                "max_connections": 10,
+                "socket_timeout": 20,
+                "socket_connect_timeout": 20,
+                "retry_on_timeout": True
+            },
+            "REDIS_CLIENT_CONFIG": {
+                "maxmemory": "4gb",
+                "maxmemory-policy": "allkeys-lru"
+            }
+        }
+    }
+}
+
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -135,6 +217,11 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 
 USE_TZ = True
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Frontend development server
+    "http://127.0.0.1:8000",  # Django development server
+]
 
 #Email SMTP Settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -180,6 +267,7 @@ LOGGING = {
         'console': {
             'class': 'logging.StreamHandler',
             'filters': ['ignore_broken_pipe'],
+            'level': 'INFO',
         },
     },
     'filters': {
@@ -188,4 +276,46 @@ LOGGING = {
             'callback': lambda record: 'Broken pipe' not in str(record.exc_info),
         },
     },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'users.tasks': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+    },
 }
+
+# Celery Configuration
+CELERY_BROKER_URL = 'redis://localhost:6379/0'      # Ensure DB 0
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Ensure DB 0
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+# Celery connection limits
+CELERY_BROKER_POOL_LIMIT = 10            # Limit Celery connections
+CELERY_BROKER_CONNECTION_TIMEOUT = 20    # Broker timeout
+CELERY_RESULT_BACKEND_TIMEOUT = 20       # Results timeout
+
+# Add these Celery settings
+CELERY_WORKER_CONCURRENCY = 2          # Limit worker processes
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 100  # Restart workers
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1   # Don't prefetch tasks
+
+# Add these Celery settings
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'max_connections': 2,
+    'socket_timeout': 20,
+}
+
+CELERY_WORKER_POOL_RESTARTS = True
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = 50000  # 50MB
+
+INTERNAL_IPS = [
+    '127.0.0.1',  # Add your local IP address if needed
+]

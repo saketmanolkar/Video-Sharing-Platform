@@ -2,56 +2,72 @@ from django.shortcuts import get_object_or_404
 import os
 import logging
 from django.core.cache import cache
+from projects.services.cache_service import ViewRecordingCache, VideoContextCache
 import time
 from django.utils import timezone
 from datetime import timedelta
 from projects.services.analytics_service import AnalyticsService
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from users.services.follow_services import FollowService
+from django.db import connection
+from django.utils.dateparse import parse_datetime
+
 
 logger = logging.getLogger(__name__)
 
 class VideoService:
+    def __init__(self):
+        self.view_cache = ViewRecordingCache()
+        self.context_cache = VideoContextCache()
+
     @staticmethod
     def get_video(video_id, model):
         return get_object_or_404(model, id=video_id)
     
-    @staticmethod
-    def record_view(video, user, ip_address, view_history_model):
-        """Handle view recording with session-based tracking"""
-        cache_key = f'view_{video.id}_{user.id if user else ip_address}_{int(time.time() / 300)}'
+    def record_view(self, video, user, ip_address, view_history_model):
+        """Handle view recording with time-based cache tracking"""
         
-        if not cache.get(cache_key):
-            # Create view history record
-            view_history_model.objects.create(
-                video=video,
-                user=user,
-                ip_address=ip_address
-            )
-            
-            # Update video views count
-            video.views += 1
-            video.save()
-            
-            # Update analytics immediately
+        view_history = None  # Initialize return value
+        
+        if self.view_cache.can_record_view(
+            video_id=video.id,
+            user_id=user.id if user else None,
+            ip_address=ip_address
+        ):
             try:
-                analytics = video.analytics
-                analytics.total_views = video.views
-                analytics.last_24h_views = VideoService.get_period_views_count(video, 1)
-                analytics.last_7d_views = VideoService.get_period_views_count(video, 7)
-                analytics.last_30d_views = VideoService.get_period_views_count(video, 30)
-                analytics.save(update_fields=[
-                    'total_views', 
-                    'last_24h_views', 
-                    'last_7d_views', 
-                    'last_30d_views', 
-                    'updated_at'
-                ])
-                logger.info(f"✅ Updated view metrics immediately for video: {video.title}")
+                # 1. Create view history record and store reference
+                view_history = view_history_model.objects.create(
+                    video=video,
+                    user=user,
+                    ip_address=ip_address
+                )
+                
+                # 2. Update video views count
+                video.views += 1
+                video.save()
+                
+                # 3. Update analytics
+                try:
+                    analytics = video.analytics
+                    analytics.total_views = video.views
+                    analytics.last_24h_views = self.get_period_views_count(video, 1)
+                    analytics.last_7d_views = self.get_period_views_count(video, 7)
+                    analytics.last_30d_views = self.get_period_views_count(video, 30)
+                    analytics.save(update_fields=[
+                        'total_views', 
+                        'last_24h_views', 
+                        'last_7d_views', 
+                        'last_30d_views',
+                        'updated_at'
+                    ])
+                    logger.info(f"✅ Updated view metrics for video: {video.title}")
+                except Exception as e:
+                    logger.error(f"❌ Error updating analytics: {str(e)}")
+                    
             except Exception as e:
-                logger.error(f"❌ Error updating analytics on view: {str(e)}")
-            
-            cache.set(cache_key, True, timeout=300)
+                logger.error(f"❌ Error recording view: {str(e)}")
+        
+        return view_history  # Return the created record
     
     @staticmethod
     def get_user_like_status(video, user):
@@ -60,61 +76,49 @@ class VideoService:
             return video.likes.filter(user=user).first()
         return None
     
-    @staticmethod
-    def get_video_context(video, get_recommendations_func):
-        """Get common video context data"""
-        from projects.models import Video
+    def get_video_context(self, video, get_recommendations_func):
+        """Get video context with caching for static data only"""
+        from projects.models import ViewHistory
+        cache_service = VideoContextCache()
         
-        cache_key = f'video_context_{video.id}'
-        context = cache.get(cache_key)
+        # Try to get static data from cache
+        cached_data = cache_service.get_context(video.id)
         
-        if not context:
-            recommended = get_recommendations_func(video)
-            if not recommended.exists():
-                recommended = Video.objects.exclude(id=video.id).order_by('-created_at')[:5]
+        if cached_data:
+            print("\n🔵 Using cached data for video:", video.id)
+            # Use cached static data
+            context = cached_data
             
-            # Add is_following status
-            is_following = False
-            if hasattr(video, 'request_user') and video.request_user.is_authenticated:
-                follow_service = FollowService()
-                is_following = follow_service.check_following_status(video.request_user, video.uploader)
+            # Add fresh dynamic data
+            context['recommended_videos'] = get_recommendations_func(video)
+            context['views_count'] = ViewHistory.objects.filter(video=video).count()
+            context['video'] = video  # Use full video object for template
             
+        else:
+            print("\n🟡 Cache miss - creating new context for video:", video.id)
+            # Create new context with static data
             context = {
                 'video': video,
-                'reviews': video.reviews.all().order_by('-created_at'),
-                'tags': video.tags.all(),
-                'recommended_videos': recommended,
-                'likes_count': video.likes.filter(is_like=True).count(),
-                'dislikes_count': video.likes.filter(is_like=False).count(),
-                'user_like': VideoService.get_user_like_status(video, video.request_user),
-                'is_following': is_following
+                'tags': video.tags.all()
             }
-        else:
-            # Update user-specific data even if context is cached
-            if hasattr(video, 'request_user') and video.request_user.is_authenticated:
-                follow_service = FollowService()
-                context['is_following'] = follow_service.check_following_status(video.request_user, video.uploader)
-                context['user_like'] = VideoService.get_user_like_status(video, video.request_user)
+            
+            # Cache static data
+            cache_service.set_context(video.id, context)
+            print("✅ New data cached")
+            
+            # Add fresh dynamic data
+            context['recommended_videos'] = get_recommendations_func(video)
+            context['views_count'] = ViewHistory.objects.filter(video=video).count()
         
         return context
     
     @staticmethod
     def invalidate_video_cache(video_id):
-        """Invalidate all caches for a video"""
-        cache.delete(f'video_context_{video_id}')
+        """Invalidate video context cache"""
+        # Use the new cache service
+        cache_service = VideoContextCache()
+        cache_service.invalidate(video_id)
     
-    @staticmethod
-    def update_video(video_id, data):
-        """Update video and invalidate cache"""
-        from projects.models import Video
-        video = Video.objects.get(id=video_id)
-        video.title = data['title']
-        video.save()
-        
-        # Invalidate all related caches
-        VideoService.invalidate_video_cache(video_id)
-        cache.delete(f'video_context_{video_id}')
-        cache.delete(f'video_{video_id}')  # Add any other related cache keys
     
     @staticmethod
     def get_likes_count(video):
@@ -129,34 +133,13 @@ class VideoService:
     @staticmethod
     def handle_video_save(video, *args, **kwargs):
         """Handle video save operations including encoding"""
-        # Skip if we're already in a save operation
         if getattr(video, '_saving', False):
             return
         
         video._saving = True
         try:
-            is_new_upload = not video.pk or (
-                video.pk and 
-                not video.encoded_versions and 
-                hasattr(video, '_file_changed') and 
-                video._file_changed
-            )
-            
-            if is_new_upload:
-                cache_key = f'thumbnail_processed_{video.pk}'
-                cache.delete(cache_key)
-            
-            super(video.__class__, video).save(*args, **kwargs)  # Call the actual model save
-            
-            if is_new_upload and video.file:
-                original_file = video.file.path
-                from projects.signals import handle_video_encoding
-                handle_video_encoding(sender=video.__class__, instance=video)
-                
-                if video.encoded_versions:
-                    VideoService.cleanup_original_file(original_file)
-                
-                super(video.__class__, video).save(update_fields=['encoded_versions', 'file'])
+            # Just save, and don't queue here
+            super(video.__class__, video).save(*args, **kwargs)
         finally:
             video._saving = False
     
@@ -193,7 +176,7 @@ class VideoService:
             'video': video,
             'uploader': video.uploader,
             'title': video.title,
-            'created_at': video.created_at,
+            'created_at': parse_datetime(video.created_at) if isinstance(video.created_at, str) else video.created_at,
             
             # Engagement Metrics
             'total_views': VideoService.get_views_count(video),
@@ -236,7 +219,7 @@ class VideoService:
                     'total_likes': video.analytics.total_likes,
                     'total_dislikes': video.analytics.total_dislikes,
                     'total_comments': video.analytics.total_comments,
-                    'created_at': video.analytics.created_at,
+                    'created_at': parse_datetime(video.created_at) if isinstance(video.created_at, str) else video.created_at,
                 }
                 
                 # Daily views data
@@ -248,7 +231,7 @@ class VideoService:
                 hourly_views = analytics_service.get_views_by_hour(video)
                 if hourly_views:
                     hourly_views_data[video_id] = {
-                        'labels': [view['hour'].strftime('%H:00') for view in hourly_views],
+                        'labels': [f"{str(view['hour']).zfill(2)}:00" for view in hourly_views],
                         'data': [view['count'] for view in hourly_views]
                     }
 
@@ -331,8 +314,10 @@ class VideoService:
         from projects.models import Like
         
         try:
-            # Clear any cached context for this video
-            cache.delete(f'video_context_{video.id}')
+            # Debug log initial state
+            initial_likes = video.likes.filter(is_like=True).count()
+            initial_dislikes = video.likes.filter(is_like=False).count()
+            logger.info(f"Initial state - Likes: {initial_likes}, Dislikes: {initial_dislikes}")
             
             like = Like.objects.filter(video=video, user=user).first()
             
@@ -355,6 +340,16 @@ class VideoService:
             # Get fresh counts directly from database
             likes_count = video.likes.filter(is_like=True).count()
             dislikes_count = video.likes.filter(is_like=False).count()
+            
+            # Debug log final state
+            logger.info(f"""
+                Like Action Debug:
+                User: {user.username}
+                Action: {action}
+                Is Like: {is_like}
+                Before - Likes: {initial_likes}, Dislikes: {initial_dislikes}
+                After - Likes: {likes_count}, Dislikes: {dislikes_count}
+            """)
             
             return {
                 'status': 'success',

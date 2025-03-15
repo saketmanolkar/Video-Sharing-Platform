@@ -36,9 +36,11 @@
 
                 <!-- File Upload Grid at the top -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                    
+                    {% if page_type != 'update' %}
                     <!-- Left Column - Video File -->
                     <div class="form__field">
-                        <label for="{{ form.file.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
+                        <label for="{{ form.file.auto_id }}" style="display: flex; align-items: center; gap: 8px;">
                             Video File {% if form.file.field.required %}<span style="color: red;">*</span>{% endif %}
                         </label>
                         <div class="file-upload-wrapper">
@@ -53,7 +55,7 @@
                             </div>
                         </div>
                     </div>
-
+                    {% endif %}
                     <!-- Right Column - Thumbnail -->
                     <div class="form__field">
                         <label for="{{ form.thumbnail.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
@@ -97,7 +99,7 @@
                 {% for field in form %}
                     {% if field.name != 'file' and field.name != 'thumbnail' and field.name != 'privacy_status' %}
                     <div class="form__field">
-                        <label for="{{ field.id_for_label }}" style="display: flex; align-items: center; gap: 8px;">
+                        <label for="{{ field.auto_id }}" style="display: flex; align-items: center; gap: 8px;">
                             {{ field.label }}
                             {% if field.field.required %}
                                 <span style="color: red;">*</span>

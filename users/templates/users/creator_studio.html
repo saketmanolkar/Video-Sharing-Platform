@@ -38,12 +38,12 @@
                                             <div class="thumbnail">
                                                 <img src="{{ analytics.thumbnail_url|default:default_thumbnail }}" alt="Video thumbnail">
                                             </div>
-                                            <div class="title-cell">{{ analytics.title }}</div>
+                                            <span class="title-cell">{{ analytics.title }}</span>
                                             <div class="video-actions">
                                                 <a href="{% url 'project' video_id %}" class="video-action-btn watch">Watch</a>
                                                 <a href="{% url 'update-project' video_id %}" class="video-action-btn">Edit</a>
                                                 <a href="#" 
-                                                   onclick="showDeleteConfirmation('{{ video_id }}', '{{ analytics.title|escapejs }}')" 
+                                                   onclick="showDeleteConfirmation('{{ video_id }}', '{{ analytics.title|escapejs }}', 'Video')" 
                                                    class="video-action-btn delete">
                                                     Delete
                                                 </a>
@@ -101,22 +101,22 @@
                             <tr>
                                 <td>
                                     {% for follower in followers %}
-                                        <div class="user-info">
-                                            <img src="{{ follower.get_profile_pic_url }}" alt="Profile image">
-                                            <span>{{ follower.name }}</span>
-                                        </div>
-                                    {% empty %}
-                                        <p>No followers yet</p>
+                                        <a href="{% url 'profile' follower.id %}" class="user-link">
+                                            <div class="user-content">
+                                                <img src="{{ follower.get_profile_pic_url }}" alt="Profile image">
+                                                <span>{{ follower.name }}</span>
+                                            </div>
+                                        </a>
                                     {% endfor %}
                                 </td>
                                 <td>
                                     {% for following_user in following %}
-                                        <div class="user-info">
-                                            <img src="{{ following_user.get_profile_pic_url }}" alt="Profile image">
-                                            <span>{{ following_user.name }}</span>
-                                        </div>
-                                    {% empty %}
-                                        <p>Not following anyone yet</p>
+                                        <a href="{% url 'profile' following_user.id %}" class="user-link">
+                                            <div class="user-content">
+                                                <img src="{{ following_user.get_profile_pic_url }}" alt="Profile image">
+                                                <span>{{ following_user.name }}</span>
+                                            </div>
+                                        </a>
                                     {% endfor %}
                                 </td>
                             </tr>
@@ -148,9 +148,10 @@
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
   margin-right: 15px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background-color: #f5f5f5;
 }
 
 .user-info span {
@@ -194,6 +195,152 @@
 .privacy-badge.followers {
     background-color: #e3f2fd;
     color: #1565c0;
+}
+
+/* Add/Update these styles */
+.video-title-cell {
+    padding: 8px !important;
+}
+
+.video-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.thumbnail {
+    width: 120px;
+    height: 67.5px;  /* 16:9 aspect ratio */
+    flex-shrink: 0;
+    background-color: #0e0909;  /* Light background for empty spaces */
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.thumbnail img {
+    width: auto;  /* Changed from 100% */
+    height: auto;  /* Changed from 100% */
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;  /* Changed from cover to contain */
+}
+
+.title-cell {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+    padding: 0;
+}
+
+.video-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+}
+
+.video-action-btn {
+    padding: 6px 0;
+    min-width: 60px;
+    text-align: center;
+    margin: 0;
+}
+
+/* Watch button */
+.video-action-btn.watch {
+    background-color: #4285f4;
+    color: white;
+}
+
+.video-action-btn.watch:hover {
+    background-color: #3367d6;
+}
+
+/* Edit button */
+.video-action-btn:not(.watch):not(.delete) {
+    background-color: #f1f3f4;
+    color: #3c4043;
+}
+
+.video-action-btn:not(.watch):not(.delete):hover {
+    background-color: #e8eaed;
+}
+
+/* Delete button */
+.video-action-btn.delete {
+    background-color: #dc3545;
+    color: white;
+}
+
+.video-action-btn.delete:hover {
+    background-color: #c82333;
+}
+
+.user-info {
+    margin: 8px 0;
+    width: 100%;  /* Ensure full width */
+}
+
+.user-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    padding: 8px;
+    margin: 4px 0;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.user-link:hover {
+    background-color: #f5f5f5;
+}
+
+.user-link img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: contain;
+    margin-right: 12px;
+    background-color: #f5f5f5;
+}
+
+.user-link span {
+    font-weight: 500;
+    color: #333;
+}
+
+.user-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-content img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: contain;
+    background-color: #f5f5f5;
+}
+
+.user-content span {
+    font-weight: 500;
+    color: #333;
+}
+
+/* Add table cell styles */
+.analytics-table td {
+    vertical-align: top;
+    padding: 12px;
 }
 </style>
 

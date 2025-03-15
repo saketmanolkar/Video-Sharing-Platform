@@ -19,6 +19,7 @@ from django.templatetags.static import static
 from .services.media_servies import ModelService
 from .services.video_services import VideoService
 from django.core.exceptions import ValidationError
+from django_redis import get_redis_connection
 
 logger = logging.getLogger(__name__)
 
@@ -90,16 +91,45 @@ class Video(models.Model):
         return self.title
 
     def save(self, *args, **kwargs):
+        # Check if thumbnail changed
+        if self.thumbnail and self.thumbnail != self._original_thumbnail:
+            self._thumbnail_changed = True
+        else:
+            self._thumbnail_changed = False
+        
         VideoService.handle_video_save(self, *args, **kwargs)
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._original_file = self.file if self.file else None
+        self._original_thumbnail = self.thumbnail if self.thumbnail else None
     
     def clean(self):
         super().clean()
         if self.file and self._original_file != self.file:
             self._file_changed = True
+
+    @property
+    def processing_status(self):
+        """Get video processing status"""
+        # Force refresh from DB to get latest encoded_versions
+        self.refresh_from_db()
+        
+        # If we have encoded versions, it's definitely ready
+        if self.encoded_versions:
+            return 'ready'
+        
+        # Check Redis lock
+        from django_redis import get_redis_connection
+        redis_client = get_redis_connection("default")
+        lock_key = f'encoding_lock_{self.id}'
+        is_processing = redis_client.exists(lock_key)
+        
+        if is_processing:
+            return 'processing'
+        
+        # No encoded versions and no lock means error
+        return 'error'
 
 class Review(models.Model):
     video = models.ForeignKey(
@@ -252,9 +282,14 @@ class ViewHistory(models.Model):
         unique=True, 
         editable=False
     )
+    window_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False
+    )
     user = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name='view_history',
         null=True,  # Allow null for anonymous users
         blank=True
@@ -267,11 +302,15 @@ class ViewHistory(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     viewed_at = models.DateTimeField(auto_now_add=True)
 
+    duration_watched = models.DurationField(null=True, blank=True)  
+    completed = models.BooleanField(default=False)             
+
     class Meta:
         ordering = ['-viewed_at']
         indexes = [
             models.Index(fields=['video', 'viewed_at']),
             models.Index(fields=['user', 'viewed_at']),
+            models.Index(fields=['window_id']),
         ]
 
     def __str__(self):

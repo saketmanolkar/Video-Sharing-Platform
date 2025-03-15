@@ -140,42 +140,48 @@ def add_black_bars(image_file):
         img = Image.open(image_file)
         width, height = img.size
         
+        print(f"📐 Original dimensions: {width}x{height}")
+        
         # Calculate target dimensions for 16:9
         target_ratio = 16/9
         current_ratio = width/height
         
-        # Add black bars if not already 16:9
-        if abs(current_ratio - target_ratio) > 0.01:  # Allow small deviation
+        print(f"📊 Current ratio: {current_ratio:.2f}, Target: {target_ratio:.2f}")
+        
+        # Always process the image to ensure consistent format
+        if abs(current_ratio - target_ratio) > 0.01:  # Need black bars
             if current_ratio > target_ratio:  # Too wide
                 new_height = int(width / target_ratio)
                 new_width = width
                 new_image = Image.new('RGB', (new_width, new_height), (0, 0, 0))
                 paste_y = (new_height - height) // 2
                 new_image.paste(img, (0, paste_y))
+                print(f"↕️ Adding vertical bars: {new_width}x{new_height}")
             else:  # Too tall or square
                 new_width = int(height * target_ratio)
                 new_height = height
                 new_image = Image.new('RGB', (new_width, new_height), (0, 0, 0))
                 paste_x = (new_width - width) // 2
                 new_image.paste(img, (paste_x, 0))
+                print(f"↔️ Adding horizontal bars: {new_width}x{new_height}")
+        else:
+            print("✨ Image already 16:9, still processing for consistency")
+            new_image = img
             
-            # Save to memory
-            output = io.BytesIO()
-            new_image.save(output, format='JPEG', quality=85)
-            output.seek(0)
-            
-            return InMemoryUploadedFile(
-                output,
-                'ImageField',
-                f"{image_file.name.split('.')[0]}_16_9.jpg",
-                'image/jpeg',
-                output.getbuffer().nbytes,
-                None
-            )
-            
-        print("✨ Image already in 16:9 ratio")
-        return image_file
+        # Always save to memory
+        output = io.BytesIO()
+        new_image.save(output, format='JPEG', quality=85)
+        output.seek(0)
+        
+        return InMemoryUploadedFile(
+            output,
+            'ImageField',
+            f"{image_file.name.split('.')[0]}_16_9.jpg",
+            'image/jpeg',
+            output.getbuffer().nbytes,
+            None
+        )
         
     except Exception as e:
-        logger.error(f"Error processing thumbnail: {str(e)}")
+        print(f"❌ Error processing image: {str(e)}")
         return None

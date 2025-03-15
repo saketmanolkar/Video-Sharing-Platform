@@ -112,7 +112,7 @@
   {% if recommended_videos %}
     {% for video in recommended_videos %}
       <a href="{% url 'project' video.id %}" class="sidebar-video-item">
-        <div class="sidebar-thumbnail" data-video-url="{{ video.file.url }}" data-preview-duration="15">
+        <div class="sidebar-thumbnail" data-video-url="{% url 'api-stream-video' video.id %}" data-preview-duration="15">
           {% if video.thumbnail %}
             <img src="{{ video.thumbnail.url }}" alt="{{ video.title }}">
           {% else %}
@@ -124,7 +124,7 @@
           <div class="sidebar-username">{{ video.uploader.username }}</div>
           <div class="sidebar-stats">
             <span>{{ video.views|default:"0" }} views</span>
-            <span>{{ video.created_at|timesince|truncatechars:9 }} ago</span>
+            <span>{{ video.created_at|date:"M j, Y" }}</span>
           </div>
         </div>
       </a>
