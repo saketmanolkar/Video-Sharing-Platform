@@ -285,8 +285,8 @@ USE_TZ = True
 CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://saketmanolkar.com',
-    'https://www.saketmanolkar.com',
+    'https://saketmanolkar.me',
+    'https://www.saketmanolkar.me',
     'https://testrun-app-wkegr.ondigitalocean.app',  # Your exact domain
     'https://*.ondigitalocean.app',                  # All ondigitalocean.app subdomains
     'http://localhost:8000',                         # Local development
