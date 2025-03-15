@@ -30,7 +30,7 @@ urlpatterns = [
     path('', include('projects.urls')),
     path('users/', include('users.urls')),
     path('api/', include('api.urls')),
-    path('null/health/', health_check, name='health_check'),
+    path('health/', health_check, name='health_check'),
 
     path('password_reset/', auth_views.PasswordResetView.as_view(template_name='password_reset.html'), name='password_reset'),
     path('password_reset_sent/', auth_views.PasswordResetDoneView.as_view(template_name='password_reset_sent.html'), name='password_reset_done'),
