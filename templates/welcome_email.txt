@@ -1,13 +1,16 @@
-Welcome to FilmsNation!
+Welcome to FilmsNation {username}!
 
-Thank you for joining FilmsNation, where we believe in empowering both creators and viewers through meaningful content experiences. We're excited to have you as part of our data-conscious community.
+We believe in empowering both creators and viewers through data-driven meaningful content experiences. We're excited to have you as part of our data-conscious community.
+
+We are currently in the testing phase of our platform, so we implore you to fully interact with the platform and give us feedback on your experience.
 
 As a community-first platform, we offer:
 
 For Creators:
+* Complete Uncensorship of your content.
 * Full viewer behavior insights and engagement patterns
 * Real-time performance analytics
-* Detailed audience demographics
+* Detailed Data Analytics Reports of your videos.
 * Content impact scoring
 * Fair compensation for YOUR data
 
@@ -18,6 +21,7 @@ For Viewers:
 * Understanding of your viewing patterns
 * Protection from data exploitation
 
+You can also expect weekly emails from us with your personalised data analytics report to help you understand your viewing patterns and improve your experience on the platform.
 
 We're committed to transparency in how your data helps shape your viewing experience while ensuring you maintain control over your digital footprint.
 
@@ -26,5 +30,4 @@ Get started by completing your profile and joining our community that puts you f
 Best regards,
 The FilmsNation Team
 
-★Note: This is an automated email.★ 
-★Please do not reply to this email.★
+★Note: This is an automated email.★
