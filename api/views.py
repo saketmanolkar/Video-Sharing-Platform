@@ -40,6 +40,7 @@ from django.views.decorators.cache import cache_control
 from celery import Celery
 from users.tasks import generate_speech_task
 from users.services.cache_service import TTSLockCache
+from django.db import connection
 
 class EventStreamRenderer(BaseRenderer):
     media_type = 'text/event-stream'
@@ -93,6 +94,9 @@ def getRoutes(request):
         
         # TTS Status Check
         {'GET': '/api/check-tts-status/username/'},
+
+        # Performance Test
+        {'GET': '/api/test/'},
     ]
     
     return Response(routes)
@@ -778,3 +782,53 @@ def check_tts_status(request, username):
                 "audio_url": None
             }
         })
+
+@require_GET
+def api_performance_test(request):
+    """
+    Simple diagnostic API that measures database and query performance
+    """
+    overall_start = time.time()
+    results = {
+        'timestamp': time.time(),
+        'client_info': {
+            'ip': request.META.get('REMOTE_ADDR'),
+            'country': request.META.get('HTTP_CF_IPCOUNTRY', 'Unknown'),
+        },
+        'timings': {},
+    }
+    
+    # Test database connection
+    db_start = time.time()
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+    results['timings']['database_connection'] = time.time() - db_start
+    
+    # Test Video model queries
+    videos_start = time.time()
+    from projects.models import Video
+    video_count = Video.objects.count()
+    recent_videos = list(Video.objects.filter(privacy_status='public')[:5].values('id', 'title'))
+    results['timings']['video_query'] = time.time() - videos_start
+    results['video_count'] = video_count
+    
+    # Test comment queries
+    comments_start = time.time()
+    from projects.models import Review
+    if recent_videos:
+        video_id = recent_videos[0]['id']
+        comments = list(Review.objects.filter(video_id=video_id)[:5])
+        comments_count = len(comments)
+    else:
+        comments_count = 0
+    results['timings']['comments_query'] = time.time() - comments_start
+    results['comments_count'] = comments_count
+    
+    # Total time
+    results['timings']['total'] = time.time() - overall_start
+    
+    # Print for server logs
+    print(f"API TEST from {results['client_info']['ip']} - Total time: {results['timings']['total']:.4f}s")
+    
+    return JsonResponse(results)

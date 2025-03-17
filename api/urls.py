@@ -51,4 +51,6 @@ urlpatterns = [
     # Check TTS Status
     path('check-tts-status/<str:username>/', views.check_tts_status, name='check_tts_status'),
 
+    # perfromance test
+    path('test/', views.api_performance_test, name='timing_report'),
 ]
