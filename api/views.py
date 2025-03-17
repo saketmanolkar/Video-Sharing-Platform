@@ -41,6 +41,8 @@ from celery import Celery
 from users.tasks import generate_speech_task
 from users.services.cache_service import TTSLockCache
 from django.db import connection
+import requests
+import socket
 
 class EventStreamRenderer(BaseRenderer):
     media_type = 'text/event-stream'
@@ -786,19 +788,33 @@ def check_tts_status(request, username):
 @require_GET
 def api_performance_test(request):
     """
-    Simple diagnostic API that measures database and query performance
+    Comprehensive diagnostic API with geolocation
     """
     overall_start = time.time()
+    
+    # Get real IP (works with proxies)
+    ip = get_client_ip(request)
+    
     results = {
         'timestamp': time.time(),
         'client_info': {
-            'ip': request.META.get('REMOTE_ADDR'),
-            'country': request.META.get('HTTP_CF_IPCOUNTRY', 'Unknown'),
+            'ip': ip,
+            'geo_info': get_ip_geolocation(ip),
+            'user_agent': request.META.get('HTTP_USER_AGENT', 'Unknown'),
         },
         'timings': {},
+        'network': {},
     }
     
-    # Test database connection
+    # Network test - DNS lookup time for your domain
+    dns_start = time.time()
+    try:
+        socket.gethostbyname('saketmanolkar.me')  # Replace with your domain
+        results['network']['dns_lookup'] = time.time() - dns_start
+    except:
+        results['network']['dns_lookup'] = -1
+    
+    # Database tests
     db_start = time.time()
     with connection.cursor() as cursor:
         cursor.execute("SELECT 1")
@@ -825,10 +841,56 @@ def api_performance_test(request):
     results['timings']['comments_query'] = time.time() - comments_start
     results['comments_count'] = comments_count
     
-    # Total time
-    results['timings']['total'] = time.time() - overall_start
+    # Total server processing time
+    results['timings']['total_backend'] = time.time() - overall_start
     
-    # Print for server logs
-    print(f"API TEST from {results['client_info']['ip']} - Total time: {results['timings']['total']:.4f}s")
+    # Add frontend performance instructions
+    results['frontend_test'] = {
+        'instructions': 'Open browser DevTools (F12), go to Network tab, refresh the page, and check timings',
+        'key_metrics': [
+            'TTFB (Time To First Byte)',
+            'DOM Content Loaded',
+            'Load Time',
+            'Size of largest assets'
+        ]
+    }
     
     return JsonResponse(results)
+
+def get_client_ip(request):
+    """Get real client IP, handling proxies"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR', 'unknown')
+    return ip
+
+def get_ip_geolocation(ip):
+    """Get geolocation data for an IP address"""
+    if ip == 'unknown' or ip.startswith('10.') or ip.startswith('172.') or ip.startswith('192.168.'):
+        # Don't try to geolocate private IPs
+        return {
+            'country': 'Unknown (private IP)',
+            'city': 'Unknown',
+            'region': 'Unknown'
+        }
+    
+    try:
+        # Use a free geolocation API
+        response = requests.get(f'https://ipinfo.io/{ip}/json')
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                'country': data.get('country', 'Unknown'),
+                'city': data.get('city', 'Unknown'),
+                'region': data.get('region', 'Unknown')
+            }
+    except:
+        pass
+    
+    return {
+        'country': 'Unknown (lookup failed)',
+        'city': 'Unknown',
+        'region': 'Unknown'
+    }
