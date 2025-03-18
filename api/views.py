@@ -97,7 +97,7 @@ def getRoutes(request):
         # TTS Status Check
         {'GET': '/api/check-tts-status/username/'},
 
-        # Performance Test
+        # Regional Performance Test
         {'GET': '/api/test/'},
     ]
     
