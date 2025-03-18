@@ -30,6 +30,7 @@ class UserSessionMiddleware:
         
         # Skip for static, media, api files and debug toolbar
         if any([
+            request.path.startswith('/health/'),
             request.path.startswith('/static/'),
             request.path.startswith('/media/'),
             request.path.startswith('/api/'),
