@@ -88,6 +88,15 @@ class UserSessionMiddleware:
         print(f"Method: {request.method}")
         print(f"User: {request.user}")
         
+        # Add IP address logging
+        ip_address = request.META.get('REMOTE_ADDR', 'unknown')
+        forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        
+        if forwarded_for:
+            print(f"IP: {ip_address} (X-Forwarded-For: {forwarded_for})")
+        else:
+            print(f"IP: {ip_address}")
+        
         # Skip session creation for exact logout path
         if request.path == '/users/logout/':
             print("⏩ Skipping session creation for logout")
