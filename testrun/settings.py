@@ -225,6 +225,15 @@ CELERY_BROKER_POOL_LIMIT = 10
 CELERY_WORKER_PREFETCH_MULTIPLIER = 4  # Allow workers to prefetch multiple tasks
 CELERY_TASK_ACKS_LATE = True  # Only acknowledge tasks after they're completed
 
+# Near your other Celery settings
+CELERY_BEAT_SCHEDULE = {
+    'check_expired_keys': {
+        'task': 'users.tasks.check_expired_keys',
+        'schedule': timedelta(minutes=5),  # Run every 5 minutes
+    },
+}
+
+
 # Update CACHES configuration
 CACHES = {
     "default": {
@@ -264,6 +273,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
+
 
 
 # Internationalization

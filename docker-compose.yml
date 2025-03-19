@@ -22,7 +22,7 @@ services:
     command: >
       bash -c "python manage.py migrate &&
                python manage.py collectstatic --noinput &&
-               cd /app && celery -A testrun worker --loglevel=INFO"
+               cd /app && celery -A testrun worker --beat --loglevel=INFO"
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/mediafiles

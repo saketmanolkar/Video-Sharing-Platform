@@ -10,6 +10,8 @@ from django.conf import settings
 from .services.user_services import SpeechService
 from .models import Report
 import time
+from celery.schedules import crontab
+from django_redis import get_redis_connection
 
 logger = logging.getLogger(__name__)
 
@@ -432,3 +434,52 @@ def generate_speech_task(self, username, report_type):
             print(f"🔓 RELEASED TTS LOCK: User={username}, Type={report_type}")
         except Exception as lock_err:
             print(f"⚠️ WARNING: Failed to release TTS lock: {str(lock_err)}")
+
+@shared_task(name='users.tasks.check_expired_keys')
+def check_expired_keys():
+    """Check for keys that might need processing based on TTL"""
+    redis = get_redis_connection("default")
+    
+    # Get all session keys
+    session_pattern = f"{SessionActivityCache.FOLDER}:user_*_session_*"
+    session_keys = redis.keys(session_pattern)
+    
+    for key in session_keys:
+        key_str = key.decode('utf-8')
+        
+        # Check if key is about to expire (TTL < 60 seconds) or has no TTL set
+        ttl = redis.ttl(key)
+        if ttl < 60 or ttl == -1:  # -1 means no expiry set, -2 would mean key doesn't exist
+            # Extract user_id and session_id
+            parts = key_str.split(':')
+            if len(parts) >= 3:
+                user_session = parts[-1]
+                user_id = user_session.split('_')[1]
+                session_id = user_session.split('_')[3]
+                
+                # Process this session
+                save_session_activity.delay(session_id, user_id)
+                
+                # Log what we're processing
+                print(f"Processing session activity: user_id={user_id}, session_id={session_id}, TTL={ttl}")
+            
+    # Get all video stats keys
+    video_stats_pattern = f"{VideoStatsCache.FOLDER}:*"
+    video_stats_keys = redis.keys(video_stats_pattern)
+    
+    for key in video_stats_keys:
+        key_str = key.decode('utf-8')
+        
+        # Check if key is about to expire (TTL < 60 seconds) or has no TTL set
+        ttl = redis.ttl(key)
+        if ttl < 60 or ttl == -1:  # Process keys about to expire or with no expiry
+            # Extract user_id
+            parts = key_str.split(':')
+            if len(parts) >= 2:
+                user_id = parts[-1]
+                
+                # Process video stats
+                process_video_stats.delay(user_id)
+                
+                # Log what we're processing
+                print(f"Processing video stats: user_id={user_id}, TTL={ttl}")
