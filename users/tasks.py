@@ -437,7 +437,7 @@ def generate_speech_task(self, username, report_type):
 
 @shared_task(name='users.tasks.check_expired_keys')
 def check_expired_keys():
-    """Check for keys that might need processing based on TTL"""
+    """Check for keys that might need processing based on inactivity"""
     redis = get_redis_connection("default")
     
     # Get all session keys
@@ -447,9 +447,16 @@ def check_expired_keys():
     for key in session_keys:
         key_str = key.decode('utf-8')
         
-        # Check if key is about to expire (TTL < 60 seconds) or has no TTL set
+        # Check how much TTL is remaining compared to total TTL
         ttl = redis.ttl(key)
-        if ttl < 60 or ttl == -1:  # -1 means no expiry set, -2 would mean key doesn't exist
+        max_ttl = SessionActivityCache.TTL  # 24 hours in seconds
+        
+        # Process if key has been inactive for more than 1 hour
+        # This means at least 1 hour of TTL has been consumed
+        ttl_used = max_ttl - ttl
+        one_hour = 60 * 60  # 1 hour in seconds
+        
+        if ttl_used > one_hour or ttl == -1:  # Inactive for >1 hour or no expiry
             # Extract user_id and session_id
             parts = key_str.split(':')
             if len(parts) >= 3:
@@ -461,7 +468,7 @@ def check_expired_keys():
                 save_session_activity.delay(session_id, user_id)
                 
                 # Log what we're processing
-                print(f"Processing session activity: user_id={user_id}, session_id={session_id}, TTL={ttl}")
+                print(f"Processing session activity: user_id={user_id}, session_id={session_id}, inactive for {ttl_used/60:.1f} minutes")
             
     # Get all video stats keys
     video_stats_pattern = f"{VideoStatsCache.FOLDER}:*"
@@ -470,9 +477,13 @@ def check_expired_keys():
     for key in video_stats_keys:
         key_str = key.decode('utf-8')
         
-        # Check if key is about to expire (TTL < 60 seconds) or has no TTL set
+        # Similar logic for video stats
         ttl = redis.ttl(key)
-        if ttl < 60 or ttl == -1:  # Process keys about to expire or with no expiry
+        max_ttl = VideoStatsCache.TTL  # 24 hours in seconds
+        ttl_used = max_ttl - ttl
+        one_hour = 60 * 60  # 1 hour in seconds
+        
+        if ttl_used > one_hour or ttl == -1:  # Inactive for >1 hour or no expiry
             # Extract user_id
             parts = key_str.split(':')
             if len(parts) >= 2:
@@ -482,4 +493,4 @@ def check_expired_keys():
                 process_video_stats.delay(user_id)
                 
                 # Log what we're processing
-                print(f"Processing video stats: user_id={user_id}, TTL={ttl}")
+                print(f"Processing video stats: user_id={user_id}, inactive for {ttl_used/60:.1f} minutes")
