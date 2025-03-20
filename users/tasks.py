@@ -117,10 +117,31 @@ def save_session_activity(self, session_id, user_id, inactive=False):
         # Save merged data and end the current session
         session.activity_log = merged_activity
         
-        # If the inactive flag is True, set end_time to 1 hour ago
-        if inactive:
-            session.end_time = timezone.now() - timedelta(hours=1)
-            logger.warning(f"⏰ Session marked as inactive - set end_time to 1 hour ago")
+        # If the inactive flag is True, use the last activity timestamp
+        if inactive and merged_activity and merged_activity["session_stats"]["last_activity"]:
+            # Extract the time from the last activity timestamp (format: HH:MM:SS.fff)
+            last_activity = merged_activity["session_stats"]["last_activity"]
+            time_parts = last_activity.split(':')
+            
+            # Create a datetime with today's date and the exact last activity time
+            now = timezone.now()
+            hour, minute, seconds = time_parts
+            second = float(seconds)
+            
+            # Build the end time from the parts
+            end_time = now.replace(
+                hour=int(hour),
+                minute=int(minute),
+                second=int(second),
+                microsecond=int((second - int(second)) * 1000000)
+            )
+            
+            # If this time appears to be in the future, it must be from yesterday
+            if end_time > now:
+                end_time = end_time - timedelta(days=1)
+                
+            session.end_time = end_time
+            logger.warning(f"⏰ Session marked as inactive - set end_time to last activity: {end_time}")
         else:
             session.end_time = timezone.now()
             
