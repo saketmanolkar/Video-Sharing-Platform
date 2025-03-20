@@ -229,7 +229,7 @@ CELERY_TASK_ACKS_LATE = True  # Only acknowledge tasks after they're completed
 CELERY_BEAT_SCHEDULE = {
     'check_expired_keys': {
         'task': 'users.tasks.check_expired_keys',
-        'schedule': timedelta(minutes=5),  # Run every 5 minutes
+        'schedule': timedelta(minutes=60),  # Run every 60 minutes
     },
 }
 

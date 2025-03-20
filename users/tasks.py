@@ -98,7 +98,7 @@ def merge_activity_logs(existing_log, new_log):
     name='users.tasks.save_session_activity',
     queue='celery'
 )
-def save_session_activity(self, session_id, user_id):
+def save_session_activity(self, session_id, user_id, inactive=False):
     from .services.cache_service import SessionActivityCache
     """
     Async task to save session activity and cleanup
@@ -116,7 +116,14 @@ def save_session_activity(self, session_id, user_id):
         
         # Save merged data and end the current session
         session.activity_log = merged_activity
-        session.end_time = timezone.now()
+        
+        # If the inactive flag is True, set end_time to 1 hour ago
+        if inactive:
+            session.end_time = timezone.now() - timedelta(hours=1)
+            logger.warning(f"⏰ Session marked as inactive - set end_time to 1 hour ago")
+        else:
+            session.end_time = timezone.now()
+            
         session.save()
         
         # Clear cache for the current session
@@ -437,60 +444,56 @@ def generate_speech_task(self, username, report_type):
 
 @shared_task(name='users.tasks.check_expired_keys')
 def check_expired_keys():
-    """Check for keys that might need processing based on inactivity"""
+    """Check for keys with last activity older than one hour"""
     redis = get_redis_connection("default")
     
     # Get all session keys
     session_pattern = f"{SessionActivityCache.FOLDER}:user_*_session_*"
     session_keys = redis.keys(session_pattern)
     
+    now = timezone.now()
+    one_hour_ago = now - timedelta(hours=1)
+    
     for key in session_keys:
         key_str = key.decode('utf-8')
         
-        # Check how much TTL is remaining compared to total TTL
-        ttl = redis.ttl(key)
-        max_ttl = SessionActivityCache.TTL  # 24 hours in seconds
-        
-        # Process if key has been inactive for more than 1 hour
-        # This means at least 1 hour of TTL has been consumed
-        ttl_used = max_ttl - ttl
-        one_hour = 60 * 60  # 1 hour in seconds
-        
-        if ttl_used > one_hour or ttl == -1:  # Inactive for >1 hour or no expiry
-            # Extract user_id and session_id
-            parts = key_str.split(':')
-            if len(parts) >= 3:
-                user_session = parts[-1]
-                user_id = user_session.split('_')[1]
-                session_id = user_session.split('_')[3]
-                
-                # Process this session
-                save_session_activity.delay(session_id, user_id)
-                
-                # Log what we're processing
-                print(f"Processing session activity: user_id={user_id}, session_id={session_id}, inactive for {ttl_used/60:.1f} minutes")
+        # Extract user_id and session_id
+        parts = key_str.split(':')
+        if len(parts) >= 3:
+            user_session = parts[-1]
+            user_id = user_session.split('_')[1]
+            session_id = user_session.split('_')[3]
             
-    # Get all video stats keys
-    video_stats_pattern = f"{VideoStatsCache.FOLDER}:*"
-    video_stats_keys = redis.keys(video_stats_pattern)
-    
-    for key in video_stats_keys:
-        key_str = key.decode('utf-8')
-        
-        # Similar logic for video stats
-        ttl = redis.ttl(key)
-        max_ttl = VideoStatsCache.TTL  # 24 hours in seconds
-        ttl_used = max_ttl - ttl
-        one_hour = 60 * 60  # 1 hour in seconds
-        
-        if ttl_used > one_hour or ttl == -1:  # Inactive for >1 hour or no expiry
-            # Extract user_id
-            parts = key_str.split(':')
-            if len(parts) >= 2:
-                user_id = parts[-1]
+            # Get all activities for this session
+            activities = redis.hgetall(key)
+            if not activities:
+                continue
                 
-                # Process video stats
+            # Find the timestamp of the most recent activity
+            latest_timestamp = max(activities.keys()).decode()
+            
+            # Parse the timestamp (HH:MM:SS.fff)
+            # If timestamp is more than an hour old, process it
+            hour, minute, seconds = latest_timestamp.split(':')
+            
+            # Create today's date with this time
+            latest_time = now.replace(
+                hour=int(hour),
+                minute=int(minute),
+                second=int(float(seconds)),
+                microsecond=0
+            )
+            
+            # If timestamp appears to be in the future, it's from yesterday
+            if latest_time > now:
+                latest_time = latest_time - timedelta(days=1)
+            
+            # Check if inactive for more than an hour
+            if latest_time < one_hour_ago:
+                # Queue tasks to process this inactive session
+                save_session_activity.delay(session_id, user_id, inactive=True)
                 process_video_stats.delay(user_id)
                 
                 # Log what we're processing
-                print(f"Processing video stats: user_id={user_id}, inactive for {ttl_used/60:.1f} minutes")
+                inactive_minutes = (now - latest_time).total_seconds() / 60
+                print(f"Processing inactive session: user_id={user_id}, session_id={session_id}, inactive for {inactive_minutes:.1f} minutes")
