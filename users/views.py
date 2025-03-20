@@ -284,7 +284,8 @@ def logout_user(request):
                 # Queue the activity save task
                 task = save_session_activity.delay(
                     session_id=str(active_session.id),
-                    user_id=request.user.id
+                    user_id=request.user.id,
+                    inactive=False
                 )
                 logger.info(f"✅ Queued session cleanup task: {task.id}")
             except Exception as e:
