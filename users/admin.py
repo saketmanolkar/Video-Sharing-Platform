@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Profile, Follow, Message, UserSession, UserActivitySummary, Report
+from .models import Profile, Follow, Message, UserSession, UserActivitySummary, Report, Blog
 
 @admin.register(Report)
 class ReportAdmin(admin.ModelAdmin):
@@ -38,3 +38,4 @@ admin.site.register(Follow)
 admin.site.register(Message)
 admin.site.register(UserSession)
 admin.site.register(UserActivitySummary)
+admin.site.register(Blog)

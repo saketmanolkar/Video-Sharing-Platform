@@ -17,4 +17,6 @@ urlpatterns = [
     path('settings/', views.settings, name='settings'),
     path('report/<uuid:pk>/', views.report, name='report'),
     path('delete-message/<uuid:pk>/', views.delete_message, name="delete-message"),
+    path('blogs/', views.blog_view, name='blog-index'),
+    path('blogs/<uuid:pk>/', views.blog_view, name='blog'),
 ]

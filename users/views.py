@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404,redirect
 from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
 from django.contrib.auth.models import User
-from users.models import Profile, Message, Report
+from users.models import Profile, Message, Report, Blog
 from .services.user_services import ProfileService
 from .services.follow_services import FollowService
 from django.contrib import messages
@@ -642,4 +642,28 @@ def delete_message(request, pk):
     
     return render(request, 'delete_object.html', {
         'object': f"message from {message.name}"
+    })
+
+def blog_view(request, pk=None):
+    blogs = Blog.objects.all().order_by('-created')
+    
+    if pk:
+        selected_blog = get_object_or_404(Blog, pk=pk)
+        # Increment the view counter
+        selected_blog.views += 1
+        selected_blog.save()
+        
+    elif blogs.exists():
+        # When no specific blog is requested, use the first one
+        selected_blog = blogs.first()
+        # Also increment the view counter for this first blog
+        selected_blog.views += 1
+        selected_blog.save()
+
+    else:
+        selected_blog = None
+    
+    return render(request, 'users/blogs.html', {
+        'blogs': blogs,
+        'selected_blog': selected_blog
     })
