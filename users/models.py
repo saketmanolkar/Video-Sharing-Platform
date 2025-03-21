@@ -236,12 +236,28 @@ def blog_pdf_path(instance, filename):
     return f'blogs/{unique_id}.{ext}'
 
 class Blog(models.Model):
+    # Category choices
+    MISC = 'misc'
+    UPDATES = 'updates'
+    OPINIONS = 'opinions'
+    
+    CATEGORY_CHOICES = [
+        (MISC, 'Miscellaneous'),
+        (UPDATES, 'Updates'),
+        (OPINIONS, 'Opinions'),
+    ]
+    
     id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
     title = models.CharField(max_length=200)
     pdf_file = models.FileField(upload_to=blog_pdf_path)
     created = models.DateTimeField(auto_now_add=True)
     views = models.IntegerField(default=0)
     author = models.CharField(max_length=200, null=True, blank=True)
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default=MISC,
+    )
     
     class Meta:
         ordering = ['-created']
