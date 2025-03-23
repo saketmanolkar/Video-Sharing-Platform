@@ -50,14 +50,16 @@
             <div class="card__body dev" style="background: var(--color-sub-lighter);">
               <h3 style="margin-bottom: 10px; text-align: center; color: #333; font-weight: bold; font-style: italic;">Blog Posts</h3>
               
-              <!-- Check if any opinions blogs exist first -->
-              {% with has_opinions_blogs=False %}
-                {% for blog in blogs %}
-                  {% if blog.category == 'opinions' %}
-                    {% if not has_opinions_blogs %}
+              <!-- Opinions Section -->
+              {% with opinions_blogs=blogs|dictsortreversed:"created"|dictsort:"category" %}
+                {% for blog in opinions_blogs %}
+                  {% ifchanged blog.category %}
+                    {% if blog.category == 'opinions' %}
                       <h4 style="margin: 5px 0 5px; font-size: 1.4rem; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Opinions</h4>
-                      {% with has_opinions_blogs=True %}{% endwith %}
                     {% endif %}
+                  {% endifchanged %}
+                  
+                  {% if blog.category == 'opinions' %}
                     <div class="blog-list-item {% if selected_blog.id == blog.id %}active{% endif %}" style="background-color: rgba(255,255,255,0.7); margin-bottom: 4px; border-radius: 4px;">
                       <a href="{% url 'blog' blog.id %}" style="text-decoration: none; color: #333; display: block; padding: 3px 5px;">
                         <h4 style="margin-bottom: 2px; color: #333; font-weight: 600; font-size: 1.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ blog.title }}</h4>
@@ -72,14 +74,16 @@
                 {% endfor %}
               {% endwith %}
 
-              <!-- Check if any updates blogs exist first -->
-              {% with has_updates_blogs=False %}
-                {% for blog in blogs %}
-                  {% if blog.category == 'updates' %}
-                    {% if not has_updates_blogs %}
+              <!-- Updates Section -->
+              {% with updates_blogs=blogs|dictsortreversed:"created"|dictsort:"category" %}
+                {% for blog in updates_blogs %}
+                  {% ifchanged blog.category %}
+                    {% if blog.category == 'updates' %}
                       <h4 style="margin: 5px 0 5px; font-size: 1.4rem; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Updates</h4>
-                      {% with has_updates_blogs=True %}{% endwith %}
                     {% endif %}
+                  {% endifchanged %}
+                  
+                  {% if blog.category == 'updates' %}
                     <div class="blog-list-item {% if selected_blog.id == blog.id %}active{% endif %}" style="background-color: rgba(255,255,255,0.7); margin-bottom: 4px; border-radius: 4px;">
                       <a href="{% url 'blog' blog.id %}" style="text-decoration: none; color: #333; display: block; padding: 3px 5px;">
                         <h4 style="margin-bottom: 2px; color: #333; font-weight: 600; font-size: 1.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ blog.title }}</h4>
@@ -94,14 +98,16 @@
                 {% endfor %}
               {% endwith %}
 
-              <!-- Check if any misc blogs exist first -->
-              {% with has_misc_blogs=False %}
-                {% for blog in blogs %}
-                  {% if blog.category == 'misc' %}
-                    {% if not has_misc_blogs %}
+              <!-- Misc Section -->
+              {% with misc_blogs=blogs|dictsortreversed:"created"|dictsort:"category" %}
+                {% for blog in misc_blogs %}
+                  {% ifchanged blog.category %}
+                    {% if blog.category == 'misc' %}
                       <h4 style="margin: 5px 0 5px; font-size: 1.4rem; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Miscellaneous</h4>
-                      {% with has_misc_blogs=True %}{% endwith %}
                     {% endif %}
+                  {% endifchanged %}
+                  
+                  {% if blog.category == 'misc' %}
                     <div class="blog-list-item {% if selected_blog.id == blog.id %}active{% endif %}" style="background-color: rgba(255,255,255,0.7); margin-bottom: 4px; border-radius: 4px;">
                       <a href="{% url 'blog' blog.id %}" style="text-decoration: none; color: #333; display: block; padding: 3px 5px;">
                         <h4 style="margin-bottom: 2px; color: #333; font-weight: 600; font-size: 1.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ blog.title }}</h4>
