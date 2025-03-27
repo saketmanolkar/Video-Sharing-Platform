@@ -39,6 +39,12 @@ class UserSessionMiddleware:
         ]):
             return self.get_response(request)
         
+        # *** MOVE PRINTS HERE - AFTER THE SKIP CHECK ***
+        print("\n=== Session Middleware Check ===")
+        print(f"Path: {request.path}")
+        print(f"Method: {request.method}")
+        print(f"User: {request.user}")
+        
         # Safely prefetch user profile if authenticated
         # This reduces duplicate profile queries in templates
         if hasattr(request, 'user') and request.user.is_authenticated:
@@ -82,11 +88,6 @@ class UserSessionMiddleware:
             request.is_authenticated = False
             request.user_id = None
             request.user_username = ""
-        
-        print("\n=== Session Middleware Check ===")
-        print(f"Path: {request.path}")
-        print(f"Method: {request.method}")
-        print(f"User: {request.user}")
         
         # Add IP address logging
         ip_address = request.META.get('REMOTE_ADDR', 'unknown')
