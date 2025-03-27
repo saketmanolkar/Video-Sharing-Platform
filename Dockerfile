@@ -81,6 +81,9 @@ RUN pip uninstall -y protobuf google-api-core && \
 # Additional utilities
 RUN pip install --no-cache-dir pydub==0.25.1
 
+# Channels and Daphne
+RUN pip install --no-cache-dir channels==4.0.0 channels-redis==4.0.0 daphne==4.0.0
+
 # Create a new, clean image for the runtime environment
 FROM python:3.9-slim
 

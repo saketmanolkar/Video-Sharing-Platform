@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     "debug_toolbar",
     "storages",
     'django_ckeditor_5',
+    'channels',
 ]
 
 
@@ -453,3 +454,17 @@ CKEDITOR_5_CONFIGS = {
 
 CKEDITOR_5_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 CKEDITOR_5_STORAGE_BACKEND = "storages.backends.s3boto3.S3Boto3Storage"
+
+# Add this near your Redis configuration
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [REDIS_URL],
+            # Remove all SSL configuration
+        },
+    },
+}
+
+# Update the ASGI_APPLICATION setting
+ASGI_APPLICATION = "testrun.asgi.application"

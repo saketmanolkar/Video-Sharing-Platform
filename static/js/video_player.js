@@ -1,6 +1,9 @@
 // FIRST: Start checking immediately and keep checking until found
 console.log('🔄 Starting cookie check...');
 
+// At the top of your file, outside any functions
+let isNavigationAction = false;
+
 function getCookie(name) {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
@@ -58,10 +61,79 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('🔄 Added user_ prefix to userId:', userId);
         }
 
-        // Add validation check
-        if (!windowId || windowId.trim() === '') {
-            console.warn('⚠️ No window_id available for video tracking');
+        // Initialize WebSocket connection
+        let videoSocket = null;
+        if (videoId && windowId) {
+            const wsUrl = `ws://${window.location.host}/ws/video/${videoId}/${windowId}/`;
+            console.log(`🔌 Connecting to WebSocket: ${wsUrl}`);
+            
+            videoSocket = new WebSocket(wsUrl);
+            
+            videoSocket.onopen = function() {
+                console.log('✅ WebSocket connection established');
+                
+                // Send initial connection data
+                videoSocket.send(JSON.stringify({
+                    type: 'connect',
+                    user_id: userId,
+                    username: username
+                }));
+            };
+            
+            videoSocket.onclose = function(event) {
+                console.log(`WebSocket closed, code=${event.code}`);
+            };
+            
+            // Add periodic stats update - NEW CODE
+            const statsUpdateInterval = setInterval(() => {
+                if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
+                    // Calculate current stats
+                    let currentTotalWatched = totalPlaybackTime;
+                    let currentRanges = [...watchedRanges]; // Clone the array
+                    
+                    // If currently playing, add the current segment
+                    if (isPlaying) {
+                        const currentTime = videoElement.currentTime;
+                        const watchedSegment = currentTime - lastUpdateTime;
+                        currentTotalWatched += watchedSegment;
+                        
+                        // Add temporary range for current playing segment
+                        currentRanges.push({
+                            start: playStartTime,
+                            end: currentTime
+                        });
+                    }
+                    
+                    // Calculate completion percentage
+                    const duration = player.duration();
+                    const uniqueWatched = calculateUniqueWatched(currentRanges);
+                    const percentage = (uniqueWatched / duration) * 100;
+                    const isCompleted = percentage >= 90;
+                    
+                    // Send stats update to WebSocket
+                    videoSocket.send(JSON.stringify({
+                        type: 'update_stats',
+                        total_watched: Number(currentTotalWatched).toFixed(2),
+                        ranges: currentRanges,
+                        is_completed: isCompleted
+                    }));
+                    
+                    console.log('📊 Sent stats update via WebSocket:', {
+                        total_watched: Number(currentTotalWatched).toFixed(2),
+                        ranges_count: currentRanges.length,
+                        is_completed: isCompleted
+                    });
+                }
+            }, 5000); // Update every 5 seconds
+            
+            // Clear interval when page unloads
+            window.addEventListener('beforeunload', () => {
+                clearInterval(statsUpdateInterval);
+            });
+        } else {
+            console.warn('⚠️ Missing videoId or windowId, cannot setup WebSocket');
         }
+        // END OF NEW CODE
 
         let isPlaying = false;
         let totalPlaybackTime = 0;
@@ -193,8 +265,30 @@ document.addEventListener('DOMContentLoaded', () => {
             return cookieValue;
         }
 
+        // Track all navigation link clicks
+        document.addEventListener('click', function(e) {
+            // Check if the click was on a link
+            const linkElement = e.target.closest('a');
+            if (linkElement && linkElement.href && !linkElement.href.startsWith('javascript:')) {
+                isNavigationAction = true;
+                console.log('🔄 Navigation link clicked:', linkElement.href);
+            }
+        });
+        
+        // Track navigation form submissions
+        document.addEventListener('submit', function(e) {
+            isNavigationAction = true;
+            console.log('🔄 Form submission - navigation action');
+        });
+        
+        // Add custom handling for other navigation controls
+        window.addEventListener('popstate', function() {
+            isNavigationAction = true;
+            console.log('🔄 Browser history navigation detected');
+        });
+
         // When video ends or page unloads
-        window.addEventListener('beforeunload', function() {
+        window.addEventListener('beforeunload', function(e) {
             // Call the existing pause logic to update watched stats
             if (isPlaying) {
                 const currentTime = videoElement.currentTime;
@@ -228,6 +322,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 is_completed: percentage >= 90 // Mark as completed if 90% or more watched
             };
 
+            // Variable to track if cookie was set successfully
+            let cookieSetSuccess = false;
+
+            // Much better detection!
+            const isBrowserClose = !isNavigationAction;
+            
+            if (isBrowserClose) {
+                console.log('🚪 Browser/tab closing detected - NOT navigation');
+            } else {
+                console.log('🔄 Normal navigation detected');
+                // Reset flag immediately to prevent issues with browser back button
+                isNavigationAction = false;
+            }
+            
             // Set a cookie with the video watch stats only if windowId exists, the user is authenticated, and is not logging out
             if (!windowId) {
                 console.warn('⚠️ Window ID missing. Video Stats Cookie will not be set.');
@@ -239,9 +347,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     document.cookie = `videoWatchStats=${encodeURIComponent(JSON.stringify(stats))}; path=/; max-age=3600`; // Cookie expires in 1 hour
                     console.log('🍪 📊 VideoWatchStats cookie set successfully:', stats);
+                    cookieSetSuccess = true; // Mark cookie as successfully set
                 } catch (error) {
                     console.error('❌ Failed to set video stats cookie:', error);
                 }
+            }
+            
+            // Only send graceful close if it's NOT a browser/tab close
+            if (videoSocket && videoSocket.readyState === WebSocket.OPEN && cookieSetSuccess && !isBrowserClose) {
+                console.log('🔒 Sending WebSocket graceful close message for normal navigation');
+                videoSocket.send(JSON.stringify({
+                    type: 'close',
+                    reason: 'page_navigation',
+                    source: 'normal_navigation',
+                    cookie_set: true
+                }));
+            } else if (videoSocket && videoSocket.readyState === WebSocket.OPEN && isBrowserClose) {
+                console.log('⚠️ Tab/browser closing detected - NOT sending graceful close message');
+            }
+            
+            // Modern approach - don't use returnValue
+            if (isBrowserClose) {
+                e.preventDefault();
+                return '';
             }
         });
 
@@ -333,22 +461,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Log the stats being sent to the API
                 console.log('📤 Sending video stats to API:', stats);
 
-                // Simply use navigator.sendBeacon which handles page unload gracefully
+                // Use navigator.sendBeacon and track its success
+                let apiCallSuccess = false;
+                
                 try {
                     const blob = new Blob([JSON.stringify(stats)], {type: 'application/json'});
                     const beaconSuccess = navigator.sendBeacon('/api/video-stats/', blob);
                     
                     if (beaconSuccess) {
                         console.log('📡 Stats sent via beacon successfully');
+                        apiCallSuccess = true; // Mark API call as successful
+                        
+                        // IMPORTANT CHANGE: Only send WebSocket close if API call was successful
+                        if (videoSocket && videoSocket.readyState === WebSocket.OPEN) {
+                            console.log('🔒 Sending WebSocket graceful close for logout AFTER successful API call');
+                            videoSocket.send(JSON.stringify({
+                                type: 'close',
+                                reason: 'user_logout',
+                                api_call_success: true
+                            }));
+                        }
                     } else {
                         console.log('ℹ️ Beacon not available, redirecting to logout');
                     }
                 } catch (e) {
-                    // Suppress the error completely
                     console.log('ℹ️ Stats sending handled, redirecting to logout');
                 }
                 
-                // Redirect immediately - beacon will continue in background
+                // If API call wasn't successful, don't send WebSocket close
+                if (!apiCallSuccess && videoSocket && videoSocket.readyState === WebSocket.OPEN) {
+                    console.log('⚠️ Not sending WebSocket close - API call was not successful');
+                }
+                
+                // Redirect to logout
                 window.location.href = '/users/logout/';
             }
         }
