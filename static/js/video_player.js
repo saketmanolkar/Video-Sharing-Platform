@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize WebSocket connection
         let videoSocket = null;
         if (videoId && windowId) {
-            const wsUrl = `ws://${window.location.host}/ws/video/${videoId}/${windowId}/`;
+            const wsUrl = `wss://${window.location.host}/ws/video/${videoId}/${windowId}/`;
             console.log(`🔌 Connecting to WebSocket: ${wsUrl}`);
             
             videoSocket = new WebSocket(wsUrl);
