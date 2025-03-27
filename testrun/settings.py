@@ -388,17 +388,27 @@ VIDEO_ENCODING = {
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'filters': ['ignore_broken_pipe'],
-            'level': 'INFO',
-        },
-    },
     'filters': {
         'ignore_broken_pipe': {
             '()': 'django.utils.log.CallbackFilter',
             'callback': lambda record: 'Broken pipe' not in str(record.exc_info),
+        },
+        'ignore_health_checks': {
+            '()': 'django.utils.log.CallbackFilter',
+            'callback': lambda record: '/health/' not in str(record.getMessage()),
+        },
+    },
+    'formatters': {
+        'simple': {
+            'format': '%(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'filters': ['ignore_broken_pipe', 'ignore_health_checks'],
+            'level': 'INFO',
+            'formatter': 'simple',
         },
     },
     'loggers': {
@@ -410,6 +420,11 @@ LOGGING = {
         'users.tasks': {
             'handlers': ['console'],
             'level': 'WARNING',
+            'propagate': True,
+        },
+        'daphne': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Only show WARNING and higher from Daphne
             'propagate': True,
         },
     },
