@@ -139,7 +139,13 @@
                 
                 {% if selected_blog.pdf_file %}
                   <div class="pdf-embed" style="margin-bottom: 2rem; width: 100%;">
-                    <embed src="{{ selected_blog.pdf_file.url }}" type="application/pdf" width="100%" height="935px" style="display: block; border: none; box-shadow: 0 0 10px rgba(0,0,0,0.1);" />
+                    <iframe 
+                      src="{{ selected_blog.pdf_file.url }}#toolbar=0&navpanes=0&scrollbar=0" 
+                      width="100%" 
+                      height="935px"
+                      style="display: block; border: none; box-shadow: 0 0 10px rgba(0,0,0,0.1);"
+                      frameborder="0">
+                    </iframe>
                   </div>
                 {% endif %}
                 

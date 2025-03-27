@@ -9,8 +9,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write('Starting validation...')
         
-        # Get first 10 summaries
-        summaries = UserActivitySummary.objects.all()[:10]
+        # Get first 20 summaries
+        summaries = UserActivitySummary.objects.all()[:20]
         follow_service = FollowService()
         
         for summary in summaries:
