@@ -130,5 +130,5 @@ RUN echo '#!/bin/bash' > /wrapper.sh && \
 ENTRYPOINT ["/wrapper.sh"]
 
 # Command to run the service
-CMD ["gunicorn", "testrun.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "testrun.asgi:application"]
 
