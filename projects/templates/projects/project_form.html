@@ -220,7 +220,8 @@
                     method: 'PUT',
                     body: file,
                     headers: {
-                        'Content-Type': file.type
+                        'Content-Type': file.type,
+                        'Origin': window.location.origin
                     },
                     mode: 'cors',
                     credentials: 'omit'
