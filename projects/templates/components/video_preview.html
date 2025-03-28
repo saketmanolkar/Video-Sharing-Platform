@@ -54,7 +54,7 @@
                    alt="{{ item.video.title }}" />
             </div>
             <div class="card__body">
-              <h3 class="project__title">{{ item.video.title }}</h3>
+              <h3 class="project__title " style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.video.title }}</h3>
               <a class="project__author" href="{% url 'profile' item.video.uploader.profile.id %}">By {{ item.video.uploader.username }}</a>
               <p class="project--rating">
                 <span style="font-weight: bold;">{{ item.video.likes_count }}</span> Likes • 
@@ -76,7 +76,7 @@
                    alt="{{ item.title }}" />
             </div>
             <div class="card__body">
-              <h3 class="project__title">{{ item.title }}</h3>
+              <h3 class="project__title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.title }}</h3>
               <a class="project__author" href="{% url 'profile' item.uploader.profile.id %}">By {{ item.uploader.username }}</a>
               <p class="project--rating">
                 <span style="font-weight: bold;">{{ item.likes_count }}</span> Likes • 

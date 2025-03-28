@@ -52,7 +52,7 @@
                  alt="{{ video.title }}" />
           </div>
           <div class="card__body">
-            <h3 class="project__title">{{video.title}}</h3>
+            <h3 class="project__title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ video.title }}</h3>
             <a class="project__author" href="{% url 'profile' video.uploader.profile.id %}">By {{video.uploader.username}}</a>
             <p class="project--rating">
                 <span style="font-weight: bold;">{{ video.likes_count }}</span> Likes • 
