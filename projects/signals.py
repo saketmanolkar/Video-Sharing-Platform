@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 def handle_video_encoding(sender, instance, created, **kwargs):
     """Queue video encoding for new uploads AND updates"""
     
+    # Add this check to prevent re-encoding already encoded videos
+    if instance.encoded_versions and '720p' in instance.encoded_versions:
+        print("⏩ Skipping - video already has encoded versions")
+        return
+    
     # Process if new video OR file changed
     if not (created or getattr(instance, '_file_changed', False)):
         print("⏩ Skipping - no video changes")

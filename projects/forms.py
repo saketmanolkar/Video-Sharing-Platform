@@ -113,18 +113,18 @@ class ProjectForm(forms.ModelForm):
         if file:
             # Check file size (limit to 2GB)
             if file.size > 2147483648:  # 2GB in bytes
-                raise forms.ValidationError("File size must be less than 500MB")
+                raise forms.ValidationError("File size must be less than 2GB")
                 
             # Check file extension
             ext = os.path.splitext(file.name)[1].lower()
-            valid_extensions = ['.mp4', '.mov']
+            valid_extensions = ['.mp4', '.mov', '.qt', '.quicktime']
             if ext not in valid_extensions:
                 raise forms.ValidationError(f"Only {', '.join(valid_extensions)} files are allowed")
                 
             # Check MIME type using built-in mimetypes library
             mime_type, encoding = mimetypes.guess_type(file.name)
             if mime_type:
-                valid_types = ['video/mp4', 'video/quicktime']
+                valid_types = ['video/mp4', 'video/mov', 'video/quicktime']
                 if mime_type not in valid_types:
                     raise forms.ValidationError(f"File type {mime_type} is not supported")
                 

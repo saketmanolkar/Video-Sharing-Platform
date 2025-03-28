@@ -148,8 +148,15 @@ def create_project(request):
                     project = form.save(commit=False)
                     project.uploader = request.user
                     
-                    if 'file' not in request.FILES:
+                    # Check for either a file OR a file path
+                    if 'file' not in request.FILES and 'file_path' not in request.POST:
                         raise ValueError("Video file is required")
+                    
+                    # If we have a file path but no file, use the path
+                    if 'file_path' in request.POST and not project.file:
+                        file_path = request.POST.get('file_path')
+                        if file_path:
+                            project.file.name = file_path
                         
                     project.save()
                     form.save_m2m()

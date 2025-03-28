@@ -53,4 +53,7 @@ urlpatterns = [
 
     # perfromance test
     path('test/', views.api_performance_test, name='timing_report'),
+
+    # New path for the presigned URL
+    path('presigned-url/', views.get_presigned_url, name='get-presigned-url'),
 ]

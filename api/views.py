@@ -43,6 +43,7 @@ from users.services.cache_service import TTSLockCache
 from django.db import connection
 import requests
 import socket
+from django.contrib.auth.decorators import login_required
 
 class EventStreamRenderer(BaseRenderer):
     media_type = 'text/event-stream'
@@ -894,3 +895,53 @@ def get_ip_geolocation(ip):
         'city': 'Unknown',
         'region': 'Unknown'
     }
+
+@login_required
+def get_presigned_url(request):
+    """Generate a presigned URL for direct upload to Spaces"""
+    import boto3
+    import uuid
+    from django.http import JsonResponse
+    from django.conf import settings
+    
+    # Only accept POST requests
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    # Get file info from request
+    filename = request.POST.get('filename')
+    filetype = request.POST.get('filetype')
+    
+    if not filename or not filetype:
+        return JsonResponse({'error': 'Missing filename or filetype'}, status=400)
+    
+    # Generate a unique path in the videos folder
+    original_name = filename
+    safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', original_name)  # Sanitize
+    uploaded_file_path = f"videos/{str(uuid.uuid4())[:8]}_{safe_name}"
+    
+    # Create S3 client with DO credentials
+    s3_client = boto3.client('s3',
+        endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        region_name=settings.AWS_S3_REGION_NAME
+    )
+    
+    # Generate presigned URL (valid for 10 minutes)
+    presigned_url = s3_client.generate_presigned_url(
+        'put_object',
+        Params={
+            'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
+            'Key': uploaded_file_path,
+            'ContentType': filetype,
+            'ACL': 'public-read'
+        },
+        ExpiresIn=600  # 10 minutes
+    )
+    
+    # Return URL and file path to client
+    return JsonResponse({
+        'presigned_url': presigned_url,
+        'file_path': uploaded_file_path
+    })
