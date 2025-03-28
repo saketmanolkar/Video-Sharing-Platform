@@ -220,7 +220,7 @@
                     method: 'PUT',
                     body: file,
                     headers: {
-                        'Content-Type': file.type,
+                        'Content-Type': file.type
                     },
                     mode: 'cors',
                     credentials: 'omit'
@@ -228,6 +228,24 @@
                 
                 if (!uploadResponse.ok) {
                     throw new Error('Upload failed');
+                }
+                
+                // If ACL URL is provided, set the ACL after upload
+                if (data.acl_url) {
+                    try {
+                        const aclResponse = await fetch(data.acl_url, {
+                            method: 'PUT',
+                            headers: {},
+                            mode: 'cors',
+                            credentials: 'omit'
+                        });
+                        
+                        if (!aclResponse.ok) {
+                            console.warn('Setting ACL failed, but upload succeeded');
+                        }
+                    } catch (aclError) {
+                        console.warn('Error setting ACL, but upload succeeded:', aclError);
+                    }
                 }
                 
                 // Store the file path for form submission
