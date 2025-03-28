@@ -23,8 +23,7 @@ class ProjectForm(forms.ModelForm):
             }),
             'file': forms.FileInput(attrs={
                 'class': 'file-input',
-                'accept': 'video/mp4,video/mov'
-                
+                'accept': '.mp4,.mov,.qt'
             }),
             'thumbnail': forms.FileInput(attrs={
                 'class': 'file-input',
