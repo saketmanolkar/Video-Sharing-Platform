@@ -130,5 +130,5 @@ RUN echo '#!/bin/bash' > /wrapper.sh && \
 ENTRYPOINT ["/wrapper.sh"]
 
 # Command to run the service
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "testrun.asgi:application"]
+CMD ["daphne", "-v", "0", "-b", "0.0.0.0", "-p", "8000", "testrun.asgi:application"]
 

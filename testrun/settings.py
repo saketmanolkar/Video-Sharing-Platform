@@ -484,6 +484,3 @@ CHANNEL_LAYERS = {
 # Update the ASGI_APPLICATION setting
 ASGI_APPLICATION = "testrun.asgi.application"
 
-# Add these to your settings.py
-DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024 * 2  # 2GB
-FILE_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024 * 2  # 2GB

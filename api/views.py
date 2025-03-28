@@ -100,6 +100,9 @@ def getRoutes(request):
 
         # Regional Performance Test
         {'GET': '/api/test/'},
+
+        # Presigned URL
+        {'GET': '/api/presigned-url/'},
     ]
     
     return Response(routes)
