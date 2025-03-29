@@ -904,7 +904,6 @@ def get_presigned_url(request):
     """Generate a presigned URL for direct upload to Spaces"""
     import boto3
     import uuid
-    import re
     from django.http import JsonResponse
     from django.conf import settings
     
@@ -932,38 +931,20 @@ def get_presigned_url(request):
         region_name=settings.AWS_S3_REGION_NAME
     )
     
-    # Generate presigned URL WITHOUT the ACL param (this is key)
+    # Generate presigned URL (valid for 10 minutes)
     presigned_url = s3_client.generate_presigned_url(
         'put_object',
         Params={
             'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
             'Key': uploaded_file_path,
             'ContentType': filetype,
-            # Remove ACL from here
+            'ACL': 'public-read'
         },
         ExpiresIn=600  # 10 minutes
     )
     
-    # Set ACL after upload
-    try:
-        # Create a presigned URL for the ACL operation too
-        acl_url = s3_client.generate_presigned_url(
-            'put_object_acl',
-            Params={
-                'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
-                'Key': uploaded_file_path,
-                'ACL': 'public-read'
-            },
-            ExpiresIn=600
-        )
-    except Exception as e:
-        print(f"Error generating ACL URL: {e}")
-        acl_url = None
-    
-    # Return URLs and file path to client
+    # Return URL and file path to client
     return JsonResponse({
         'presigned_url': presigned_url,
-        'acl_url': acl_url,
         'file_path': uploaded_file_path
     })
-
