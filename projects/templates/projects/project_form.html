@@ -178,7 +178,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         const videoInput = document.querySelector('input[name="file"]');
         const form = document.querySelector('form');
-        let uploadedFilePath = null;
+        let selectedFile = null;
         
         // Add a hidden input field to store the file path
         const filePathInput = document.createElement('input');
@@ -186,19 +186,49 @@
         filePathInput.name = 'file_path';
         form.appendChild(filePathInput);
         
-        videoInput.addEventListener('change', async function(e) {
-            const file = this.files[0];
-            if (!file) return;
-            
-            // Show upload status
+        // When file is selected, just store it and update display
+        videoInput.addEventListener('change', function(e) {
+            selectedFile = this.files[0];
             const fileNameDisplay = this.closest('.file-upload-wrapper').querySelector('.file-name');
-            fileNameDisplay.textContent = 'Preparing to upload...';
+            
+            if (selectedFile) {
+                fileNameDisplay.textContent = 'Selected: ' + selectedFile.name + ' (will upload on submit)';
+            } else {
+                fileNameDisplay.textContent = 'Choose a video (MP4 or MOV only)...';
+            }
+        });
+        
+        // Handle form submission
+        form.addEventListener('submit', async function(e) {
+            // Prevent default form submission
+            e.preventDefault();
+            
+            // If no file selected and required, show error
+            if (!selectedFile && videoInput.required) {
+                alert('Please select a video file first');
+                return;
+            }
+            
+            // If no file selected but not required, just submit the form normally
+            if (!selectedFile) {
+                form.submit();
+                return;
+            }
+            
+            // Show loading indicator
+            const fileNameDisplay = videoInput.closest('.file-upload-wrapper').querySelector('.file-name');
+            fileNameDisplay.textContent = 'Uploading to cloud...';
+            
+            // Show processing overlay
+            if ("{{ page_type }}" !== 'update') {
+                document.getElementById('processingOverlay').style.display = 'flex';
+            }
             
             try {
                 // Get presigned URL from backend
                 const formData = new FormData();
-                formData.append('filename', file.name);
-                formData.append('filetype', file.type);
+                formData.append('filename', selectedFile.name);
+                formData.append('filetype', selectedFile.type);
                 
                 const response = await fetch('/api/presigned-url/', {
                     method: 'POST',
@@ -213,14 +243,13 @@
                 }
                 
                 const data = await response.json();
-                fileNameDisplay.textContent = 'Uploading to cloud...';
                 
                 // Upload directly to S3/Spaces
                 const uploadResponse = await fetch(data.presigned_url, {
                     method: 'PUT',
-                    body: file,
+                    body: selectedFile,
                     headers: {
-                        'Content-Type': file.type,
+                        'Content-Type': selectedFile.type,
                         'x-amz-acl': 'public-read'
                     }
                 });
@@ -230,26 +259,19 @@
                 }
                 
                 // Store the file path for form submission
-                uploadedFilePath = data.file_path;
-                filePathInput.value = uploadedFilePath;
-                
-                // Update display
-                fileNameDisplay.textContent = 'Uploaded: ' + file.name;
+                filePathInput.value = data.file_path;
                 
                 // Clear the file input so it doesn't get submitted
                 videoInput.value = '';
                 
+                // Submit the form
+                form.submit();
+                
             } catch (error) {
                 console.error('Error:', error);
                 fileNameDisplay.textContent = 'Error: ' + error.message;
-            }
-        });
-        
-        // Modify form submission
-        form.addEventListener('submit', function(e) {
-            if (!uploadedFilePath && videoInput.required) {
-                e.preventDefault();
-                alert('Please upload a video file first');
+                document.getElementById('processingOverlay').style.display = 'none';
+                alert('Upload failed: ' + error.message);
             }
         });
     });
