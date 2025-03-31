@@ -239,19 +239,25 @@ def process_video_stats(user_id):
                 # Refresh from DB to ensure we have latest state
                 view_history_entry.refresh_from_db()
                 
+                # Check if already modified - if so, skip this update
+                if view_history_entry.modified:
+                    print(f"⚠️ ViewHistory entry already modified by another process, skipping update for Video ID: {video_id}, Window ID: {window_id}")
+                    continue
+                
                 # Update the fields
                 view_history_entry.duration_watched = timedelta(seconds=float(value['total_watched']))
                 view_history_entry.completed = value['is_completed'] == 'True'
+                view_history_entry.modified = True  # Mark as modified
                 
                 # Force update to trigger signal
                 view_history_entry.save(
                     force_update=True, 
-                    update_fields=['duration_watched', 'completed']
+                    update_fields=['duration_watched', 'completed', 'modified']
                 )
                 print(f"🔄 Updated ViewHistory entry for Video ID: {video_id}, Window ID: {window_id} : {view_history_entry.duration_watched} : {view_history_entry.completed}")
             else:
                 print(f"No ViewHistory entry found for Video ID: {video_id}, Window ID: {window_id}")
-
+                
     # Use the same pattern for invalidation as for retrieval
     video_stats_cache.invalidate(user_id)
     print(f"🗑️ Invalidated cached video stats for user ID: {user_id}")

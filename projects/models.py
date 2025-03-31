@@ -309,7 +309,10 @@ class ViewHistory(models.Model):
     viewed_at = models.DateTimeField(auto_now_add=True)
 
     duration_watched = models.DurationField(null=True, blank=True, default=timedelta(seconds=0))  
-    completed = models.BooleanField(default=False)             
+    completed = models.BooleanField(default=False)
+    
+    # New field to track modifications
+    modified = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-viewed_at']

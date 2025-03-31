@@ -521,8 +521,15 @@ def update_video_stats(request):
                 window_id=window_id, 
                 user=user
             )
+            
+            # Check if already modified - if so, skip the update
+            if view_history.modified:
+                print(f"⚠️ ViewHistory entry already modified, skipping API update for Video ID: {video_id}, Window ID: {window_id}")
+                return JsonResponse({'status': 'skipped', 'message': 'Record already modified by another process.'})
+            
             view_history.duration_watched = total_watched_duration
             view_history.completed = is_completed
+            view_history.modified = True  # Mark as modified
             view_history.save()
             print(f"🔄 Updated ViewHistory entry for Video ID via API: {video_id}, Window ID: {window_id}")
         except ViewHistory.DoesNotExist:

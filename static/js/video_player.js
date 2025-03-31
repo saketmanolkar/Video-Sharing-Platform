@@ -64,7 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize WebSocket connection
         let videoSocket = null;
         if (videoId && windowId) {
-            const wsUrl = `wss://${window.location.host}/ws/video/${videoId}/${windowId}/`;
+            // Use secure WebSockets (wss://) in production and regular WebSockets (ws://) in development
+            const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+            const wsUrl = `${protocol}${window.location.host}/ws/video/${videoId}/${windowId}/`;
             console.log(`🔌 Connecting to WebSocket: ${wsUrl}`);
             
             videoSocket = new WebSocket(wsUrl);
