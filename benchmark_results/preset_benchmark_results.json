@@ -1,0 +1,79 @@
+[
+  {
+    "preset": "ultrafast",
+    "cpu_avg": 16.13,
+    "ram_avg": 159.12,
+    "cpu_max": 16.92,
+    "ram_max": 161.75,
+    "time": 1.52,
+    "speed": 20.46,
+    "size": 6.35,
+    "compression": 73.21
+  },
+  {
+    "preset": "superfast",
+    "cpu_avg": 14.37,
+    "ram_avg": 238.26,
+    "cpu_max": 14.76,
+    "ram_max": 244.64,
+    "time": 2.02,
+    "speed": 15.37,
+    "size": 4.38,
+    "compression": 81.53
+  },
+  {
+    "preset": "veryfast",
+    "cpu_avg": 12.68,
+    "ram_avg": 240.86,
+    "cpu_max": 13.98,
+    "ram_max": 258.07,
+    "time": 2.99,
+    "speed": 11.12,
+    "size": 2.44,
+    "compression": 89.69
+  },
+  {
+    "preset": "faster",
+    "cpu_avg": 13.67,
+    "ram_avg": 277.63,
+    "cpu_max": 14.98,
+    "ram_max": 287.84,
+    "time": 3.75,
+    "speed": 8.38,
+    "size": 3.15,
+    "compression": 86.69
+  },
+  {
+    "preset": "fast",
+    "cpu_avg": 14.49,
+    "ram_avg": 304.12,
+    "cpu_max": 15.14,
+    "ram_max": 313.64,
+    "time": 4.14,
+    "speed": 7.52,
+    "size": 3.54,
+    "compression": 85.08
+  },
+  {
+    "preset": "medium",
+    "cpu_avg": 14.16,
+    "ram_avg": 322.72,
+    "cpu_max": 16.04,
+    "ram_max": 347.66,
+    "time": 5.56,
+    "speed": 5.69,
+    "size": 3.12,
+    "compression": 86.84
+  },
+  {
+    "preset": "slow",
+    "cpu_avg": 16.07,
+    "ram_avg": 364.23,
+    "cpu_max": 17.74,
+    "ram_max": 384.77,
+    "time": 6.47,
+    "speed": 4.84,
+    "size": 2.99,
+    "compression": 87.37
+  }
+]

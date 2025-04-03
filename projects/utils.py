@@ -8,14 +8,20 @@ import io
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from datetime import datetime
 import logging
+import psutil
+import time
+import threading
 
 logger = logging.getLogger(__name__)
 
 def encode_video(input_path, output_path, size):
-    """Video encoding function with detailed metrics"""
+    """Video encoding function with detailed metrics including CPU and RAM usage"""
     try:
+        # For consistency and debugging, define preset at the start
+        preset = "veryfast"
+        
         start_time = datetime.now()
-        print(f"🎬 Starting encode at: {start_time}")
+        print(f"🎬 Starting encode at: {start_time} with preset '{preset}'")
         
         # Get input file size
         input_size = os.path.getsize(input_path) / (1024 * 1024)  # MB
@@ -34,7 +40,9 @@ def encode_video(input_path, output_path, size):
             'input': {'size_mb': input_size},
             'output': {},
             'compression': {},
-            'timing': {}
+            'timing': {},
+            'resource_usage': {},
+            'encoding_settings': {'preset': preset}  # Store preset in metrics
         }
         
         probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
@@ -59,7 +67,7 @@ def encode_video(input_path, output_path, size):
             command = [
                 'ffmpeg', '-i', input_path,
                 '-c:v', 'libx264',
-                '-preset', 'faster',
+                '-preset', preset,
                 '-crf', '28',
                 '-c:a', 'aac',
                 '-b:a', '96k',
@@ -74,12 +82,62 @@ def encode_video(input_path, output_path, size):
                 output_path
             ]
             
-            # Run encoding
+            # Improved resource tracking to work better with fast presets
+            cpu_percentages = []
+            ram_usage_mb = []
+            monitoring_active = True
+            
+            def monitor_resources():
+                # Ensure we have initial CPU reading
+                proc.cpu_percent()
+                logger.debug(f"Starting resource monitoring for {preset} preset encoding")
+                sample_count = 0
+                
+                while monitoring_active:
+                    try:
+                        if proc.is_running():
+                            # Get CPU usage
+                            cpu_percent = proc.cpu_percent(interval=0.1)  # Faster sampling
+                            if cpu_percent > 0:  # Skip zero readings
+                                cpu_percentages.append(cpu_percent)
+                            
+                            # Get memory usage
+                            memory_info = proc.memory_info()
+                            ram_mb = memory_info.rss / (1024 * 1024)
+                            ram_usage_mb.append(ram_mb)
+                            
+                            sample_count += 1
+                            # Log more frequently for ultrafast preset
+                            if sample_count % 5 == 0:  
+                                logger.debug(f"Resource sample {sample_count}: CPU={cpu_percent}%, RAM={ram_mb}MB")
+                                
+                        time.sleep(0.1)  # Much faster polling for ultrafast preset
+                    except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                        logger.debug(f"Resource monitoring exception: {str(e)}")
+                        break
+            
+            # Run encoding with resource monitoring
             encode_start = datetime.now()
-            result = subprocess.run(command, capture_output=True, text=True)
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            # Get the process to monitor
+            proc = psutil.Process(process.pid)
+            
+            # Start monitoring thread
+            monitoring_thread = threading.Thread(target=monitor_resources)
+            monitoring_thread.daemon = True
+            monitoring_thread.start()
+            
+            # Wait for encoding to complete
+            stdout, stderr = process.communicate()
+            
+            # Stop resource monitoring
+            monitoring_active = False
+            monitoring_thread.join(timeout=2)  # Wait for monitoring thread to end
+            
             encode_end = datetime.now()
             
-            if result.returncode == 0:
+            if process.returncode == 0:
                 # Get output metrics
                 output_size = os.path.getsize(output_path) / (1024 * 1024)  # MB
                 
@@ -114,16 +172,46 @@ def encode_video(input_path, output_path, size):
                         'processing_speed': round(metrics['input']['duration'] / encode_duration, 2)  # > 1 means faster than realtime
                     })
                     
+                    # Calculate resource usage metrics with fallback values
+                    if cpu_percentages and ram_usage_mb:
+                        # Filter out any extreme outliers (values >3× the median)
+                        cpu_median = sorted(cpu_percentages)[len(cpu_percentages)//2]
+                        filtered_cpu = [c for c in cpu_percentages if c < cpu_median*3]
+                        
+                        metrics['resource_usage'] = {
+                            'avg_cpu_percent': round(sum(filtered_cpu) / len(filtered_cpu), 2) if filtered_cpu else 0,
+                            'max_cpu_percent': round(max(filtered_cpu), 2) if filtered_cpu else 0,
+                            'avg_ram_mb': round(sum(ram_usage_mb) / len(ram_usage_mb), 2) if ram_usage_mb else 0,
+                            'max_ram_mb': round(max(ram_usage_mb), 2) if ram_usage_mb else 0,
+                            'samples_collected': len(cpu_percentages)  # Debugging info
+                        }
+                        
+                        logger.debug(f"Collected {len(cpu_percentages)} CPU samples, {len(ram_usage_mb)} RAM samples")
+                    else:
+                        # Fallback if no samples were collected
+                        logger.warning("No resource samples collected, using fallback values")
+                        metrics['resource_usage'] = {
+                            'avg_cpu_percent': 0,
+                            'max_cpu_percent': 0, 
+                            'avg_ram_mb': 0,
+                            'max_ram_mb': 0,
+                            'samples_collected': 0
+                        }
+                    
                     # Log detailed metrics
                     logger.info("Video Encoding Metrics:")
                     logger.info(json.dumps(metrics, indent=2))
                     
                     print(f"""
 🎯 Encoding Complete!
+Preset: {preset}
 Input: {metrics['input']['width']}x{metrics['input']['height']}, {round(metrics['input']['size_mb'], 2)}MB, {round(metrics['input']['bitrate'])}Kbps
 Output: {metrics['output']['width']}x{metrics['output']['height']}, {metrics['output']['size_mb']}MB, {round(metrics['output']['bitrate'])}Kbps
 Compression: {metrics['compression']['size_reduction_percent']}% size reduction, {metrics['compression']['bitrate_reduction_percent']}% bitrate reduction
 Speed: {metrics['timing']['processing_speed']}x realtime ({metrics['timing']['encode_duration_sec']}s)
+Resource Usage: {metrics['resource_usage']['avg_cpu_percent']}% CPU avg, {metrics['resource_usage']['max_cpu_percent']}% CPU max
+               {metrics['resource_usage']['avg_ram_mb']} MB RAM avg, {metrics['resource_usage']['max_ram_mb']} MB RAM max
+Samples: {metrics['resource_usage'].get('samples_collected', 0)}
                     """)
                     
                     return True
