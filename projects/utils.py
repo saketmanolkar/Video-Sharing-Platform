@@ -18,7 +18,7 @@ def encode_video(input_path, output_path, size):
     """Video encoding function with detailed metrics including CPU and RAM usage"""
     try:
         # For consistency and debugging, define preset at the start
-        preset = "veryfast"
+        preset = "superfast"
         
         start_time = datetime.now()
         print(f"🎬 Starting encode at: {start_time} with preset '{preset}'")
