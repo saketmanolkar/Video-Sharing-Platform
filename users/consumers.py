@@ -48,8 +48,8 @@ class VideoConsumer(WebsocketConsumer):
             logger.info(f"✅ Explicit logout closure for video={self.video_id}")
             self.connection_metadata['graceful_closure'] = True
         else:
-            # Either no close message or it was a tab/browser close
-            logger.warning(f"❌ Abrupt disconnect/browser close for video={self.video_id}")
+            # Either no close message or it was a tab/browser close or user not authenticated
+            logger.warning(f"❌ Ungraceful Closure for video={self.video_id}")
             
             # Get the last stats that were saved in connection_metadata
             total_watched = self.connection_metadata.get('total_watched')

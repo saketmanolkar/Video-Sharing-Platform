@@ -506,23 +506,34 @@ def update_video_stats(request):
             user_id = user_id.replace('user_', '')
             print(f"⚙️ Extracted user ID from prefixed value: {user_id}")
 
-        # Get the user object
-        try:
-            user = User.objects.get(id=user_id)  # Now using the numeric ID
-        except User.DoesNotExist:
-            return JsonResponse({'error': f'User not found with ID: {user_id}'}, status=404)
-        except ValueError:
-            return JsonResponse({'error': f'Invalid user ID format: {user_id}'}, status=400)
+        # Get the user object - UPDATED CODE
+        user = None
+        if user_id and user_id.lower() != 'none':
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return JsonResponse({'error': f'User not found with ID: {user_id}'}, status=404)
+            except ValueError:
+                return JsonResponse({'error': f'Invalid user ID format: {user_id}'}, status=400)
 
         # Save the stats to the database
         try:
-            view_history = ViewHistory.objects.get(
+            # Use filter instead of get to handle both authenticated and anonymous cases
+            view_history_query = ViewHistory.objects.filter(
                 video_id=video_id, 
-                window_id=window_id, 
-                user=user
+                window_id=window_id
             )
             
-            # Check if already modified - if so, skip the update
+            # Add user filter only if we have a user
+            if user:
+                view_history_query = view_history_query.filter(user=user)
+            
+            view_history = view_history_query.first()
+            
+            if not view_history:
+                return JsonResponse({'error': 'No ViewHistory entry found'}, status=404)
+            
+            # Remaining code stays the same
             if view_history.modified:
                 print(f"⚠️ ViewHistory entry already modified, skipping API update for Video ID: {video_id}, Window ID: {window_id}")
                 return JsonResponse({'status': 'skipped', 'message': 'Record already modified by another process.'})
@@ -532,8 +543,9 @@ def update_video_stats(request):
             view_history.modified = True  # Mark as modified
             view_history.save()
             print(f"🔄 Updated ViewHistory entry for Video ID via API: {video_id}, Window ID: {window_id}")
-        except ViewHistory.DoesNotExist:
-            return JsonResponse({'error': 'No ViewHistory entry found'}, status=404)
+        except Exception as e:
+            print(f"❌ Error processing request: {str(e)}")  # Log the error for debugging
+            return JsonResponse({'error': str(e)}, status=400)
 
         return JsonResponse({'status': 'success', 'message': 'Video stats updated successfully.'})
     except Exception as e:

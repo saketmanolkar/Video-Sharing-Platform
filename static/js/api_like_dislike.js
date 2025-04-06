@@ -1,6 +1,8 @@
 class ApiLikeDislikeHandler {
     constructor() {
         this.setupEventListeners();
+        // Check if user is authenticated by looking for token
+        this.isAuthenticated = !!localStorage.getItem('access_token');
     }
     
     setupEventListeners() {
@@ -9,11 +11,53 @@ class ApiLikeDislikeHandler {
         });
     }
     
+    // Add method to show messages
+    showMessage(message, type = 'error') {
+        // Check if a message container exists, create one if not
+        let messageContainer = document.querySelector('.api-message-container');
+        if (!messageContainer) {
+            messageContainer = document.createElement('div');
+            messageContainer.className = 'api-message-container';
+            messageContainer.style.position = 'fixed';
+            messageContainer.style.top = '20px';
+            messageContainer.style.right = '20px';
+            messageContainer.style.zIndex = '1000';
+            document.body.appendChild(messageContainer);
+        }
+        
+        // Create message element
+        const messageElement = document.createElement('div');
+        messageElement.className = `api-message ${type}`;
+        messageElement.textContent = message;
+        messageElement.style.padding = '10px 15px';
+        messageElement.style.margin = '5px 0';
+        messageElement.style.borderRadius = '4px';
+        messageElement.style.backgroundColor = type === 'error' ? '#f8d7da' : '#d4edda';
+        messageElement.style.color = type === 'error' ? '#721c24' : '#155724';
+        messageElement.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+        
+        // Add to container
+        messageContainer.appendChild(messageElement);
+        
+        // Remove after delay
+        setTimeout(() => {
+            messageElement.style.opacity = '0';
+            messageElement.style.transition = 'opacity 0.5s';
+            setTimeout(() => messageElement.remove(), 500);
+        }, 3000);
+    }
+    
     async handleClick(e) {
         e.preventDefault();
         const button = e.currentTarget;
         const videoId = button.dataset.videoId;
         const isLike = button.dataset.action === 'like';
+        
+        // Check authentication first
+        if (!this.isAuthenticated) {
+            this.showMessage('Please log in to like or dislike videos');
+            return;
+        }
         
         try {
             const response = await fetch(`/api/projects/${videoId}/like/`, {
@@ -27,10 +71,10 @@ class ApiLikeDislikeHandler {
                 })
             });
             
-            const data = await response.json();
-            console.log('Server response:', data);
-            
             if (response.ok) {
+                const data = await response.json();
+                console.log('Server response:', data);
+                
                 // Get both buttons
                 const likeBtn = document.querySelector('.api-like-btn');
                 const dislikeBtn = document.querySelector('.api-dislike-btn');
@@ -53,11 +97,12 @@ class ApiLikeDislikeHandler {
                 document.querySelector('.api-dislike-btn + .stats-count').textContent = data.dislikes_count;
                 
             } else {
-                console.error('Request failed:', response.status);
-                console.error('Error message:', data.message);
+                const data = await response.json().catch(() => ({}));
+                const errorMessage = data?.message || 'An error occurred. Please try again.';
+                this.showMessage(errorMessage);
             }
         } catch (error) {
-            console.error('Error:', error);
+            this.showMessage('Network error. Please check your connection.');
         }
     }
 }

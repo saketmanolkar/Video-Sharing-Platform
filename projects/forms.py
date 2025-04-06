@@ -6,6 +6,9 @@ from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
 import os
 import mimetypes  # Built-in library, no extra dependencies
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ProjectForm(forms.ModelForm):
     class Meta:
@@ -116,16 +119,31 @@ class ProjectForm(forms.ModelForm):
                 
             # Check file extension
             ext = os.path.splitext(file.name)[1].lower()
-            valid_extensions = ['.mp4', '.mov', '.qt', '.quicktime']
+            valid_extensions = ['.mp4', '.mov', '.qt']
             if ext not in valid_extensions:
                 raise forms.ValidationError(f"Only {', '.join(valid_extensions)} files are allowed")
                 
-            # Check MIME type using built-in mimetypes library
-            mime_type, encoding = mimetypes.guess_type(file.name)
-            if mime_type:
-                valid_types = ['video/mp4', 'video/mov', 'video/quicktime']
+            # Check actual file content using python-magic
+            try:
+                import magic
+                # Read only the first 4KB to determine type
+                file_content = file.read(4096)
+                file.seek(0)  # Reset file position after reading
+                
+                # Get content type from actual file data
+                mime_type = magic.from_buffer(file_content, mime=True)
+                
+                # List of valid video MIME types
+                valid_types = ['video/mp4', 'video/quicktime']
                 if mime_type not in valid_types:
-                    raise forms.ValidationError(f"File type {mime_type} is not supported")
+                    raise forms.ValidationError(f"Detected file type {mime_type} is not supported. Please upload only video files.")
+                    
+            except ImportError:
+                # If python-magic isn't installed, fall back to more strict validation
+                logger.error("python-magic not installed. Falling back to extension-only validation.")
+                # At least check extension again
+                if ext not in valid_extensions:
+                    raise forms.ValidationError("Unsupported file type. Please upload only video files.")
                 
         return file
         

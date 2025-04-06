@@ -52,7 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const windowId = videoPlayerData.windowId || '';
         const username = videoPlayerData.username || 'Anonymous';
         const videoId = videoPlayerData.videoId || '';
-        const isAuthenticated = videoPlayerData.isAuthenticated || false;
+        
+        // FIX: Ensure isAuthenticated is properly converted to boolean
+        const isAuthenticated = videoPlayerData.isAuthenticated === true || videoPlayerData.isAuthenticated === "true";
+        console.log('🔐 Authentication status:', isAuthenticated);
         
         // CHANGE: Ensure userId HAS 'user_' prefix
         let userId = videoPlayerData.userId || '';
@@ -355,8 +358,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Only send graceful close if it's NOT a browser/tab close
-            if (videoSocket && videoSocket.readyState === WebSocket.OPEN && cookieSetSuccess && !isBrowserClose) {
+            // Only send graceful close if it's NOT a browser/tab close AND user is authenticated
+            if (videoSocket && videoSocket.readyState === WebSocket.OPEN && cookieSetSuccess && !isBrowserClose && isAuthenticated) {
                 console.log('🔒 Sending WebSocket graceful close message for normal navigation');
                 videoSocket.send(JSON.stringify({
                     type: 'close',
@@ -364,6 +367,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     source: 'normal_navigation',
                     cookie_set: true
                 }));
+            } else if (videoSocket && videoSocket.readyState === WebSocket.OPEN && !isAuthenticated) {
+                console.log('⚠️ User not authenticated - skipping WebSocket graceful close message');
             } else if (videoSocket && videoSocket.readyState === WebSocket.OPEN && isBrowserClose) {
                 console.log('⚠️ Tab/browser closing detected - NOT sending graceful close message');
             }

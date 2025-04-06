@@ -161,7 +161,7 @@ class ApiCommentHandler {
     async getAuthHeaders() {
         const token = await AuthHandler.getToken();
         if (!token) {
-            console.error('No authentication token found');
+            console.warn('No authentication token found');
             return null;
         }
         return {
