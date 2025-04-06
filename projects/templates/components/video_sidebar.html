@@ -13,7 +13,9 @@
           {% endif %}
         </div>
         <div class="sidebar-info">
-          <div class="sidebar-title">{{ video.title }}</div>
+          <div class="sidebar-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">
+            {{ video.title }}
+          </div>
           <div class="sidebar-username">{{ video.uploader.username }}</div>
           <div class="sidebar-stats">
             <span>{{ video.views|default:"0" }} views</span>
