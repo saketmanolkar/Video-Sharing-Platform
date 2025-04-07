@@ -52,35 +52,35 @@ class VideoConsumer(WebsocketConsumer):
             logger.warning(f"❌ Ungraceful Closure for video={self.video_id}")
             
             # Get the last stats that were saved in connection_metadata
-            total_watched = self.connection_metadata.get('total_watched')
+            # Use default values if none were provided
+            total_watched = self.connection_metadata.get('total_watched', "0.00")
             is_completed = self.connection_metadata.get('is_completed', False)
             
-            if total_watched is not None:
-                # Log the stats we're using from the last update
-                logger.info(f"📊 Using last known stats for abrupt disconnect: total_watched={total_watched}, is_completed={is_completed}")
+            # Log the stats we're using from the last update
+            logger.info(f"📊 Using stats for disconnect: total_watched={total_watched}, is_completed={is_completed}")
+            
+            # Send final stats to your view history API
+            from django.http import JsonResponse
+            import requests
+            
+            try:
+                # Use the API endpoint for video stats
+                data = {
+                    'window_id': self.window_id,
+                    'video_id': self.video_id,
+                    'total_watched': total_watched,
+                    'is_completed': is_completed,
+                    'username': getattr(self, 'username', None),
+                    'user_id': getattr(self, 'user_id', None)
+                }
                 
-                # Send final stats to your view history API
-                from django.http import JsonResponse
-                import requests
-                
-                try:
-                    # Use the API endpoint for video stats
-                    data = {
-                        'window_id': self.window_id,
-                        'video_id': self.video_id,
-                        'total_watched': total_watched,
-                        'is_completed': is_completed,
-                        'username': getattr(self, 'username', None),
-                        'user_id': getattr(self, 'user_id', None)
-                    }
-                    
-                    # Make the request to your own API
-                    from django.conf import settings
-                    base_url = settings.BASE_URL if hasattr(settings, 'BASE_URL') else 'http://localhost:8000'
-                    requests.post(f"{base_url}/api/video-stats/", json=data)
-                    logger.info(f"✅ Saved final stats from abrupt disconnect for video={self.video_id}")
-                except Exception as e:
-                    logger.error(f"Failed to save stats for abrupt disconnect: {str(e)}")
+                # Make the request to your own API
+                from django.conf import settings
+                base_url = settings.BASE_URL if hasattr(settings, 'BASE_URL') else 'http://localhost:8000'
+                requests.post(f"{base_url}/api/video-stats/", json=data)
+                logger.info(f"✅ Saved final stats from disconnect for video={self.video_id}")
+            except Exception as e:
+                logger.error(f"Failed to save stats for disconnect: {str(e)}")
         
         # Leave room group
         async_to_sync(self.channel_layer.group_discard)(
