@@ -43,10 +43,12 @@ class VideoConsumer(WebsocketConsumer):
             # This was a true navigation (not tab close)
             logger.info(f"✅ Normal navigation closure for video={self.video_id}")
             self.connection_metadata['graceful_closure'] = True
+
         elif received_close and close_reason == 'user_logout':
             # This was an explicit logout
             logger.info(f"✅ Explicit logout closure for video={self.video_id}")
             self.connection_metadata['graceful_closure'] = True
+            
         else:
             # Either no close message or it was a tab/browser close or user not authenticated
             logger.warning(f"❌ Ungraceful Closure for video={self.video_id}")

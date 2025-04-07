@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         is_completed: isCompleted
                     });
                 }
-            }, 5000); // Update every 5 seconds
+            }, 1000); // Update every 1 second
             
             // Clear interval when page unloads
             window.addEventListener('beforeunload', () => {
