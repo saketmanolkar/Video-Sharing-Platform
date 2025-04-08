@@ -19,11 +19,20 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse
+from django.views.decorators.http import require_GET
 
 from django.contrib.auth import views as auth_views
 
 def health_check(request):
     return HttpResponse("OK")
+
+@require_GET
+def robots_txt(request):
+    lines = [
+        "User-agent: *",
+        "Disallow: /"
+    ]
+    return HttpResponse("\n".join(lines), content_type="text/plain")
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -31,6 +40,7 @@ urlpatterns = [
     path('users/', include('users.urls')),
     path('api/', include('api.urls')),
     path('health/', health_check, name='health_check'),
+    path('robots.txt', robots_txt),
 
     path('password_reset/', auth_views.PasswordResetView.as_view(template_name='password_reset.html'), name='password_reset'),
     path('password_reset_sent/', auth_views.PasswordResetDoneView.as_view(template_name='password_reset_sent.html'), name='password_reset_done'),

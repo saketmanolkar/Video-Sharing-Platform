@@ -651,6 +651,7 @@ def blog_view(request, pk=None):
         selected_blog = get_object_or_404(Blog, pk=pk)
         # Increment the view counter
         selected_blog.views += 1
+        print(f"🔍 Incremented views for blog - {selected_blog.title}: {selected_blog.views}")
         selected_blog.save()
         
     elif blogs.exists():
@@ -658,6 +659,7 @@ def blog_view(request, pk=None):
         selected_blog = blogs.first()
         # Also increment the view counter for this first blog
         selected_blog.views += 1
+        print(f"🔍 Incremented views for blog - {selected_blog.title}: {selected_blog.views}")
         selected_blog.save()
 
     else:

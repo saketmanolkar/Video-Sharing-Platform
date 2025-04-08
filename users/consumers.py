@@ -9,27 +9,34 @@ logger = logging.getLogger(__name__)
 class VideoConsumer(WebsocketConsumer):
     def connect(self):
         """Handle WebSocket connection"""
-        self.video_id = self.scope['url_route']['kwargs']['video_id']
-        self.window_id = self.scope['url_route']['kwargs']['window_id']
-        self.room_group_name = f'video_{self.video_id}_{self.window_id}'
-        
-        # Store metadata about this connection
-        self.connection_metadata = {
-            'graceful_closure': False,
-            'closed_reason': None,
-            'last_stats_update': time.time()
-        }
-        
-        # Join room group
-        async_to_sync(self.channel_layer.group_add)(
-            self.room_group_name,
-            self.channel_name
-        )
-        
-        # Accept connection
-        self.accept()
-        
-        logger.info(f"WebSocket connected: video_id={self.video_id}, window_id={self.window_id}")
+        try:
+            self.video_id = self.scope['url_route']['kwargs']['video_id']
+            self.window_id = self.scope['url_route']['kwargs']['window_id']
+            self.room_group_name = f'video_{self.video_id}_{self.window_id}'
+            
+            # Store metadata about this connection
+            self.connection_metadata = {
+                'graceful_closure': False,
+                'closed_reason': None,
+                'last_stats_update': time.time()
+            }
+            
+            # Join room group
+            async_to_sync(self.channel_layer.group_add)(
+                self.room_group_name,
+                self.channel_name
+            )
+            
+            # Accept connection
+            self.accept()
+            
+            # Add a WARNING level log to ensure it appears
+            logger.warning(f"WebSocket connected: video_id={self.video_id}, window_id={self.window_id}")
+            logger.info(f"WebSocket connected: video_id={self.video_id}, window_id={self.window_id}")
+        except Exception as e:
+            logger.error(f"Error in WebSocket connect: {str(e)}")
+            # Still try to accept the connection if possible
+            self.accept()
 
     def disconnect(self, close_code):
         """Handle WebSocket disconnection"""
