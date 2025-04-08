@@ -31,10 +31,9 @@ class VideoConsumer(WebsocketConsumer):
             self.accept()
             
             # Add a WARNING level log to ensure it appears
-            logger.warning(f"WebSocket connected: video_id={self.video_id}, window_id={self.window_id}")
-            logger.info(f"WebSocket connected: video_id={self.video_id}, window_id={self.window_id}")
+            print(f"🔍 WebSocket connected: video_id={self.video_id}, window_id={self.window_id}")
         except Exception as e:
-            logger.error(f"Error in WebSocket connect: {str(e)}")
+            print(f"❌ Error in WebSocket connect: {str(e)}")
             # Still try to accept the connection if possible
             self.accept()
 
