@@ -43,6 +43,8 @@ urlpatterns = [
     path('health/', health_check, name='health_check'),
     path('robots.txt', robots_txt),
     path('favicon.ico', RedirectView.as_view(url='/static/images/logo_icon.svg')),
+    path('apple-touch-icon.png', RedirectView.as_view(url='/static/images/logo_icon.svg')),
+    path('apple-touch-icon-precomposed.png', RedirectView.as_view(url='/static/images/logo_icon.svg')),
 
     path('password_reset/', auth_views.PasswordResetView.as_view(template_name='password_reset.html'), name='password_reset'),
     path('password_reset_sent/', auth_views.PasswordResetDoneView.as_view(template_name='password_reset_sent.html'), name='password_reset_done'),
